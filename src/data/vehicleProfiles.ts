@@ -153,30 +153,30 @@ export const SPAWN_PRESETS: SpawnPreset[] = [
   {
     id: 'start_line',
     nameVi: '1. Vạch Xuất Phát (Bài 1)',
-    subtitleVi: 'Góc Tây-Nam hướng Đông (+X) đậu chính giữa làn đường trước vạch Xuất phát',
-    position: { x: -65.0, y: 0.72, z: 50.0 },
-    yawRad: -Math.PI / 2, // Facing East (+X) centered on 5.6m South Track
+    subtitleVi: 'Góc Tây-Nam hướng Đông (+X) đậu bên phải làn đường trước vạch Xuất phát',
+    position: { x: -65.0, y: 0.72, z: 51.35 },
+    yawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of South Track
   },
   {
     id: 'hill_ramp',
     nameVi: '2. Dốc Cầu Đề-Pa 10% (Bài 3)',
     subtitleVi: 'Thử dừng xe ngang dốc, giữ phanh tay & khởi hành lên dốc hướng Đông',
-    position: { x: -20.0, y: 0.72, z: 50.0 },
-    yawRad: -Math.PI / 2, // Facing East (+X) centered on Bài 3 ramp
+    position: { x: -20.0, y: 0.72, z: 51.35 },
+    yawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of Bài 3 ramp
   },
   {
     id: 'parking_bay',
     nameVi: '3. Khu Nhà Xe Ghép Dọc (Bài 7)',
     subtitleVi: 'Thử số lùi (R), căn gương chiếu hậu lùi vào nơi đỗ xe 7 bên vách Đông rồi rẽ phải ra đèn đỏ',
-    position: { x: -30.5, y: 0.72, z: -42.0 },
-    yawRad: Math.PI, // Facing South (+Z) entering vertical parking alley from North Road
+    position: { x: -33.25, y: 0.72, z: -42.0 },
+    yawRad: Math.PI, // Facing South (+Z) in right-hand lane entering vertical parking alley from North Road
   },
   {
     id: 'slalom_cones',
     nameVi: '4. Đường Vòng Quanh Co Chữ S (Bài 6)',
     subtitleVi: 'Thử đánh lái tiến bám lưng từ đầu vào phía Bắc (chữ B / C) xuống cửa thoát phía Nam (mũi tên ↲)',
-    position: { x: 4.0, y: 0.72, z: -52.0 },
-    yawRad: -Math.PI / 2, // Facing East (+X) on North Road before turning right (South) into top entrance of Bài 6
+    position: { x: 4.0, y: 0.72, z: -50.65 },
+    yawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of North Road before turning right (South) into top entrance of Bài 6
   },
 ];
 

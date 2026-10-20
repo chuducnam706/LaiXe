@@ -209,7 +209,7 @@ export class ExerciseRuntimeEngine {
       resolvedExercise.startPosition = {
         x: isCatB ? 4.0 : 24.0,
         y: 0.72,
-        z: -52.0,
+        z: -50.65,
       };
       resolvedExercise.checkpoints = resolvedExercise.checkpoints.map((cp) => ({
         ...cp,
@@ -222,7 +222,7 @@ export class ExerciseRuntimeEngine {
       resolvedExercise.startPosition = {
         x: alleyX - 7.5,
         y: 0.72,
-        z: -50.6,
+        z: -50.65,
       };
       resolvedExercise.startYawRad = -Math.PI / 2;
       resolvedExercise.checkpoints = resolvedExercise.checkpoints.map((cp) => {

@@ -485,8 +485,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     failureConditionVi:
       'Quá 30 giây không qua vạch xuất phát hoặc điểm dưới 80/100.',
     timeLimitSeconds: 120,
-    startPosition: { x: -65.0, y: 0.72, z: 50.0 },
-    startYawRad: -Math.PI / 2, // Facing East (+X) centered on 5.6m South Track before XUẤT PHÁT
+    startPosition: { x: -65.0, y: 0.72, z: 51.35 },
+    startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of South Track before XUẤT PHÁT
     checkpoints: [
       {
         id: 'cp_ex1_start_line',
@@ -548,8 +548,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Dừng xe chính xác tại Vạch Dừng Người Đi Bộ ② (X = -30.0m) và tiến qua cổng thoát.',
     failureConditionVi: 'Bỏ qua điểm dừng hoặc điểm dưới 80/100.',
     timeLimitSeconds: 120,
-    startPosition: { x: -46.0, y: 0.72, z: 50.0 },
-    startYawRad: -Math.PI / 2, // Facing East (+X) centered on South Track
+    startPosition: { x: -46.0, y: 0.72, z: 51.35 },
+    startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of South Track
     checkpoints: [
       {
         id: 'cp_ex2_ped_stop',
@@ -610,8 +610,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     failureConditionVi:
       'Không dừng tại vạch ngang dốc, trôi dốc quá 0.50m hoặc quá 30 giây không vượt qua đỉnh dốc.',
     timeLimitSeconds: 120,
-    startPosition: { x: -20.0, y: 0.72, z: 50.0 },
-    startYawRad: -Math.PI / 2, // Facing East (+X) centered on South Track
+    startPosition: { x: -20.0, y: 0.72, z: 51.35 },
+    startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of South Track
     checkpoints: [
       {
         id: 'cp_ex3_hill_stop',
@@ -821,8 +821,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Đi từ đầu vào phía Bắc (chữ B / C) xuống cửa thoát phía Nam (mũi tên ↲) qua đủ 3 trạm của Đường Vòng Quanh Co Chữ S (⑥) không đè vạch kẻ cứng.',
     failureConditionVi: 'Đè vạch liên tiếp, đi sai làn hạng xe hoặc quá thời gian 120 giây.',
     timeLimitSeconds: 120,
-    startPosition: { x: 4.0, y: 0.72, z: -52.0 },
-    startYawRad: -Math.PI / 2, // Facing East (+X) on North Road before turning right (South) into top entrance of Bài 6
+    startPosition: { x: 4.0, y: 0.72, z: -50.65 },
+    startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of North Road before turning right (South) into top entrance of Bài 6
     checkpoints: [
       {
         id: 'cp_ex6_s_entry',
@@ -895,8 +895,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Lùi xe vào Ô Ghép Dọc ⑦ cho 2 bánh sau chạm vạch vàng nhận bài, sau đó tiến ra khỏi cửa chuồng rẽ phải đi về hướng đèn đỏ Ngã tư 5.',
     failureConditionVi: 'Đè vạch cảm biến giới hạn trong chuồng, vào nhầm chuồng hạng khác hoặc quá 120 giây (-5đ).',
     timeLimitSeconds: 120,
-    startPosition: { x: -38.5, y: 0.72, z: -50.6 },
-    startYawRad: -Math.PI / 2, // Facing East (+X) on North Road before turning RIGHT (South +Z) into Bài 7 alley (matching Image 3)
+    startPosition: { x: -38.5, y: 0.72, z: -50.65 },
+    startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of North Road before turning RIGHT (South +Z) into Bài 7 alley (matching Image 3)
     checkpoints: [
       {
         id: 'cp_ex7_entry',
@@ -1248,8 +1248,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Bật đèn xi-nhan Phải (Phím X) và đi qua Vạch ⑪ KẾT THÚC (X = -76.5m, Z = +36.0m) với điểm >= 80/100.',
     failureConditionVi: 'Không qua vạch kết thúc hoặc điểm dưới 80/100.',
     timeLimitSeconds: 120,
-    startPosition: { x: -76.5, y: 0.72, z: 21.0 },
-    startYawRad: Math.PI, // Facing South (+Z) centered on West Perimeter Finish Track
+    startPosition: { x: -77.85, y: 0.72, z: 21.0 },
+    startYawRad: Math.PI, // Facing South (+Z) in right-hand lane of West Perimeter Finish Track
     checkpoints: [
       {
         id: 'cp_ex10_finish_line',
@@ -1300,8 +1300,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Đi qua tuần tự đủ các bài thi theo đúng lộ trình sơ đồ 2D (bài nào xong đọc ngay bài tiếp theo) với tổng điểm >= 80/100.',
     failureConditionVi: 'Điểm số dưới 80/100 hoặc vi phạm lỗi truất quyền sát hạch.',
     timeLimitSeconds: 1080,
-    startPosition: { x: -65.0, y: 0.72, z: 50.0 },
-    startYawRad: -Math.PI / 2, // Facing East (+X) centered on 5.6m South Track at Start Line
+    startPosition: { x: -65.0, y: 0.72, z: 51.35 },
+    startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of South Track at Start Line
     checkpoints: [
       {
         id: 'cp_full_01_start',
