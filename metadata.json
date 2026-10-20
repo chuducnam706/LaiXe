@@ -1,0 +1,6 @@
+{
+  "name": "Mô Phỏng Đào Tạo & Sát Hạch Lái Xe 3D (Vietnam Driving Simulator)",
+  "description": "Trình mô phỏng vật lý xe ô tô hạng B trên sân tập Sa Hình 3D trực tuyến kết hợp bộ mã nguồn C# và kiến trúc chuẩn Unity 6 LTS cho Cột Mốc 1.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

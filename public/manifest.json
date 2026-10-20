@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Mô Phỏng Đào Tạo & Sát Hạch Lái Xe 3D — 11 Bài Thi Sa Hình",
+  "short_name": "Sa Hình 3D",
+  "description": "Trình mô phỏng vật lý xe ô tô 3D và hệ thống chấm điểm 11 bài thi sát hạch lái xe trong hình theo quy chuẩn Việt Nam.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": [
+    {
+      "src": "/assets/aistudio/image_8818a4fb.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
