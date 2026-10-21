@@ -453,7 +453,7 @@ export const InstructorScoringConsoleModal: React.FC<
                         {isCommand
                           ? 'LỆNH'
                           : item.isDisqualified
-                            ? 'TRUỘT'
+                            ? 'TRƯỢT'
                             : `-${item.pointsDeducted}đ`}
                       </span>
                     </div>
@@ -501,7 +501,7 @@ export const InstructorScoringConsoleModal: React.FC<
                         }`}
                       >
                         {item.isDisqualified
-                          ? 'Bị truột'
+                          ? 'Bị trượt'
                           : item.pointsDeducted > 0
                             ? `-${item.pointsDeducted}đ (Còn ${item.remainingScore}đ)`
                             : `Điểm: ${item.remainingScore}đ`}

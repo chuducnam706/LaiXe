@@ -57,7 +57,7 @@ export interface HillStartStepResult {
   rollback_distance_cm: number;
   /** Cờ báo học viên bị loại trực tiếp do trôi dốc quá 50cm (> 0.50m) */
   disqualified_over_50cm: boolean;
-  /** Câu thông báo loa chip khi bị truột trực tiếp do trôi dốc > 50cm */
+  /** Câu thông báo loa chip khi bị trượt trực tiếp do trôi dốc > 50cm */
   disqualified_voice_vi: string | null;
 }
 

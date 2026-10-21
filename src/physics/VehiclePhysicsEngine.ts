@@ -133,7 +133,7 @@ export class VehiclePhysicsEngine {
   // Automatic transmission anti-fighting timer & course assist state
   private autoShiftCooldownS = 0;
   public autoClutchEnabled = true;
-  public speedLimitGovernorKmh: number | null = 21.5;
+  public speedLimitGovernorKmh: number | null = 22.0;
   public isInsideStopCheckpointZone = false;
 
   // Inputs snapshot
@@ -334,11 +334,11 @@ export class VehiclePhysicsEngine {
     this.isStalled = false;
     this.stallReasonVi = null;
     this.engineRpm = this.isEngineRunning ? this.profile.idleRpm : 0;
-    this.currentGear = isStartLine ? 0 : 1;
-    this.atSelectorPosition = isStartLine ? 'P' : 'D';
+    this.currentGear = 0;
+    this.atSelectorPosition = 'P';
     this.hillHoldElapsedS = 0;
     this.clutchSamples = [];
-    this.handbrakeActive = isStartLine;
+    this.handbrakeActive = true;
     this.turnSignal = 'OFF';
     this.turnSignalBlinkOn = false;
     this.lastCollisionObjectVi = null;
@@ -852,17 +852,37 @@ export class VehiclePhysicsEngine {
       throttleCmd = 0;
     }
 
-    // Authentic Idle Creep (Tự trôi khi đã Nổ máy + Vào số 1..5/D hoặc R + ĐÃ HẠ PHANH TAY + Nhả phanh chân):
-    // If handbrake is still engaged (handbrakeActive === true) or foot brake is pressed, the car CANNOT creep or move!
-    if (
+    // Authentic Idle Creep / Automatic 10 km/h Cruising (Yêu cầu: Tốc độ tự động là 10 km/h; người dùng có thể tăng tốc, khi nhả ga thì đưa về 10 km/h):
+    // Chỉ kích hoạt khi: Nổ máy + Đang cài số tiến (>= 1 / D) + Đã hạ phanh tay + Không đạp phanh chân + Nhả côn.
+    const AUTO_CRUISE_TARGET_KMH = 10.0;
+    const isAutoCruiseForwardActive =
       this.isEngineRunning &&
-      this.currentGear !== 0 &&
+      this.currentGear >= 1 &&
+      !this.handbrakeActive &&
+      brakeCmd < 0.08 &&
+      this.rawInput.clutch < 0.45;
+
+    if (isAutoCruiseForwardActive) {
+      if (speedKmh < AUTO_CRUISE_TARGET_KMH) {
+        // Tự động bù ga mượt mà để tăng tốc lên 10 km/h (khi leo dốc hoặc bắt đầu chạy)
+        const speedDeficit = AUTO_CRUISE_TARGET_KMH - speedKmh;
+        const autoThrottle = THREE.MathUtils.clamp(
+          0.12 + (speedDeficit / AUTO_CRUISE_TARGET_KMH) * (isOnUphillRamp ? 0.35 : 0.20),
+          0.08,
+          isOnUphillRamp ? 0.48 : 0.30
+        );
+        throttleCmd = Math.max(throttleCmd, autoThrottle);
+      }
+    } else if (
+      this.isEngineRunning &&
+      this.currentGear === -1 &&
       !this.handbrakeActive &&
       brakeCmd < 0.08 &&
       this.rawInput.clutch < 0.45 &&
       !isOnUphillRamp
     ) {
-      const creepTargetKmh = this.transmissionMode === 'AUTOMATIC' ? 6.5 : 5.4;
+      // Số lùi (R): Giữ tốc độ trôi lùi an toàn (~5.5 km/h) để lùi chuồng kiểm soát tốt
+      const creepTargetKmh = 5.5;
       if (speedKmh < creepTargetKmh) {
         const creepFactor = THREE.MathUtils.clamp(
           1.0 - speedKmh / creepTargetKmh,
@@ -963,10 +983,20 @@ export class VehiclePhysicsEngine {
         // Coupled to drivetrain: torque converter / clutch slip ceiling stays safely below 4,000 RPM limit
         const coupledRpm = Math.max(this.profile.idleRpm, wheelSideEngineRpm);
         const launchSlipRpm = this.profile.idleRpm + throttleCmd * 1350;
-        const targetCoupledRpm = Math.min(
+        let targetCoupledRpm = Math.min(
           3650,
           Math.max(coupledRpm, launchSlipRpm)
         );
+        // Visual tachometer clutch-bite feedback on uphill ramp: RPM dips down to ~650 RPM when clutch bites into load!
+        if (
+          isOnUphillRamp &&
+          this.currentGear === 1 &&
+          clutchEngagement > 0.35 &&
+          throttleCmd < 0.12 &&
+          speedKmh < 4.0
+        ) {
+          targetCoupledRpm = THREE.MathUtils.lerp(this.profile.idleRpm, 650, Math.min(1.0, (clutchEngagement - 0.35) * 2.2));
+        }
         this.engineRpm = THREE.MathUtils.damp(
           this.engineRpm,
           targetCoupledRpm,
@@ -1051,21 +1081,24 @@ export class VehiclePhysicsEngine {
           ? 2.25
           : 1.0;
 
-      // Apply course speed governor & reverse speed limit cleanly before computing torque
-      if (
-        this.speedLimitGovernorKmh !== null &&
-        this.speedLimitGovernorKmh > 0 &&
-        throttleCmd > 0
-      ) {
-        const govLimit = this.speedLimitGovernorKmh;
-        if (speedKmh >= govLimit) {
+      // Active course speed governor & reverse speed limit (Vietnamese sa hình driving test rules: yard speed < 24km/h)
+      // Permanent hard governor defaults to 22.0 km/h if not explicitly configured
+      const activeGovLimit =
+        this.speedLimitGovernorKmh !== null && this.speedLimitGovernorKmh > 0
+          ? this.speedLimitGovernorKmh
+          : 22.0;
+
+      if (throttleCmd > 0) {
+        if (speedKmh >= activeGovLimit) {
           throttleCmd = 0;
-        } else if (speedKmh > govLimit - 5.5) {
-          const factor = (govLimit - speedKmh) / 5.5;
+        } else if (speedKmh > activeGovLimit - 5.0) {
+          const factor = (activeGovLimit - speedKmh) / 5.0;
           throttleCmd *= THREE.MathUtils.clamp(factor * factor, 0.0, 1.0);
         }
       }
-      if (this.currentGear === -1 && speedKmh > 10.5 && throttleCmd > 0) {
+
+      // Reverse speed limit: parking maneuvers must be slow, careful and controlled (max 8.0 km/h)
+      if (this.currentGear === -1 && speedKmh > 7.5 && throttleCmd > 0) {
         throttleCmd = 0;
       }
 
@@ -1076,12 +1109,26 @@ export class VehiclePhysicsEngine {
             32
           : 0;
 
-      engineTorqueNm =
+      // Idle creep torque: Real engines naturally generate ~45-65 Nm of idle torque at 900-1000 RPM
+      // In 1st gear / D, this transfers to the wheels, allowing creeping forward and climbing a 10% slope on clutch alone!
+      const idleCreepTorque =
+        this.currentGear === 1 || this.transmissionMode === 'AUTOMATIC'
+          ? 55 * massTorqueScale
+          : 0;
+
+      // In driving test exam yards, vehicles accelerate smoothly and deliberately (realistic 1.2 - 1.5 m/s²), avoiding racecar lunges
+      const examYardTorqueFactor = isOnUphillRamp ? 1.0 : 0.50;
+
+      const activeThrottleTorque =
         maxCurveTorque *
-          massTorqueScale *
-          throttleCmd *
-          hillLaunchMultiplier *
-          revLimiter +
+        massTorqueScale *
+        throttleCmd *
+        hillLaunchMultiplier *
+        examYardTorqueFactor *
+        revLimiter;
+
+      engineTorqueNm =
+        Math.max(activeThrottleTorque, idleCreepTorque * (isOnUphillRamp ? 1.6 : 1.0)) +
         engineBraking;
     } else {
       this.engineRpm = THREE.MathUtils.damp(this.engineRpm, 0, 10, dt);
@@ -1344,7 +1391,7 @@ export class VehiclePhysicsEngine {
       !this.handbrakeActive &&
       brakeCmd <= 0.08 &&
       this.rawInput.throttle <= 0.02 &&
-      this.hillHoldElapsedS <= 3.0;
+      this.hillHoldElapsedS <= 2.5;
 
     const isAutoClutchHillAssist =
       this.transmissionMode === 'MANUAL' &&
@@ -1352,12 +1399,19 @@ export class VehiclePhysicsEngine {
       isOnUphillRamp &&
       !this.handbrakeActive &&
       brakeCmd <= 0.08 &&
-      this.rawInput.throttle <= 0.02;
+      this.rawInput.throttle <= 0.02 &&
+      this.hillHoldElapsedS <= 2.0;
+
+    // In 1st gear, when clutch is released to bite point (clutchEngagement > 0.35), idle engine torque naturally propels vehicle forward!
+    const idleClutchClimb =
+      this.currentGear === 1 && clutchEngagement > 0.35 ? 0.36 * clutchEngagement : 0;
+    const idleATClimb =
+      this.transmissionMode === 'AUTOMATIC' && this.currentGear >= 1 ? 0.32 : 0;
 
     const effectiveTractionFactor =
       this.transmissionMode === 'MANUAL' && !this.autoClutchEnabled
-        ? clutchEngagement * Math.max(throttleCmd, this.rawInput.throttle)
-        : Math.max(throttleCmd, this.rawInput.throttle);
+        ? clutchEngagement * Math.max(throttleCmd, this.rawInput.throttle) + idleClutchClimb
+        : Math.max(throttleCmd, this.rawInput.throttle) + idleATClimb;
 
     const isActivelyClimbingRamp =
       (isOnUphillRamp || avgNormalX < -0.005) &&
@@ -1371,10 +1425,11 @@ export class VehiclePhysicsEngine {
       netForceZ +=
         _forwardVec.z * this.profile.massKg * 2.4 * effectiveTractionFactor;
     } else if (isATHillHoldWithin3Seconds || isAutoClutchHillAssist) {
-      // Module 4 (AT): Hill Start Assist holds the vehicle stationary for 3.0 seconds
+      // Module 4 (AT / AutoClutch): Hill Start Assist holds the vehicle stationary briefly
     } else {
-      // Gravity pulls the vehicle backward down the slope if traction < gravity (or after 3s HSA expires on AT)
-      const gravitySlopeForceX = this.profile.massKg * 9.81 * avgNormalX;
+      // Gravity pulls the vehicle backward down the slope if traction < gravity (or after HSA expires)
+      const slopeForceMagnitude = isOnUphillRamp ? -0.105 : avgNormalX;
+      const gravitySlopeForceX = this.profile.massKg * 9.81 * slopeForceMagnitude;
       const gravitySlopeForceZ = this.profile.massKg * 9.81 * avgNormalZ;
       netForceX += gravitySlopeForceX;
       netForceZ += gravitySlopeForceZ;
@@ -1384,21 +1439,56 @@ export class VehiclePhysicsEngine {
     const speedMs = this.velocity.length();
     const coastingDecelDrag =
       this.rawInput.throttle < 0.04 && throttleCmd < 0.02
-        ? this.profile.massKg * 0.14
-        : this.profile.massKg * 0.03;
-    const dragForce = 0.42 * speedMs * speedMs + coastingDecelDrag * speedMs;
+        ? this.profile.massKg * 0.16
+        : this.profile.massKg * 0.04;
+    let dragForce = 0.42 * speedMs * speedMs + coastingDecelDrag * speedMs;
+
+    // Active speed governor retarder / compression braking:
+    // If vehicle speed approaches or exceeds activeGovLimit (e.g. descending the Bài 3 bridge ramp or coasting),
+    // progressively apply retarder braking force so the vehicle CAN NEVER exceed 24 km/h under gravity!
+    const effectiveGovLimit =
+      this.speedLimitGovernorKmh !== null && this.speedLimitGovernorKmh > 0
+        ? this.speedLimitGovernorKmh
+        : 22.0;
+
+    if (speedKmh > effectiveGovLimit - 0.5) {
+      const overspeedKmh = speedKmh - (effectiveGovLimit - 0.5);
+      const retarderForce = this.profile.massKg * 1.8 * overspeedKmh;
+      dragForce += retarderForce;
+    }
+
+    // Tự động đưa về 10 km/h khi nhả ga:
+    // Khi xe đang chạy số tiến, nếu tốc độ vượt quá 10 km/h và người lái nhả ga (rawInput.throttle < 0.05),
+    // áp dụng lực hãm tự nhiên mượt mà để giảm tốc độ về đúng 10 km/h.
+    if (
+      isAutoCruiseForwardActive &&
+      this.rawInput.throttle < 0.05 &&
+      speedKmh > AUTO_CRUISE_TARGET_KMH + 0.25
+    ) {
+      const overCruiseKmh = speedKmh - AUTO_CRUISE_TARGET_KMH;
+      const decelToCruiseForce =
+        this.profile.massKg * 1.35 * THREE.MathUtils.clamp(overCruiseKmh, 0, 7.0);
+      dragForce += decelToCruiseForce;
+    }
+
+    if (this.currentGear === -1 && speedKmh > 8.0) {
+      const overspeedRevKmh = speedKmh - 8.0;
+      dragForce += this.profile.massKg * 1.6 * overspeedRevKmh;
+    }
+
     if (speedMs > 0.001) {
       netForceX -= (this.velocity.x / speedMs) * dragForce;
       netForceZ -= (this.velocity.z / speedMs) * dragForce;
     }
 
-    // 8. Static Hill-Hold / Brake Lock when stationary under service brake, handbrake, or 3s AT Hill-Hold
+    // 8. Static Hill-Hold / Brake Lock when stationary under service brake, handbrake, or HSA
     const isHillHoldAssistActive =
       (isATHillHoldWithin3Seconds || isAutoClutchHillAssist) &&
       forwardVelMs <= 0.45;
 
     const isStationaryNeutralStop =
       (this.currentGear === 0 || !this.isEngineRunning) &&
+      !isOnUphillRamp &&
       avgNormalMag <= 0.015 &&
       speedMs < 0.25;
 

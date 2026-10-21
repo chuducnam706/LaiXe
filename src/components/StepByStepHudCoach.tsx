@@ -223,24 +223,68 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
       };
     }
 
-    // Priority 4: Inside Stop Zone (Bài 2, Bài 3, Bài 8 Đường sắt, hoặc trong chuồng Bài 7 / 10)
-    if (exerciseState.isInsideStopZone && telemetry.speedKmh > 0.8) {
-      return {
-        stepBadge: 'ĐẾN VẠCH DỪNG',
-        keyCap: 'S',
-        secondaryKeyCap: 'Hoặc ↓',
-        titleVi: 'Đã vào ô quy định! Nhấn giữ phím [ S ] (hoặc ↓) để Phanh dừng hẳn nhận bài ngay',
-        detailVi: activeCp?.instructionVi || 'Dừng xe đúng vị trí cảm biến để chuyển sang bài tiếp theo ngay lập tức.',
-        tone: 'amber',
-        quickActionType: 'HOLD_BRAKE',
-        quickActionLabel: 'Giữ Để Phanh Dừng (S)',
-      };
+    // Priority 4: Approaching Stop Line (Bài 2 Người đi bộ, Bài 3 Dốc cầu, Bài 8 Đường sắt, hoặc Chuồng 7 & 10)
+    if (activeCp?.requiresFullStop) {
+      const isBai3 =
+        activeCp.id === 'cp_ex3_hill_stop' ||
+        activeCp.id === 'cp_full_03_hill';
+
+      if (isBai3 && exerciseState.hillStopBeepIssued) {
+        const secsLeft = exerciseState.hillSecondsRemaining ?? 30;
+        return {
+          stepBadge: `ĐÃ NHẬN BÀI · KHỞI HÀNH VƯỢT DỐC (${secsLeft}s)`,
+          keyCap: 'W',
+          secondaryKeyCap: 'Hoặc Nhả Côn',
+          titleVi: `Đã nhận bài dừng dốc! Khởi hành vượt đỉnh dốc (còn ${secsLeft} giây)`,
+          detailVi: 'Đạp ga W (hoặc nhả côn đến điểm rung máy rồi nhả phanh) để xe tiến qua dốc không trôi lùi.',
+          tone: secsLeft <= 10 ? 'rose' : 'emerald',
+          quickActionType: 'HOLD_THROTTLE',
+          quickActionLabel: `Đạp Ga Vượt Dốc (W) · ${secsLeft}s`,
+        };
+      }
+
+      if (isBai3 && exerciseState.isInsideStopZone && telemetry.speedKmh < 0.8) {
+        return {
+          stepBadge: 'ĐANG GIỮ DỐC',
+          keyCap: 'GIỮ PHANH',
+          secondaryKeyCap: 'Phanh Tay (Space)',
+          titleVi: 'Đang giữ xe đứng yên trên dốc — Chờ tiếng Tuýt nhận bài!',
+          detailVi: 'Giữ phanh chân hoặc phanh tay đứng yên trên dốc cho tới khi nghe tiếng Tuýt.',
+          tone: 'amber',
+          quickActionType: 'HOLD_BRAKE',
+          quickActionLabel: 'Đang Giữ Xe Đứng Yên',
+        };
+      }
+
+      const distToStop = Math.hypot(
+        telemetry.position.x - activeCp.position.x,
+        telemetry.position.z - activeCp.position.z
+      );
+      if (distToStop < 16.0) {
+        const titleVi = isBai3
+          ? 'Tiến qua vạch vàng lên giữa dốc, rà phanh dừng trước vạch trắng'
+          : activeCp.instructionVi || 'Rà phanh và tự căn khoảng cách dừng trước vạch trắng';
+        const detailVi = isBai3
+          ? 'Đi qua vạch vàng nhiều nhiều chút lên dốc rồi phanh dừng trước vạch trắng để nhận bài 100 điểm.'
+          : 'Tự quan sát cản trước và gương chiếu hậu để dừng trước vạch sơn trắng như thi thật.';
+
+        return {
+          stepBadge: isBai3 ? 'BÀI 3 · DỪNG XE TRÊN DỐC' : 'CHUẨN BỊ DỪNG XE',
+          keyCap: 'S',
+          secondaryKeyCap: 'Rà Phanh',
+          titleVi,
+          detailVi,
+          tone: 'amber',
+          quickActionType: 'HOLD_BRAKE',
+          quickActionLabel: 'Rà Phanh Dừng Xe (S)',
+        };
+      }
     }
 
     // Priority 5: Bài 1 Start Line Sequence (Step-by-step: Handbrake -> Left Blinker Z -> Throttle W)
     const isAtStartGate =
       cpIdx === 0 &&
-      (exId === 'ex01_xuat_phat' || exId === 'full_exam_11' || cpId.includes('start'));
+      (exId === 'ex_01_start' || exId === 'ex_11_full_10_exercises_c' || cpId.includes('start'));
 
     if (isAtStartGate) {
       if (telemetry.handbrakeActive) {
@@ -265,12 +309,23 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
           quickActionLabel: 'Bật Xi-nhan Trái (Z)',
         };
       }
+      if (!exerciseState.startBeepIssued) {
+        return {
+          stepBadge: 'CHỜ LỆNH · XUẤT PHÁT',
+          keyCap: 'CHỜ',
+          titleVi: 'Đã sẵn sàng! Đứng yên trước vạch xuất phát 3-5 giây chờ hiệu lệnh: "Xuất phát."',
+          detailVi: 'Xe phải đứng yên trước vạch. Khi nghe tiếng Tuýt và hiệu lệnh "Xuất phát" mới đạp ga qua vạch.',
+          tone: 'amber',
+          quickActionType: 'HOLD_BRAKE',
+          quickActionLabel: 'Đang Chờ Lệnh Xuất Phát...',
+        };
+      }
       return {
-        stepBadge: 'BƯỚC 3 / 3 · LĂN BÁNH',
+        stepBadge: 'ĐÃ CÓ LỆNH · XUẤT PHÁT',
         keyCap: 'W',
         secondaryKeyCap: 'Hoặc ↑',
-        titleVi: `Bước 3: Đã sẵn sàng ở Số ${telemetry.gearLabel}! Nhấn giữ phím [ W ] (hoặc ↑) để xe chạy qua vạch!`,
-        detailVi: 'Giữ phím W (hoặc giữ nút Đạp Ga bên phải) cho xe tiến qua cổng màu xanh lá.',
+        titleVi: `ĐÃ CÓ LỆNH XUẤT PHÁT! Nhấn giữ phím [ W ] (hoặc ↑) để cho xe qua vạch trong 20s!`,
+        detailVi: 'Giữ phím W (hoặc nút Đạp Ga) cho xe tiến qua vạch trắng xuất phát trước 20 giây.',
         tone: 'emerald',
         quickActionType: 'HOLD_THROTTLE',
         quickActionLabel: 'Giữ Chuột Để Đạp Ga (W)',
@@ -280,8 +335,8 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
     // Priority 6: Right after crossing Start Gate, remind to turn off Left Blinker (Z)
     if (
       telemetry.turnSignal === 'LEFT' &&
-      ((exId === 'full_exam_11' && cpIdx === 1) ||
-        (exId === 'ex01_xuat_phat' && cpIdx === 1))
+      ((exId === 'ex_11_full_10_exercises_c' && cpIdx === 1) ||
+        (exId === 'ex_01_start' && cpIdx === 1))
     ) {
       return {
         stepBadge: 'BƯỚC TIẾP THEO · TẮT XI-NHAN',
@@ -295,50 +350,54 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
     }
 
     // Priority 7: Bài 9 Gear Change on Straight (Thay đổi số trên đường thẳng)
-    if (cpId.includes('b9_speed_up') || (exId === 'ex09_tang_toc' && cpIdx <= 1)) {
-      if (telemetry.currentGear < 2) {
-        return {
-          stepBadge: 'BÀI 9 · TĂNG SỐ',
-          keyCap: 'E',
-          secondaryKeyCap: 'Hoặc Phím 2',
-          titleVi: 'Đang vào đoạn Tăng Tốc! Ấn phím [ E ] (hoặc phím 2) để lên Số 2',
-          detailVi: 'Bài 9 yêu cầu tăng từ Số 1 lên Số 2 và đạt tốc độ trên 20 km/h.',
-          tone: 'sky',
-          quickActionType: 'SHIFT_UP',
-          quickActionLabel: 'Lên Số 2 Ngay (E)',
-        };
-      }
-      if (telemetry.speedKmh < 20.5) {
-        return {
-          stepBadge: 'BÀI 9 · ĐẠT > 20 KM/H',
-          keyCap: 'W',
-          secondaryKeyCap: 'Giữ Ga',
-          titleVi: `Đang ở Số ${telemetry.gearLabel} (${Math.round(telemetry.speedKmh)} km/h) — Giữ [ W ] cho vượt 20 km/h!`,
-          detailVi: 'Giữ chặt phím W cho đến khi tốc độ vượt 20 km/h qua biển báo giữa đường.',
-          tone: 'emerald',
-          quickActionType: 'HOLD_THROTTLE',
-          quickActionLabel: 'Giữ Để Đạp Ga (W)',
-        };
-      }
-    }
-
-    if (cpId.includes('b9_slow_down') || (exId === 'ex09_tang_toc' && cpIdx === 2)) {
-      if (telemetry.currentGear > 1) {
-        return {
-          stepBadge: 'BÀI 9 · GIẢM SỐ',
-          keyCap: 'Q',
-          secondaryKeyCap: 'Hoặc Phím 1',
-          titleVi: 'Đã đạt >20 km/h! Nhấn [ S ] giảm tốc và ấn phím [ Q ] (hoặc phím 1) về lại Số 1',
-          detailVi: 'Phải về lại Số 1 và dưới 20 km/h trước khi qua cổng kết thúc Bài 9.',
-          tone: 'amber',
-          quickActionType: 'SHIFT_DOWN',
-          quickActionLabel: 'Về Số 1 Ngay (Q)',
-        };
+    const isBai9 =
+      exId === 'ex_09_acceleration_gear' ||
+      cpId.includes('09_') ||
+      cpId.includes('accel');
+    if (isBai9) {
+      if (cpIdx <= 1) {
+        if (telemetry.currentGear < 2 && telemetry.transmissionMode === 'MANUAL') {
+          return {
+            stepBadge: 'BÀI 9 · LÊN SỐ 2',
+            keyCap: 'E',
+            secondaryKeyCap: 'Hoặc Phím 2',
+            titleVi: 'Đang vào đoạn Tăng Tốc! Ấn phím [ E ] (hoặc phím 2) để lên Số 2',
+            detailVi: 'Bài 9 yêu cầu sang Số 2 và tăng tốc vượt trên 20 km/h.',
+            tone: 'sky',
+            quickActionType: 'SHIFT_UP',
+            quickActionLabel: 'Lên Số 2 Ngay (E)',
+          };
+        }
+        if (telemetry.speedKmh < 20.5) {
+          return {
+            stepBadge: 'BÀI 9 · ĐẠT > 20 KM/H',
+            keyCap: 'W',
+            secondaryKeyCap: 'Giữ Ga',
+            titleVi: `Đang ở Số ${telemetry.gearLabel} (${Math.round(telemetry.speedKmh)} km/h) — Nhấn giữ [ W ] cho vượt 20 km/h!`,
+            detailVi: 'Giữ chặt phím W cho đến khi tốc độ vượt 20 km/h qua biển báo giữa đường.',
+            tone: 'emerald',
+            quickActionType: 'HOLD_THROTTLE',
+            quickActionLabel: 'Giữ Để Đạp Ga (W)',
+          };
+        }
+      } else {
+        if (telemetry.currentGear > 1 && telemetry.transmissionMode === 'MANUAL') {
+          return {
+            stepBadge: 'BÀI 9 · GIẢM VỀ SỐ 1',
+            keyCap: 'Q',
+            secondaryKeyCap: 'Hoặc Phím 1',
+            titleVi: 'Đã đạt >20 km/h! Nhấn [ S ] giảm tốc và ấn phím [ Q ] về lại Số 1',
+            detailVi: 'Phải về lại Số 1 và dưới 20 km/h trước khi qua cổng kết thúc Bài 9.',
+            tone: 'amber',
+            quickActionType: 'SHIFT_DOWN',
+            quickActionLabel: 'Về Số 1 Ngay (Q)',
+          };
+        }
       }
     }
 
     // Priority 8: Bài 7 (Ghép dọc) & Bài 10 (Ghép ngang) Reverse Parking prompts
-    if (cpId.includes('bay_stop') || cpId.includes('park_stop')) {
+    if (cpId.includes('bay_stop') || cpId.includes('parallel_bay')) {
       if (telemetry.currentGear !== -1) {
         return {
           stepBadge: 'CHUẨN BỊ LÙI CHUỒNG',
@@ -355,20 +414,20 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
         stepBadge: 'ĐANG LÙI VÀO Ô ĐỖ',
         keyCap: 'W',
         secondaryKeyCap: '+ A / D',
-        titleVi: 'Đang ở Số Lùi (R): Nhấn nhẹ [ W ] để lùi xe vào giữa ô vàng, dùng [ A ] / [ D ] chỉnh lái',
-        detailVi: 'Khi 4 bánh đã lọt vào ô cảm biến màu vàng, nhấn [ S ] dừng giữ 1.5 giây.',
+        titleVi: 'Đang ở Số Lùi (R): Nhấn nhẹ [ W ] để lùi xe vào giữa ô, dùng [ A ] / [ D ] chỉnh lái',
+        detailVi: 'Lùi xe sao cho bánh sau chạm vào vạch cảm biến màu vàng phát tiếng Bíp.',
         tone: 'emerald',
         quickActionType: 'HOLD_THROTTLE',
         quickActionLabel: 'Giữ Để Lùi Xe (W)',
       };
     }
 
-    if ((cpId.includes('exit') && telemetry.currentGear === -1)) {
+    if (cpId.includes('exit') && telemetry.currentGear === -1) {
       return {
         stepBadge: 'ĐÃ NHẬN BÀI ĐỖ XE',
         keyCap: 'E',
         secondaryKeyCap: 'Hoặc Phím 1',
-        titleVi: 'Đã đỗ xe thành công! Ấn phím [ E ] (hoặc phím 1) để về Số Tiến (1 / D1) đi ra ngoài',
+        titleVi: 'Đã nhận bài thành công! Ấn phím [ E ] (hoặc phím 1) để về Số 1 tiến ra ngoài',
         detailVi: 'Nhớ chuyển sang số tiến trước khi đạp W rời khỏi nhà xe.',
         tone: 'emerald',
         quickActionType: 'SHIFT_UP',
@@ -377,7 +436,11 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
     }
 
     // Priority 9: Bài 11 Finish Gate (Bật Xi-nhan Phải X)
-    if (cpId.includes('b11_finish') || exId === 'ex11_ket_thuc') {
+    if (
+      cpId.includes('finish') ||
+      exId === 'ex_10_finish' ||
+      (exId === 'ex_11_full_10_exercises_c' && cpIdx >= exerciseState.totalCheckpoints - 1)
+    ) {
       if (telemetry.turnSignal !== 'RIGHT') {
         return {
           stepBadge: 'BÀI 11 · KẾT THÚC',
@@ -391,16 +454,16 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
       }
     }
 
-    // Priority 10: Bài 5 Red Traffic Light
+    // Priority 10: Traffic Light at Central Intersection (Bài 5)
     if (
-      (cpId.includes('b5_') || exId === 'ex05_nga_tu') &&
+      (cpId.includes('intersection') || cpId.includes('z_station5') || exId === 'ex_05_z_curve') &&
       exerciseState.trafficLightPhase !== 'GREEN'
     ) {
       return {
         stepBadge: `ĐÈN NGÃ TƯ: ${exerciseState.trafficLightPhase === 'RED' ? 'ĐỎ' : 'VÀNG'} (${exerciseState.trafficLightRemainingS}s)`,
         keyCap: 'S',
-        titleVi: `Đèn đang ${exerciseState.trafficLightPhase === 'RED' ? 'ĐỎ' : 'VÀNG'}! Nhấn [ S ] dừng trước vạch vàng đợi còn ${exerciseState.trafficLightRemainingS}s`,
-        detailVi: 'Vượt đèn đỏ tại ngã tư sẽ bị trừ 10 điểm.',
+        titleVi: `Đèn đang ${exerciseState.trafficLightPhase === 'RED' ? 'ĐỎ' : 'VÀNG'}! Nhấn [ S ] dừng trước vạch trắng đợi ${exerciseState.trafficLightRemainingS}s`,
+        detailVi: 'Vượt đèn đỏ tại ngã tư sẽ bị truất quyền sát hạch hoặc trừ 10 điểm.',
         tone: 'rose',
         quickActionType: 'HOLD_BRAKE',
         quickActionLabel: 'Giữ Phanh Chờ Đèn (S)',

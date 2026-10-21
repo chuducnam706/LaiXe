@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   X,
   CheckCircle2,
@@ -8,6 +7,8 @@ import {
   ListChecks,
   ShieldCheck,
   Clock,
+  AlertTriangle,
+  AlertOctagon,
 } from 'lucide-react';
 import { PracticeAttemptResult } from '../types/course';
 
@@ -27,6 +28,11 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
   onOpenCourseMenu,
 }) => {
   if (!result) return null;
+
+  const primaryViolation =
+    !result.passed && result.violations && result.violations.length > 0
+      ? result.violations[0]
+      : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 pointer-events-auto">
@@ -106,6 +112,58 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
 
         {/* Detailed Violations, Checkpoint Progress & Corrective Feedback */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {/* Prominent Failure Callout Box */}
+          {!result.passed && (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-rose-950/95 via-rose-900/80 to-slate-950 border-2 border-rose-500 shadow-2xl space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 text-rose-300 font-extrabold text-sm sm:text-base">
+                  <AlertOctagon className="w-5 h-5 text-rose-400 shrink-0 animate-pulse" />
+                  <span>
+                    {result.summaryNoteVi.includes('Truất quyền') ||
+                    result.summaryNoteVi.includes('trượt trực tiếp')
+                      ? 'TRUẤT QUYỀN SÁT HẠCH (TRƯỢT TRỰC TIẾP)'
+                      : `CHƯA ĐẠT YÊU CẦU (${result.finalScore}/100 ĐIỂM)`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onRetryExercise}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md transition-all shrink-0 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Thi Lại (R)
+                </button>
+              </div>
+
+              <div className="text-xs sm:text-sm font-bold text-white bg-rose-950/90 p-3 rounded-lg border border-rose-600/70 leading-relaxed shadow-inner">
+                {result.summaryNoteVi}
+              </div>
+
+              {primaryViolation && (
+                <div className="text-xs text-slate-200 bg-slate-950/80 p-3 rounded-lg border border-slate-800 space-y-1.5">
+                  <div className="text-rose-400 font-bold flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>Lỗi vi phạm: {primaryViolation.titleVi}</span>
+                    <span className="font-mono text-rose-400 font-extrabold ml-auto">
+                      {primaryViolation.pointsDeducted > 0
+                        ? `-${primaryViolation.pointsDeducted}đ`
+                        : 'Truất quyền'}
+                    </span>
+                  </div>
+                  {primaryViolation.stationNameVi && (
+                    <div className="text-[11px] text-amber-300 font-mono">
+                      Vị trí ghi nhận: {primaryViolation.stationNameVi} (tại {primaryViolation.timestampSeconds}s)
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-300">{primaryViolation.explanationVi}</p>
+                  <div className="text-sky-300 text-[11px] pt-1">
+                    <strong>💡 Hướng dẫn khắc phục:</strong> {primaryViolation.correctiveFeedbackVi}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 space-y-1">
             <div>
               <strong>Nhận xét tổng quát:</strong> {result.summaryNoteVi}
@@ -212,10 +270,15 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onRetryExercise}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-400 transition-colors"
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                !result.passed
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-400'
+              }`}
+              title="Đưa xe về vạch xuất phát và chơi lại từ đầu (Phím R hoặc Phím Space)"
             >
               <RotateCcw className="w-4 h-4" />
-              Thử Lại Bài Này (R)
+              <span>{!result.passed ? 'Chơi Lại Từ Đầu (Phím R)' : 'Thử Lại Bài Này (R)'}</span>
             </button>
 
             <button

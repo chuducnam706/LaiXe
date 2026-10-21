@@ -34,6 +34,8 @@ export interface MissionCompletionTelemetryInput {
   start_turn_signal_beep_issued?: boolean;
 
   // --- Điều kiện Bài 3 (Dừng và khởi hành xe ngang dốc) ---
+  /** Bài 3: Đã dừng xe đúng vạch và có tín hiệu Bíp nhận bài */
+  hill_stop_recorded?: boolean;
   /** Bài 3: Xe đã vượt qua đỉnh dốc chưa */
   passed_ramp_crest?: boolean;
   /** Bài 3: Bánh xe sau đã chạm vào vạch xuống dốc chưa */
@@ -192,6 +194,29 @@ export class MissionStateMachine {
     this.wasEngineRunningLastStep = true;
   }
 
+  /**
+   * Khởi tạo máy trạng thái cho một bài thi đơn lẻ cụ thể:
+   * Đặt đúng bài thi đó sang 'IN_PROGRESS' thay vì luôn reset về Bài 1.
+   */
+  public resetForExercise(exerciseNumber: number, exerciseId?: string): void {
+    let targetIndex = 0;
+    if (exerciseId === 'ex_11_full_10_exercises_c') {
+      targetIndex = 0;
+    } else if (typeof exerciseNumber === 'number' && exerciseNumber >= 1 && exerciseNumber <= 11) {
+      targetIndex = exerciseNumber - 1;
+    }
+    this.missions = INITIAL_11_MISSIONS_CATALOG.map((item, idx) => ({
+      ...item,
+      state: idx === targetIndex ? 'IN_PROGRESS' : 'LOCKED',
+      elapsedInMissionS: 0,
+    }));
+    this.currentMissionIndex = targetIndex;
+    this.total_timer = 0;
+    this.baithi_timer = 0;
+    this.overtime3sAccumulator = 0;
+    this.wasEngineRunningLastStep = true;
+  }
+
   public getCurrentMission(): ExamMissionStateNode {
     return this.missions[this.currentMissionIndex];
   }
@@ -239,8 +264,9 @@ export class MissionStateMachine {
 
       case 'BAI_03_DE_PA_DOC': {
         isCompleted =
-          Boolean(input.passed_ramp_crest) &&
-          Boolean(input.rear_wheels_touched_downhill_line);
+          Boolean(input.hill_stop_recorded) ||
+          (Boolean(input.passed_ramp_crest) &&
+            Boolean(input.rear_wheels_touched_downhill_line));
         break;
       }
 
@@ -317,7 +343,7 @@ export class MissionStateMachine {
       const stallVoiceEvent = !engineRunning
         ? createVoiceAIEvent(
             'VIOLATION_ENGINE_STALL',
-            'Xe chết máy. Trừ năm điểm.',
+            'Xe chết máy.',
             5,
             false
           )
@@ -369,13 +395,13 @@ export class MissionStateMachine {
     let pointsDeducted = 0;
     const current = this.getCurrentMission();
 
-    // 1. Nếu xe vừa bị chết máy trong bài đang IN_PROGRESS -> Chỉ đọc "Xe chết máy. Trừ năm điểm."
+    // 1. Nếu xe vừa bị chết máy trong bài đang IN_PROGRESS -> Chỉ đọc "Xe chết máy."
     if (this.wasEngineRunningLastStep && !completionInput.engine_running) {
       pointsDeducted += 5;
       events.push(
         createVoiceAIEvent(
           'VIOLATION_ENGINE_STALL',
-          'Xe chết máy. Trừ năm điểm.',
+          'Xe chết máy.',
           5,
           false
         )
@@ -396,7 +422,7 @@ export class MissionStateMachine {
         events.push(
           createVoiceAIEvent(
             'OVERTIME_TOTAL_18M',
-            'Quá tổng thời gian mười tám phút quy định. Cứ mỗi ba giây, trừ một điểm.',
+            'Quá tổng thời gian mười tám phút quy định.',
             1,
             false
           )
@@ -415,7 +441,7 @@ export class MissionStateMachine {
           events.push(
             createVoiceAIEvent(
               'OVERTIME_EXERCISE_2M',
-              'Quá thời gian hai phút một bài thi. Trừ năm điểm. Cứ mỗi hai phút quá hạn tiếp theo, trừ tiếp năm điểm.',
+              'Quá thời gian hai phút một bài thi.',
               5,
               false
             )

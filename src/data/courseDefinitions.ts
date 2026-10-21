@@ -618,12 +618,12 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 1,
         nameVi: '③ Vạch Dừng Ngang Dốc 10% (Biển STOP)',
         instructionVi:
-          'Tiến lên lưng dốc và dừng xe TRƯỚC Vạch Trắng Ngang Dốc ③ (X = +2.0m — đầu xe không vượt qua vạch trắng!)',
+          'Tiến lên dốc và dừng xe trong khoảng từ Vạch Vàng đến Vạch Trắng, giữ xe đứng yên 3-5 giây chờ tiếng Tuýt (đầu xe không vượt quá vạch trắng!)',
         position: { x: -0.8, y: 1.15, z: 50.0 },
         radiusM: 2.8,
         boxSizeM: { width: 5.2, length: 5.6 },
         requiresFullStop: true,
-        requiredStopDurationS: 0.1,
+        requiredStopDurationS: 3.5,
       },
       {
         id: 'cp_ex3_hill_crest',
@@ -672,9 +672,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     applicableCategories: ['C', 'C1', 'B'],
     isOfficialLayoutVerified: true,
     officialRegulationRefVi:
-      'Bài sát hạch số 4: Qua vệt bánh xe và đường hẹp vuông góc (Hàng đinh, chữ Z) — Thông tư 108/2026/TT-BCA & QCVN 40:2024.',
+      'Bài sát hạch số 4: Qua vệt bánh xe và đường hẹp vuông góc (Hàng đinh, chữ Z) — QCVN 40:2012/BGTVT (Bv = 2.2b, Lvb = a, Bvb = B1 + 0.2m).',
     dimensionNoteVi:
-      'Đúng sơ đồ 2D: Nhánh Hạng B nằm dưới (Z = +23.5m -> X = +25.0m -> Z = +36.0m, rộng 3.3m); Nhánh Hạng C nằm trên (Z = +13.5m -> X = +13.0m -> Z = +26.5m, rộng 4.6m).',
+      'Đúng chuẩn QCVN 40:2012/BGTVT: Nhánh Hạng B nằm dưới (Z = +23.5m -> X = +25.0m -> Z = +36.0m, rộng 3.85m = 2.2b); Nhánh Hạng C nằm trên (Z = +13.5m -> X = +13.0m -> Z = +26.5m, rộng 4.95m = 2.2b).',
     instructionsVi: [
       '1. Từ đường phía Đông rẽ trái hướng Tây (-X) vào đúng làn quy định: Hạng B đi làn dưới (Z = +23.5m), Hạng C & C1 đi làn trên (Z = +13.5m).',
       '2. Giữ thẳng tay lái, căn hai bánh xe bên phải đi lọt giữa hai vạch cảm biến hàng đinh tại X = +47.8m không đè vạch.',
@@ -809,9 +809,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     applicableCategories: ['C', 'C1', 'B'],
     isOfficialLayoutVerified: true,
     officialRegulationRefVi:
-      'Bài sát hạch số 6: Đường vòng quanh co (chữ S) — Thông tư 108/2026/TT-BCA & QCVN 40:2024 (Bqc = 2.2b, RN = Rqv + 1.2m).',
+      'Bài sát hạch số 6: Đường vòng quanh co (chữ S) — QCVN 40:2012/BGTVT (Bqc = 2.2b, RN = Rqv + 1.2m, Rtr = RN - Bqc).',
     dimensionNoteVi:
-      'Đúng sơ đồ 2D: Vào từ đầu trên phía Bắc (Z = -49.2m tại chữ B / C) đi xuống cửa ra phía Nam (Z = -2.0m): Nhánh Hạng B (X = +14.0m, rộng 3.6m) & Nhánh Hạng C (X = +36.0m, rộng 4.8m).',
+      'Đúng chuẩn QCVN 40:2012/BGTVT: Vào từ đầu trên phía Bắc (Z = -49.2m tại chữ B / C) đi xuống cửa ra phía Nam (Z = -2.0m): Nhánh Hạng B (X = +14.0m, rộng 3.85m = 2.2b) & Nhánh Hạng C (X = +36.0m, rộng 4.95m = 2.2b).',
     instructionsVi: [
       '1. Từ đường phía Bắc (Z = -52.0m) rẽ phải (hướng Nam +Z) tiến vào Cổng Đầu Vào ⑥ Chữ S tại chữ B / C (Z = -45.5m, chọn đúng nhánh Hạng B X=14m hoặc Hạng C X=36m).',
       '2. Áp dụng nguyên tắc "Tiến bám lưng, lùi bám bụng" lượn qua cung cong trên sang phải rồi qua tâm chữ S (Z = -25.5m) xuống cung cong dưới.',
@@ -883,9 +883,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     applicableCategories: ['C', 'C1', 'B'],
     isOfficialLayoutVerified: true,
     officialRegulationRefVi:
-      'Bài sát hạch số 7: Ghép xe dọc vào nơi đỗ (Đỗ xe) — Thông tư 108/2026/TT-BCA & QCVN 40:2024.',
+      'Bài sát hạch số 7: Ghép xe dọc vào nơi đỗ (Đỗ xe) — QCVN 40:2012/BGTVT (Ld = a + 1.0m, Rd = b + 0.6m, Ed = 1.2a).',
     dimensionNoteVi:
-      'Đúng hướng rẽ phải: Đường dẫn Hạng B (X = -62.0m..-53.0m, Ô chuồng 7 Hạng B bên Đông X = -53.0m..-48.0m, Z = -26.0m); Đường dẫn Hạng C (X = -36.0m..-25.0m, Ô chuồng 7 Hạng C bên Đông X = -25.0m..-18.5m, Z = -26.0m).',
+      'Đúng chuẩn QCVN 40:2012/BGTVT: Đường dẫn Hạng B (X = -62.0m..-53.0m, Ô chuồng 7 Hạng B bên Đông X = -53.0m..-47.5m, Z = -26.0m, rộng 2.4m × sâu 5.5m); Đường dẫn Hạng C (X = -36.0m..-25.0m, Ô chuồng 7 Hạng C bên Đông X = -25.0m..-16.0m, Z = -26.0m, rộng 2.9m × sâu 9.0m).',
     instructionsVi: [
       '1. Đi từ Tây sang Đông trên đường phía Bắc (Z = -50.6m), RẼ PHẢI đi xuống đường dẫn nhà xe (Hạng B: X = -57.5m · Hạng C: X = -30.5m) qua cửa Ô Chuồng ⑦ (Z = -26.0m) để mở góc lùi.',
       '2. Cài Số Lùi (R — nhấn Phím Q), đánh lái lùi vào Ô Chuồng ⑦ bên vách Đông sao cho 2 bánh sau chạm vạch vàng để cảm biến nhận tiếng Bíp.',
@@ -915,9 +915,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         nameVi: 'Lòng Chuồng Ghép Dọc ⑦ (2 Bánh Sau Chạm Vạch Vàng)',
         instructionVi:
           'Cài Số Lùi (R — Phím Q), lùi xe vào Ô Đỗ Dọc ⑦ bên vách Đông sao cho 2 BÁNH SAU CHẠM VẠCH VÀNG để nhận bài ngay!',
-        position: { x: -20.2, y: 0, z: -26.0 },
+        position: { x: -20.5, y: 0, z: -26.0 },
         radiusM: 3.2,
-        boxSizeM: { width: 6.5, length: 3.6 },
+        boxSizeM: { width: 9.0, length: 2.9 },
         requiresFullStop: true,
         requiredStopDurationS: 0.1,
         requiredGear: -1,
@@ -1045,7 +1045,6 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         boxSizeM: { width: 4.5, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
-        exemptFromCourseSpeedLimit: true,
       },
       {
         id: 'cp_ex9_start_decel_20',
@@ -1072,6 +1071,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         boxSizeM: { width: 4.8, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
+        exemptFromCourseSpeedLimit: true,
         isFinishLine: true,
       },
     ],
@@ -1121,9 +1121,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         position: { x: -76.5, y: 0, z: -24.0 },
         radiusM: 4.5,
         boxSizeM: { width: 7.2, length: 8.0 },
-        requiresFullStop: true,
-        requiredStopDurationS: 1.5,
-        requiredTurnSignal: 'HAZARD',
+        requiresFullStop: false,
+        requiredStopDurationS: 0,
       },
       {
         id: 'cp_ex10_hazard_exit',
@@ -1156,16 +1155,16 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     code: 'BAI_10_B',
     titleVi: 'Bài 10: Ghép xe ngang vào nơi đỗ — Đỗ xe song song (⑩)',
     subtitleVi:
-      'Đúng sơ đồ 2D: Từ đường bao phía Tây rẽ trái vào trục đường ngang trung tâm (Z = +3.25m, hướng Đông +X), tiến qua cửa Ô Ghép Xe Ngang ⑩ (nằm bên phải tại X = -58.0m..-51.5m, Z = +5.0m..+7.9m), cài Số Lùi (R — Phím Q) lùi song song vào nơi đỗ chạm vạch vàng nhận bài rồi tiến ra đi tới Đèn đỏ Ngã tư 5.',
+      'Đúng chuẩn QCVN 40: Từ đường bao phía Tây rẽ trái vào trục đường ngang trung tâm (Z = +3.25m, hướng Đông +X), tiến qua cửa Ô Ghép Xe Ngang ⑩ (nằm bên phải tại X = -58.9m..-51.5m, Z = +5.0m..+7.2m, rộng 2.2m × dài 7.4m), cài Số Lùi (R — Phím Q) lùi song song vào nơi đỗ chạm vạch vàng nhận bài rồi tiến ra đi tới Đèn đỏ Ngã tư 5.',
     applicableCategories: ['B', 'C1', 'C'],
     isOfficialLayoutVerified: true,
     officialRegulationRefVi:
-      'Bài sát hạch số 10: Ghép xe ngang vào nơi đỗ — Thông tư 108/2026/TT-BCA & QCVN 40:2024/BGTVT.',
+      'Bài sát hạch số 10: Ghép xe ngang vào nơi đỗ — QCVN 40 & TT 12 / TT 108 (Lg = 5a/3 = 7.4m, Rg = 5b/4 = 2.2m).',
     dimensionNoteVi:
-      'Đúng sơ đồ 2D: 2 ô Ghép xe ngang ⑩ nằm bên phải đường ngang trung tâm trước Ngã tư 5: Ô 1 (X = -58.0m..-51.5m, Z = +5.0m..+7.9m) & Ô 2 (X = -38.0m..-30.0m, Z = +5.0m..+8.1m).',
+      'Đúng chuẩn QCVN 40: 2 ô Ghép xe ngang ⑩ nằm bên phải đường ngang trung tâm trước Ngã tư 5: Ô 1 Hạng B (X = -58.9m..-51.5m, Z = +5.0m..+7.2m, rộng 2.2m × dài 7.4m) & Ô 2 (X = -38.0m..-30.0m, Z = +5.0m..+8.1m).',
     instructionsVi: [
       '1. Điều khiển xe tiến hướng Đông (+X) trên làn phải đường ngang trung tâm (Z = +3.25m) qua ngang cửa Ô ⑩ tới điểm mở góc (X = -49.5m, Z = +3.25m).',
-      '2. Cài Số Lùi (R — nhấn Phím Q), đánh lái phải lùi xe song song vào gọn trong Ô Ghép Xe Ngang ⑩ (X = -58.0m..-51.5m, Z = +5.0m..+7.9m) sao cho 2 bánh chạm vạch vàng (Z >= +6.85m) nhận tiếng Bíp.',
+      '2. Cài Số Lùi (R — nhấn Phím Q), đánh lái phải lùi xe song song vào gọn trong Ô Ghép Xe Ngang ⑩ (X = -58.9m..-51.5m, Z = +5.0m..+7.2m) sao cho 2 bánh chạm vạch vàng (Z >= +7.0m) nhận tiếng Bíp.',
       '3. Chuyển về Số 1 / D (nhấn Phím E), đánh lái trái tiến ra khỏi nơi đỗ đi thẳng về phía Đèn đỏ Ngã tư 5 (X = -22.0m, Z = +3.25m) để hoàn thành bài.',
     ],
     completionConditionVi:
@@ -1333,12 +1332,12 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 3,
         nameVi: '③ Bài 3: Dừng và khởi hành xe ngang dốc (Dốc Cầu)',
         instructionVi:
-          '[BÀI 3/11] Tiến lên dốc cầu 10%, dừng xe TRƯỚC Vạch Trắng Ngang Dốc ③ (X = +2.0m) rồi khởi hành vượt qua đỉnh dốc!',
+          '[BÀI 3/11] Tiến lên dốc cầu, dừng xe trong khoảng từ Vạch Vàng đến Vạch Trắng, giữ xe đứng yên 3-5 giây chờ tiếng Tuýt rồi khởi hành vượt qua đỉnh dốc!',
         position: { x: -0.8, y: 1.15, z: 50.0 },
         radiusM: 2.8,
         boxSizeM: { width: 5.2, length: 5.6 },
         requiresFullStop: true,
-        requiredStopDurationS: 0.1,
+        requiredStopDurationS: 3.5,
       },
       {
         id: 'cp_full_04_nail_entry',
@@ -1472,6 +1471,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         boxSizeM: { width: 5.0, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
+        exemptFromCourseSpeedLimit: true,
       },
       {
         id: 'cp_full_10_parallel_approach',

@@ -15,6 +15,8 @@ import {
   VolumeX,
   BookOpen,
   AlertTriangle,
+  AlertOctagon,
+  ArrowRight,
   Map as MapIcon,
   Smartphone,
   ShieldAlert,
@@ -64,6 +66,7 @@ import {
   ExerciseMode,
   PracticeAttemptResult,
   ScoringRuleSet,
+  ViolationEventRecord,
 } from './types/course';
 import { DrivingSceneView } from './three/DrivingSceneView';
 import {
@@ -162,6 +165,12 @@ export default function App() {
     useState<boolean>(false);
   const [completedAttemptResult, setCompletedAttemptResult] =
     useState<PracticeAttemptResult | null>(null);
+  const [failureNotice, setFailureNotice] = useState<{
+    result: PracticeAttemptResult;
+    primaryViolation?: ViolationEventRecord;
+    remainingSeconds: number;
+  } | null>(null);
+  const failureNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Simulation settings & 3D Vehicle Appearance
   const [cameraMode, setCameraMode] = useState<CameraMode>('CHASE');
@@ -248,25 +257,74 @@ export default function App() {
     exEngine.onCheckpointCompleted = () => {
       soundRef.current.playShiftClick();
     };
-    exEngine.onViolationTriggered = () => {
-      soundRef.current.playCollisionImpact(1.2);
+    exEngine.onViolationTriggered = (record) => {
+      if (record.code === 'OBSTACLE_OR_CONE_HIT') {
+        soundRef.current.playCollisionImpact(1.2);
+      }
     };
     exEngine.onVoiceAnnouncement = (
       messageVi,
       withChime,
-      remainingScoreForVoice
+      remainingScoreForVoice,
+      directClipUrl
     ) => {
       soundRef.current.announceExerciseVoiceVi(
         messageVi,
         withChime ?? true,
-        remainingScoreForVoice
+        remainingScoreForVoice,
+        directClipUrl
       );
     };
     exEngine.onExerciseFinished = (result) => {
-      setCompletedAttemptResult(result);
       setPracticeHistory(exEngine.loadPracticeHistory());
+      if (result.passed) {
+        setCompletedAttemptResult(result);
+      } else {
+        if (failureNoticeTimerRef.current) {
+          clearInterval(failureNoticeTimerRef.current);
+          failureNoticeTimerRef.current = null;
+        }
+        const primary =
+          result.violations && result.violations.length > 0
+            ? result.violations[0]
+            : undefined;
+        let sec = 4;
+        setFailureNotice({
+          result,
+          primaryViolation: primary,
+          remainingSeconds: sec,
+        });
+
+        failureNoticeTimerRef.current = setInterval(() => {
+          sec -= 1;
+          if (sec <= 0) {
+            if (failureNoticeTimerRef.current) {
+              clearInterval(failureNoticeTimerRef.current);
+              failureNoticeTimerRef.current = null;
+            }
+            setFailureNotice(null);
+            setCompletedAttemptResult(result);
+          } else {
+            setFailureNotice((prev) =>
+              prev ? { ...prev, remainingSeconds: sec } : null
+            );
+          }
+        }, 1000);
+      }
     };
   }, []);
+
+  const handleDismissFailureNoticeAndShowModal = () => {
+    if (failureNoticeTimerRef.current) {
+      clearInterval(failureNoticeTimerRef.current);
+      failureNoticeTimerRef.current = null;
+    }
+    const res = failureNotice?.result;
+    setFailureNotice(null);
+    if (res) {
+      setCompletedAttemptResult(res);
+    }
+  };
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -315,16 +373,27 @@ export default function App() {
         return;
       }
 
+      if (failureNotice) {
+        if (e.code === 'KeyR' || e.code === keyBindings.resetVehicle) {
+          e.preventDefault();
+          handleRetryCurrent();
+        } else if (
+          e.code === 'Space' ||
+          e.code === 'Enter' ||
+          e.code === 'Escape'
+        ) {
+          e.preventDefault();
+          handleDismissFailureNoticeAndShowModal();
+        }
+        return;
+      }
+
       if (
         isThrottleKey &&
-        (isTutorialModalOpen || isPaused || completedAttemptResult)
+        (isTutorialModalOpen || isPaused)
       ) {
         setIsTutorialModalOpen(false);
         setIsPaused(false);
-        if (completedAttemptResult) {
-          setCompletedAttemptResult(null);
-          handleRetryCurrent();
-        }
         return;
       }
 
@@ -365,6 +434,14 @@ export default function App() {
       } else if (e.code === 'KeyM') {
         soundRef.current.isMuted = !soundRef.current.isMuted;
         setIsMuted(soundRef.current.isMuted);
+      } else if (
+        (e.code === 'KeyR' || e.code === keyBindings.resetVehicle) &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        handleRetryCurrent();
       }
     };
 
@@ -378,6 +455,7 @@ export default function App() {
     isUnityWorkbenchOpen,
     isInspectorOpen,
     completedAttemptResult,
+    failureNotice,
     keyBindings,
   ]);
 
@@ -443,6 +521,7 @@ export default function App() {
   ) => {
     tryLockNativeLandscape();
     soundRef.current.init();
+    soundRef.current.clearVoiceQueue();
     setCompletedAttemptResult(null);
     exerciseEngineRef.current.startExercise(
       exercise,
@@ -463,6 +542,7 @@ export default function App() {
   const handleLaunchFreePractice = () => {
     tryLockNativeLandscape();
     soundRef.current.init();
+    soundRef.current.clearVoiceQueue();
     setCompletedAttemptResult(null);
     exerciseEngineRef.current.startFreePractice(physicsRef.current);
     physicsRef.current.resetToPreset(activeSpawnId);
@@ -471,14 +551,16 @@ export default function App() {
     setExerciseState(exerciseEngineRef.current.getRuntimeStateSnapshot());
     setIsTitleScreen(false);
     setIsPaused(false);
-    soundRef.current.announceExerciseVoiceVi(
-      exerciseEngineRef.current.getCurrentVoicePromptVi(),
-      true
-    );
   };
 
   const handleRetryCurrent = () => {
+    if (failureNoticeTimerRef.current) {
+      clearInterval(failureNoticeTimerRef.current);
+      failureNoticeTimerRef.current = null;
+    }
+    setFailureNotice(null);
     setCompletedAttemptResult(null);
+    soundRef.current.clearVoiceQueue();
     const exEngine = exerciseEngineRef.current;
     if (exEngine.activeExercise && exEngine.mode !== 'FREE_PRACTICE') {
       exEngine.startExercise(
@@ -486,16 +568,16 @@ export default function App() {
         exEngine.mode,
         physicsRef.current
       );
+      soundRef.current.announceExerciseVoiceVi(
+        exEngine.getCurrentVoicePromptVi(),
+        true
+      );
     } else {
       physicsRef.current.resetToPreset(activeSpawnId);
     }
     setManualClutchSlider(0);
     setTelemetry(physicsRef.current.getTelemetrySnapshot());
     setExerciseState(exEngine.getRuntimeStateSnapshot());
-    soundRef.current.announceExerciseVoiceVi(
-      exEngine.getCurrentVoicePromptVi(),
-      true
-    );
   };
 
   const handleNextExercise = () => {
@@ -980,6 +1062,81 @@ export default function App() {
 
             {/* Compact Top-Center Banners (Startup Quick Strip / Stop Prompt / Violation Toast) */}
             <div className="mx-auto max-w-2xl w-full flex flex-col gap-1 items-center">
+              {/* Prominent Real-Time Failure Notification Banner */}
+              {failureNotice && !completedAttemptResult && (
+                <div className="pointer-events-auto w-full max-w-xl mx-auto rounded-2xl bg-gradient-to-r from-rose-950 via-rose-900/95 to-slate-950 border-2 border-rose-500 shadow-[0_0_36px_rgba(239,68,68,0.7)] p-4 space-y-2.5 z-50">
+                  <div className="flex items-center justify-between gap-2 border-b border-rose-800/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-rose-600 text-white animate-pulse">
+                        <AlertOctagon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-black text-rose-200 tracking-wide uppercase">
+                          {failureNotice.result.summaryNoteVi.includes('Truất quyền') ||
+                          failureNotice.result.summaryNoteVi.includes('trượt trực tiếp')
+                            ? 'BẠN ĐÃ BỊ TRUẤT QUYỀN SÁT HẠCH'
+                            : 'CHƯA ĐẠT YÊU CẦU (< 80 ĐIỂM)'}
+                        </div>
+                        <div className="text-[11px] text-rose-300">
+                          Điểm còn lại: <strong className="text-white">{failureNotice.result.finalScore}/100</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRetryCurrent}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow transition-all cursor-pointer"
+                        title="Thi lại bài này ngay (Phím R)"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Thi Lại (R)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-xs sm:text-sm font-bold text-white bg-slate-950/80 p-2.5 rounded-xl border border-rose-700/60 leading-relaxed shadow-inner">
+                    {failureNotice.result.summaryNoteVi}
+                  </div>
+
+                  {failureNotice.primaryViolation && (
+                    <div className="text-xs text-rose-100 bg-rose-950/60 p-2.5 rounded-xl border border-rose-800/60 space-y-1">
+                      <div className="flex items-center justify-between text-rose-300 font-bold">
+                        <span>Lỗi vi phạm: {failureNotice.primaryViolation.titleVi}</span>
+                        <span className="font-mono text-rose-400 font-extrabold">
+                          {failureNotice.primaryViolation.pointsDeducted > 0
+                            ? `-${failureNotice.primaryViolation.pointsDeducted}đ`
+                            : 'Truất quyền'}
+                        </span>
+                      </div>
+                      {failureNotice.primaryViolation.stationNameVi && (
+                        <div className="text-[11px] text-amber-300 font-mono">
+                          Vị trí: {failureNotice.primaryViolation.stationNameVi}
+                        </div>
+                      )}
+                      <div className="text-sky-300 text-[11px] pt-0.5">
+                        💡 {failureNotice.primaryViolation.correctiveFeedbackVi}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-slate-400 italic">
+                      Xe đã dừng an toàn · Mở bảng kết quả sau {failureNotice.remainingSeconds}s...
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleDismissFailureNoticeAndShowModal}
+                      className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      <span>Xem Chi Tiết Ngay</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Stop Zone Prompt */}
               {exerciseState.isInsideStopZone && telemetry.speedKmh > 0.8 && (
                 <div className="pointer-events-auto px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-extrabold shadow-lg animate-pulse">

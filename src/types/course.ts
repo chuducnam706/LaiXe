@@ -173,7 +173,11 @@ export interface ActiveExerciseRuntimeState {
   checkpointProgress: CheckpointProgressRecord[];
   violations: ViolationEventRecord[];
   latestViolationToast: ViolationEventRecord | null;
+  activeStationNumber: number;
   failureReasonVi: string | null;
+  hillStopBeepIssued: boolean;
+  hillSecondsRemaining: number | null;
+  startBeepIssued?: boolean;
 }
 
 export interface PracticeAttemptResult {

@@ -1345,10 +1345,10 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     }
 
     // 9. Bài 4 (④ HÀNG ĐINH, CHỮ Z — ĐÚNG SƠ ĐỒ 2D: HẠNG B Ở DƯỚI Z=23.5m, HẠNG C Ở TRÊN Z=13.5m):
-    //    • Làn Hạng B (nằm dưới, rộng 3.3m, Z = 23.5m): Đôi đũa vệt bánh xe dài 4.5m × rộng 0.48m (Z = 22.20m..22.68m, X = 45.5m..50.0m)
-    //    • Làn Hạng C (nằm trên, rộng 4.6m, Z = 13.5m): Đôi đũa vệt bánh xe dài 6.6m × rộng 0.82m (Z = 11.64m..12.46m, X = 44.5m..51.1m)
+    //    • Làn Hạng B (nằm dưới, QCVN 40 rộng 3.85m, Z = 23.5m): Đôi đũa vệt bánh xe dài 4.5m × rộng 0.48m (Z = 22.20m..22.68m, X = 45.5m..50.0m)
+    //    • Làn Hạng C (nằm trên, QCVN 40 rộng 4.95m, Z = 13.5m): Đôi đũa vệt bánh xe dài 8.0m × rộng 0.50m (Z = 12.29m..12.79m, X = 43.8m..51.8m)
     buildFlatLineRect(47.75, 22.44, 4.5, 0.54, 0.042, concreteRecessMat);
-    buildFlatLineRect(47.8, 12.05, 6.6, 0.88, 0.042, concreteRecessMat);
+    buildFlatLineRect(47.8, 12.54, 8.0, 0.58, 0.042, concreteRecessMat);
     buildRoadTextStencil('HẠNG B', 64.5, 23.5, Math.PI / 2, 3.0, 0.85, '#38bdf8');
     buildRoadTextStencil('HẠNG C', 64.5, 13.5, Math.PI / 2, 3.4, 0.95, '#fde047');
 
@@ -1357,30 +1357,30 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     buildRoadTextStencil('HẠNG C', 36.0, -46.5, Math.PI, 3.2, 0.90, '#fde047');
 
     // 11. Bài 7 (⑦ ĐỖ XE — GHÉP XE DỌC: VÀO TỪ ĐƯỜNG BẮC <- C TẠI X=-30.5m & <- B TẠI X=-57.5m, CHUỒNG 7 NẰM BÊN VÁCH ĐÔNG):
-    // • Ô Chuồng 7 Hạng C & C1 (X = -25.0..-18.5m, Z = -27.8..-24.2m, rộng 3.6m × sâu 6.5m):
-    //   Cửa chuồng tại X = -25.0m, vạch vàng nhận 2 bánh sau tại X = -20.1m
-    for (let gz = -27.3; gz <= -24.7; gz += 0.85) {
-      buildFlatLineRect(-25.0, gz, 0.14, 0.46, 0.066, whiteMarkingMat);
+    // • Ô Chuồng 7 Hạng C (QCVN 40: X = -25.0..-16.0m, Z = -27.45..-24.55m, rộng 2.9m × sâu 9.0m):
+    //   Cửa chuồng tại X = -25.0m, vạch vàng nhận 2 bánh sau tại X = -17.2m
+    for (let gz = -27.1; gz <= -24.9; gz += 0.7) {
+      buildFlatLineRect(-25.0, gz, 0.14, 0.44, 0.066, whiteMarkingMat);
     }
-    buildFlatLineRect(-20.1, -26.0, 0.28, 3.36, 0.066, yellowMarkingMat);
+    buildFlatLineRect(-17.2, -26.0, 0.28, 2.70, 0.066, yellowMarkingMat);
     buildRoadTextStencil('HẠNG C', -30.5, -45.5, Math.PI, 2.8, 0.85, '#fde047');
 
-    // • Ô Chuồng 7 Hạng B (X = -53.0..-48.0m, Z = -27.4..-24.6m, rộng 2.8m × sâu 5.0m):
-    //   Cửa chuồng tại X = -53.0m, vạch vàng nhận 2 bánh sau tại X = -49.2m
-    for (let gz = -26.9; gz <= -25.1; gz += 0.6) {
-      buildFlatLineRect(-53.0, gz, 0.14, 0.36, 0.066, whiteMarkingMat);
+    // • Ô Chuồng 7 Hạng B (QCVN 40: X = -53.0..-47.5m, Z = -27.2..-24.8m, rộng 2.4m × sâu 5.5m):
+    //   Cửa chuồng tại X = -53.0m, vạch vàng nhận 2 bánh sau tại X = -48.2m
+    for (let gz = -26.8; gz <= -25.2; gz += 0.5) {
+      buildFlatLineRect(-53.0, gz, 0.14, 0.34, 0.066, whiteMarkingMat);
     }
-    buildFlatLineRect(-49.2, -26.0, 0.28, 2.56, 0.066, yellowMarkingMat);
+    buildFlatLineRect(-48.2, -26.0, 0.28, 2.20, 0.066, yellowMarkingMat);
     buildRoadTextStencil('HẠNG B', -57.5, -45.5, Math.PI, 2.6, 0.80, '#38bdf8');
 
-    // Bài 10 (⑩ GHÉP XE NGANG — 2 Ô ĐỖ SONG SONG BÊN PHẢI ĐƯỜNG NGANG TRƯỚC NGÃ TƯ 5: Z = +5.0m..+8.1m)
-    // • Ô 10 Tây (Hạng B: X = -58.0m..-51.5m, Z = +5.0m..+7.9m)
-    for (let px = -57.4; px <= -52.1; px += 1.05) {
+    // Bài 10 (⑩ GHÉP XE NGANG — 2 Ô ĐỖ SONG SONG BÊN PHẢI ĐƯỜNG NGANG TRƯỚC NGÃ TƯ 5: Z = +5.0m..+7.2m)
+    // • Ô 10 Tây (Hạng B — QCVN 40: X = -58.9m..-51.5m, Z = +5.0m..+7.2m, rộng 2.2m × dài 7.4m)
+    for (let px = -58.4; px <= -52.0; px += 1.05) {
       buildFlatLineRect(px, 5.0, 0.56, 0.14, 0.066, whiteMarkingMat);
     }
-    buildFlatLineRect(-56.2, 6.45, 0.28, 2.65, 0.066, yellowMarkingMat);
-    buildFlatLineRect(-54.75, 7.25, 6.1, 0.16, 0.065, yellowMarkingMat);
-    buildRoadTextStencil('10. GHÉP NGANG', -54.75, 3.25, -Math.PI / 2, 4.2, 0.85, '#facc15');
+    buildFlatLineRect(-57.2, 6.10, 0.28, 2.05, 0.066, yellowMarkingMat);
+    buildFlatLineRect(-55.2, 6.95, 6.8, 0.16, 0.065, yellowMarkingMat);
+    buildRoadTextStencil('10. GHÉP NGANG', -55.2, 3.25, -Math.PI / 2, 4.2, 0.85, '#facc15');
 
     // • Ô 10 Đông (Ô số 2: X = -38.0m..-30.0m, Z = +5.0m..+8.1m)
     for (let px = -37.3; px <= -30.7; px += 1.1) {
@@ -1878,6 +1878,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       | 'R_301A_AHEAD_ONLY'
       | 'R_301D_RIGHT_ONLY'
       | 'R_301E_LEFT_ONLY'
+      | 'R_301F_AHEAD_AND_LEFT'
       | 'R_306_MIN_20'
       | 'R_307_END_MIN_20'
       | 'I_423A_CROSSWALK'
@@ -2432,6 +2433,9 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
             drawBoldArrow(ctx, [[186, 402], [186, 216], [356, 216]], 58, 32, '#ffffff');
           } else if (signType === 'R_301E_LEFT_ONLY') {
             drawBoldArrow(ctx, [[326, 402], [326, 216], [156, 216]], 58, 32, '#ffffff');
+          } else if (signType === 'R_301F_AHEAD_AND_LEFT') {
+            drawBoldArrow(ctx, [[256, 422], [256, 140]], 60, 32, '#ffffff');
+            drawBoldArrow(ctx, [[256, 290], [148, 290]], 54, 30, '#ffffff');
           } else if (signType === 'R_306_MIN_20') {
             ctx.fillStyle = '#ffffff';
             ctx.font = '900 186px "Plus Jakarta Sans", sans-serif';
@@ -2652,13 +2656,24 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     //   • Car driving North (-Z): front normal must point South (+Z) -> rotY = 0
     //   • Car driving South (+Z): front normal must point North (-Z) -> rotY = Math.PI
     // ============================================================================
-    // Bài 2 (Nhường đường người đi bộ — xe đi hướng Đông +X): 1 cột Biển I.423a trên lề cỏ Nam
-    buildQcvn41TrafficSign(-29.0, 53.8, -Math.PI / 2, 'I_423A_CROSSWALK');
+    // Bài 2 (Nhường đường người đi bộ — xe đi hướng Đông +X):
+    // Biển chỉ dẫn I.423a người đi bộ trước trạm (X = -34.5m) & Biển STOP R.122 bát giác đỏ ngay vạch dừng màu trắng (X = -28.9m)!
+    buildQcvn41TrafficSign(-34.5, 53.8, -Math.PI / 2, 'I_423A_CROSSWALK');
+    buildQcvn41TrafficSign(-28.9, 53.8, -Math.PI / 2, 'R_122_STOP');
 
     // Bài 3 (Dừng và khởi hành ngang dốc — xe đi hướng Đông +X trên lề cỏ Nam):
+    //   • Biển W.220 Dốc lên 10% tại chân dốc Tây (X = -13.5m)
+    //   • Cột biển STOP cắm tại X = 0.15m để ngang vai người lái khi cản trước xe nằm trúng giữa vùng dừng hợp lệ!
+    //   • Biển W.219 Dốc xuống 10% qua đỉnh dốc (X = 8.5m)
+    //   • Biển hiệu lệnh / chỉ dẫn hướng đi phải theo khi xuống dốc:
+    //     - Trên đoạn dốc xuống (X = 21.0m) & Chân dốc (X = 28.5m): Biển R.301a Đi thẳng
+    //     - Cuối đường Nam trước khúc cua dẫn lên Bài 4 Hàng đinh (X = 66.0m): Biển R.301e Rẽ trái
     buildQcvn41TrafficSign(-13.5, 53.8, -Math.PI / 2, 'W_220_STEEP_HILL');
-    buildQcvn41TrafficSign(2.0, 53.8, -Math.PI / 2, 'R_122_STOP');
+    buildQcvn41TrafficSign(0.15, 53.8, -Math.PI / 2, 'R_122_STOP');
     buildQcvn41TrafficSign(8.5, 53.8, -Math.PI / 2, 'W_219_DOWNHILL');
+    buildQcvn41TrafficSign(21.0, 53.8, -Math.PI / 2, 'R_301A_AHEAD_ONLY');
+    buildQcvn41TrafficSign(28.5, 53.8, -Math.PI / 2, 'R_301A_AHEAD_ONLY');
+    buildQcvn41TrafficSign(66.0, 53.8, -Math.PI / 2, 'R_301E_LEFT_ONLY');
 
     // Bài 4 (Hàng đinh, chữ Z — Đặt trên đảo cỏ Đông-Nam, cách xa mép bo góc):
     buildQcvn41TrafficSign(71.8, 20.2, 0, 'I_412_LANE_CAR_B', 'LEFT');
@@ -2772,66 +2787,8 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       coneMeshes.push(cg);
     }
 
-    // 10. Dynamic 3D Active Checkpoint Gate & Stop Box Indicator (`Checkpoint_Prefab` Visuals)
-    const activeCheckpointGroup = new THREE.Group();
-    const cpGroundRingMat = new THREE.MeshBasicMaterial({
-      color: 0x10b981,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-    });
-    const cpGroundRing = new THREE.Mesh(
-      new THREE.RingGeometry(2.6, 3.1, 36),
-      cpGroundRingMat
-    );
-    cpGroundRing.rotation.x = -Math.PI / 2;
-    cpGroundRing.position.y = 0.08;
-
-    const cpPillarMat = new THREE.MeshStandardMaterial({
-      color: 0x10b981,
-      emissive: 0x10b981,
-      emissiveIntensity: 0.8,
-      roughness: 0.3,
-    });
-    const cpLeftPillar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 2.8, 12),
-      cpPillarMat
-    );
-    cpLeftPillar.position.set(-3.1, 1.4, 0);
-    const cpRightPillar = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 2.8, 12),
-      cpPillarMat
-    );
-    cpRightPillar.position.set(3.1, 1.4, 0);
-    const cpTopBanner = new THREE.Mesh(
-      new THREE.BoxGeometry(6.4, 0.28, 0.18),
-      cpPillarMat
-    );
-    cpTopBanner.position.set(0, 2.8, 0);
-
-    activeCheckpointGroup.add(
-      cpGroundRing,
-      cpLeftPillar,
-      cpRightPillar,
-      cpTopBanner
-    );
-    scene.add(activeCheckpointGroup);
-
-    // Next Checkpoint Preview Marker (Smaller cyan ring showing where to go after current checkpoint)
-    const nextCheckpointRing = new THREE.Mesh(
-      new THREE.RingGeometry(1.8, 2.2, 28),
-      new THREE.MeshBasicMaterial({
-        color: 0x38bdf8,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.4,
-        depthWrite: false,
-      })
-    );
-    nextCheckpointRing.rotation.x = -Math.PI / 2;
-    nextCheckpointRing.position.y = 0.08;
-    scene.add(nextCheckpointRing);
+    // 10. Checkpoint markers are kept natural without artificial 3D ground rings
+    // so drivers realistically observe painted white stop lines, curbs, and road markings.
 
     // 10B. 3D Course Debug Gizmos Group (Road Centerlines, Segment Boundaries, Exercise Zones & Checkpoint Trigger Volumes)
     const courseDebugGizmoGroup = new THREE.Group();
@@ -3451,15 +3408,24 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         } else if (keyCode === 'KeyH') {
           soundRef.current.startCarHorn();
         } else if (keyCode === kb.resetVehicle && !e.repeat) {
+          soundRef.current.clearVoiceQueue();
           if (exEngine.activeExercise && exEngine.mode !== 'FREE_PRACTICE') {
             exEngine.startExercise(
               exEngine.activeExercise,
               exEngine.mode,
               phys
             );
+            soundRef.current.announceExerciseVoiceVi(
+              exEngine.getCurrentVoicePromptVi(),
+              true
+            );
           } else {
             phys.resetToPreset('start_line');
           }
+          onTelemetryUpdateRef.current(
+            phys.getTelemetrySnapshot(),
+            exEngine.getRuntimeStateSnapshot()
+          );
         }
       }
     };
@@ -3629,11 +3595,10 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const dampedThrottle = THREE.MathUtils.damp(
           phys.rawInput.throttle,
           throttleHeld,
-          18,
+          10,
           rawDt
         );
-        phys.rawInput.throttle =
-          throttleHeld > 0.1 ? Math.max(0.28, dampedThrottle) : dampedThrottle;
+        phys.rawInput.throttle = dampedThrottle;
         phys.rawInput.brake = THREE.MathUtils.damp(
           phys.rawInput.brake,
           brakeHeld,
@@ -3690,12 +3655,8 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       trafficGreenMat.color.setHex(tlPhase === 'GREEN' ? 0x10b981 : 0x064e3b);
       updateTrafficCountdownDisplay(tlPhase, exEngine.trafficLightRemainingS);
 
-      // Hide floating 3D neon checkpoint gates so the 3D road remains 100% realistic like Laixehub
-      const activeEx = exEngine.activeExercise;
-      activeCheckpointGroup.visible = false;
-      nextCheckpointRing.visible = false;
-
       // Sync 3D Course Debug Gizmos (Road Centerlines, Segment Boundaries, Checkpoint Trigger Volumes, Route Line)
+      const activeEx = exEngine.activeExercise;
       const currentExId = activeEx ? activeEx.id : null;
       if (currentExId !== lastDebugExerciseId) {
         lastDebugExerciseId = currentExId;

@@ -389,37 +389,60 @@ export class SoundEngine {
       return '/audio/voice/raw_start_bip.mp3';
     }
 
-    // 2. THÔNG BÁO CHUYỂN BÀI THI (CHỈ ĐỌC TÊN BÀI)
-    if (t.includes('nhường đường cho người đi bộ')) {
+    // 2. THÔNG BÁO CHUYỂN BÀI THI (CHỈ ĐỌC TÊN BÀI CHUẨN XE CHIP SÂN THI)
+    if (t.includes('nhường đường cho người đi bộ') || t.includes('người đi bộ')) {
       return '/audio/voice/bai_tiep_theo_nguoi_di_bo.mp3';
     }
-    if (t.includes('khởi hành xe ngang dốc') || t.includes('khởi hành ngang dốc')) {
+    if (
+      t.includes('khởi hành xe ngang dốc') ||
+      t.includes('khởi hành ngang dốc') ||
+      t.includes('dừng xe và khởi hành xe ngang dốc') ||
+      t.includes('ngang dốc') ||
+      t.includes('dốc cầu')
+    ) {
       return '/audio/voice/bai_tiep_theo_ngang_doc.mp3';
     }
-    if (t.includes('qua vệt bánh xe và đường hẹp vuông góc') || t.includes('vệt bánh xe')) {
+    if (
+      t.includes('qua vệt bánh xe và đường hẹp vuông góc') ||
+      t.includes('vệt bánh xe') ||
+      t.includes('hàng đinh')
+    ) {
       return '/audio/voice/bai_tiep_theo_vet_banh_xe.mp3';
     }
-    if (t.includes('qua ngã tư có tín hiệu') || t.includes('qua ngã tư có đèn tín hiệu')) {
+    if (
+      t.includes('qua ngã tư có tín hiệu') ||
+      t.includes('qua ngã tư có đèn tín hiệu') ||
+      t.includes('ngã tư')
+    ) {
       return '/audio/voice/bai_tiep_theo_nga_tu.mp3';
     }
-    if (t.includes('đường vòng quanh co')) {
+    if (t.includes('đường vòng quanh co') || t.includes('chữ s')) {
       return '/audio/voice/bai_tiep_theo_duong_vong_quanh_co.mp3';
     }
-    if (t.includes('ghép xe dọc vào nơi đỗ')) {
+    if (t.includes('ghép xe dọc vào nơi đỗ') || t.includes('ghép xe dọc')) {
       return '/audio/voice/bai_tiep_theo_ghep_xe_doc.mp3';
     }
-    if (t.includes('tạm dừng ở nơi có đường sắt chạy qua') || t.includes('đường sắt chạy qua')) {
+    if (
+      t.includes('tạm dừng ở nơi có đường sắt chạy qua') ||
+      t.includes('đường sắt chạy qua') ||
+      t.includes('đường sắt')
+    ) {
       return '/audio/voice/bai_tiep_theo_duong_sat.mp3';
     }
-    if (t.includes('thay đổi số trên đường thẳng')) {
+    if (
+      t.includes('thay đổi số trên đường thẳng') ||
+      t.includes('thay đổi số') ||
+      t.includes('tăng tốc')
+    ) {
       return '/audio/voice/bai_tiep_theo_thay_doi_so.mp3';
     }
-    if (t.includes('ghép xe ngang vào nơi đỗ')) {
+    if (t.includes('ghép xe ngang vào nơi đỗ') || t.includes('ghép xe ngang')) {
       return '/audio/voice/bai_tiep_theo_ghep_xe_ngang.mp3';
     }
     if (
       t.includes('bài thi cuối cùng: kết thúc') ||
-      t.includes('bài thi kết thúc')
+      t.includes('bài thi kết thúc') ||
+      t.includes('kết thúc')
     ) {
       return '/audio/voice/bai_tiep_theo_ket_thuc.mp3';
     }
@@ -493,7 +516,7 @@ export class SoundEngine {
       return '/audio/voice/loi_qua_18_phut_toan_bai.mp3';
     }
 
-    // 6. THÔNG BÁO TRUỘT TRỰC TIẾP (TƯỚC QUYỀN SÁT HẠCH)
+    // 6. THÔNG BÁO TRƯỢT TRỰC TIẾP (TƯỚC QUYỀN SÁT HẠCH)
     if (t.includes('quá ba mươi giây không xuất phát')) {
       return '/audio/voice/truot_qua_30s_xuat_phat.mp3';
     }
@@ -521,12 +544,82 @@ export class SoundEngine {
       return '/audio/voice/ket_qua_truot_duoi_80.mp3';
     }
 
+    if (t.includes('không thay đổi số') || t.includes('thay đổi số trên đường thẳng')) {
+      return '/audio/voice/loi_b9_thay_doi_so.mp3';
+    }
+    if (t.includes('quá tốc độ')) {
+      return '/audio/voice/loi_qua_toc_do.mp3';
+    }
+    if (t.includes('phanh tay')) {
+      return '/audio/voice/loi_phanh_tay.mp3';
+    }
+
     return null;
+  }
+
+  private voiceQueue: string[] = [];
+  private isVoicePlaying = false;
+  private currentVoiceEl: HTMLAudioElement | null = null;
+
+  public clearVoiceQueue(): void {
+    this.voiceQueue = [];
+    if (this.currentVoiceEl) {
+      try {
+        this.currentVoiceEl.pause();
+        this.currentVoiceEl.currentTime = 0;
+      } catch {}
+      this.currentVoiceEl = null;
+    }
+    this.isVoicePlaying = false;
+  }
+
+  private playNextInVoiceQueue(): void {
+    if (this.isMuted || this.voiceQueue.length === 0) {
+      this.isVoicePlaying = false;
+      this.currentVoiceEl = null;
+      return;
+    }
+
+    this.isVoicePlaying = true;
+    const nextUrl = this.voiceQueue.shift()!;
+    try {
+      const audio = new Audio(nextUrl);
+      this.currentVoiceEl = audio;
+      audio.volume = 1.0;
+      audio.onended = () => {
+        this.currentVoiceEl = null;
+        this.playNextInVoiceQueue();
+      };
+      audio.onerror = () => {
+        this.currentVoiceEl = null;
+        this.playNextInVoiceQueue();
+      };
+      audio.play().catch(() => {
+        this.currentVoiceEl = null;
+        this.playNextInVoiceQueue();
+      });
+    } catch {
+      this.isVoicePlaying = false;
+      this.currentVoiceEl = null;
+    }
+  }
+
+  public enqueueVoiceClips(urls: string[], interrupt = false): void {
+    if (this.isMuted) return;
+    if (interrupt) {
+      this.clearVoiceQueue();
+    }
+    const valid = urls.filter((u) => Boolean(u));
+    if (valid.length === 0) return;
+    this.voiceQueue.push(...valid);
+    if (!this.isVoicePlaying) {
+      this.playNextInVoiceQueue();
+    }
   }
 
   /**
    * Announces the current driving test exercise or violation out loud in authentic Vietnamese
-   * using pre-recorded 2026 Raw Chip Speaker MP3 audio clips (with Web Speech API fallback).
+   * using pre-recorded 2026 Raw Chip Speaker MP3 audio clips with sequential Audio Queue chaining.
    */
   public announceExerciseVoiceVi(
     textVi: string,
@@ -536,7 +629,8 @@ export class SoundEngine {
       | 'TUYT'
       | 'TUYT_AND_CHIME'
       | 'ALARM_AND_VOICE' = true,
-    remainingScoreForVoice?: number
+    remainingScoreForVoice?: number,
+    directClipUrl?: string
   ): void {
     this.init();
     if (textVi) {
@@ -544,15 +638,15 @@ export class SoundEngine {
     }
     if (this.isMuted) return;
 
-    // If textVi is empty, only play the requested sensor sound effect ("Bính-Boong" or "Tuýt!")
-    if (!textVi) {
+    // Handle sensor sound effect alone
+    if (!textVi && !directClipUrl) {
       if (withChime === 'TUYT') {
         this.playSensorRecognitionBeep();
       } else if (withChime === 'TUYT_AND_CHIME') {
         this.playSensorRecognitionBeep();
         window.setTimeout(() => {
           if (!this.isMuted) this.playExamChime();
-        }, 380);
+        }, 320);
       } else if (withChime === true || withChime === 'CHIME') {
         this.playExamChime();
       } else if (withChime === 'ALARM_AND_VOICE') {
@@ -561,71 +655,62 @@ export class SoundEngine {
       return;
     }
 
-    let delayMs = 20;
+    const clipsToPlay: string[] = [];
+
+    // 1. Chime / Sfx prefix
     if (withChime === 'ALARM_AND_VOICE') {
-      this.playEmergencyHazardAlarm();
-      delayMs = 650;
+      clipsToPlay.push('/audio/voice/coi_hu_khan_cap.wav');
     } else if (withChime === 'TUYT_AND_CHIME') {
-      this.playSensorRecognitionBeep();
-      window.setTimeout(() => {
-        if (!this.isMuted) this.playExamChime();
-      }, 150);
-      delayMs = 280;
+      clipsToPlay.push('/audio/voice/tuyt.wav');
+      clipsToPlay.push('/audio/voice/binh_boong.wav');
     } else if (withChime === 'TUYT') {
-      this.playSensorRecognitionBeep();
-      delayMs = 150;
+      clipsToPlay.push('/audio/voice/tuyt.wav');
     } else if (withChime === true || withChime === 'CHIME') {
-      this.playExamChime();
-      delayMs = 220;
+      clipsToPlay.push('/audio/voice/binh_boong.wav');
     }
 
-    if (this.speechTimerId !== null) {
-      window.clearTimeout(this.speechTimerId);
-      this.speechTimerId = null;
-    }
-    if (this.activeAudioEl) {
-      try {
-        this.activeAudioEl.pause();
-        this.activeAudioEl.currentTime = 0;
-      } catch {}
-      this.activeAudioEl = null;
-    }
-    if (this.chainedScoreAudioEl) {
-      try {
-        this.chainedScoreAudioEl.pause();
-        this.chainedScoreAudioEl.currentTime = 0;
-      } catch {}
-      this.chainedScoreAudioEl = null;
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
+    // 2. Main Voice Clip
+    const resolvedClip =
+      directClipUrl ||
+      this.resolvePreRecordedVoiceClipUrl(textVi, remainingScoreForVoice);
+    if (resolvedClip) {
+      clipsToPlay.push(resolvedClip);
     }
 
-    const clipUrl = this.resolvePreRecordedVoiceClipUrl(
-      textVi,
-      remainingScoreForVoice
-    );
-    const sanitizedText = sanitizeDigitsToWordsVi(textVi);
-
-    this.speechTimerId = window.setTimeout(() => {
-      this.speechTimerId = null;
-      if (this.isMuted) return;
-
-      if (clipUrl && typeof Audio !== 'undefined') {
-        try {
-          const audio = new Audio(clipUrl);
-          audio.volume = 1.0;
-          this.activeAudioEl = audio;
-          audio.play().catch(() => {
-            this.speakFallbackWebSpeech(sanitizedText);
-          });
-          return;
-        } catch {}
+    // 3. Remaining Score Clip (if provided and valid)
+    if (
+      remainingScoreForVoice !== undefined &&
+      remainingScoreForVoice !== null &&
+      !resolvedClip?.includes('ket_qua_dat_') &&
+      !resolvedClip?.includes('ket_qua_truot_') &&
+      !resolvedClip?.includes('truot_')
+    ) {
+      const s = Math.max(0, Math.min(100, Math.round(remainingScoreForVoice)));
+      if (s >= 65 && s <= 100) {
+        clipsToPlay.push(`/audio/voice/diem_con_${s}.mp3`);
+      } else if (s === 0) {
+        clipsToPlay.push('/audio/voice/diem_con_0.mp3');
       }
-      this.speakFallbackWebSpeech(sanitizedText);
-    }, delayMs);
+
+      // If score is under 80, also chain the fail message
+      if (s < 80) {
+        clipsToPlay.push('/audio/voice/ket_qua_truot_duoi_80.mp3');
+      }
+    }
+
+    if (clipsToPlay.length > 0) {
+      const isUrgent =
+        withChime === 'ALARM_AND_VOICE' ||
+        (remainingScoreForVoice !== undefined && remainingScoreForVoice < 80) ||
+        textVi.includes('truột') ||
+        textVi.includes('trượt');
+      this.enqueueVoiceClips(clipsToPlay, isUrgent);
+      if (!resolvedClip && textVi) {
+        this.speakFallbackWebSpeech(sanitizeDigitsToWordsVi(textVi));
+      }
+    } else if (textVi) {
+      this.speakFallbackWebSpeech(sanitizeDigitsToWordsVi(textVi));
+    }
   }
 
   private speakFallbackWebSpeech(textVi: string): void {
@@ -655,9 +740,13 @@ export class SoundEngine {
             v.name.toLowerCase().includes('linh') ||
             v.name.toLowerCase().includes('an')
         ) ?? null;
-      if (viVoice) {
-        utter.voice = viVoice;
+
+      // TUYỆT ĐỐI CẤM PHÁT TIẾNG ANH: Nếu máy/trình duyệt không có giọng tiếng Việt,
+      // KHÔNG BAO GIỜ được dùng giọng tiếng Anh (như Samantha/Alex) để đọc tiếng Việt!
+      if (!viVoice) {
+        return;
       }
+      utter.voice = viVoice;
 
       this.activeUtterance = utter;
       utter.onend = () => {
@@ -671,6 +760,7 @@ export class SoundEngine {
 
   public dispose(): void {
     this.stopCarHorn();
+    this.clearVoiceQueue();
     if (this.activeAudioEl) {
       try {
         this.activeAudioEl.pause();

@@ -241,7 +241,7 @@ export function checkEngineStallMT(
       stall_condition: 'CONDITION_1_BRAKE_STOP_NO_CLUTCH',
       engine_running: false,
       rpm: 0,
-      voice_announcement_vi: 'Xe chết máy. Trừ năm điểm.',
+      voice_announcement_vi: 'Xe chết máy.',
       detail_reason_vi:
         'Xe chết máy (ĐK1): Phanh dừng hẳn xe khi đang cài số nhưng không đạp cắt côn (clutch < 20%)!',
     };
@@ -273,7 +273,7 @@ export function checkEngineStallMT(
         stall_condition: 'CONDITION_2_FAST_CLUTCH_LOW_THROTTLE',
         engine_running: false,
         rpm: 0,
-        voice_announcement_vi: 'Xe chết máy. Trừ năm điểm.',
+        voice_announcement_vi: 'Xe chết máy.',
         detail_reason_vi:
           'Xe chết máy (ĐK2): Nhả côn quá nhanh (< 0.5 giây) khi ga dưới 15% làm vòng tua tụt dưới 600 RPM!',
       };
@@ -294,7 +294,7 @@ export function checkEngineStallMT(
       stall_condition: 'CONDITION_3_RPM_BELOW_STALL_THRESHOLD',
       engine_running: false,
       rpm: 0,
-      voice_announcement_vi: 'Xe chết máy. Trừ năm điểm.',
+      voice_announcement_vi: 'Xe chết máy.',
       detail_reason_vi:
         'Xe chết máy: Vòng tua tụt dưới 600 RPM khi côn đang bám mà không đủ ga!',
     };

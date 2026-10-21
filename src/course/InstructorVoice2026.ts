@@ -224,60 +224,59 @@ export function resolveContextualViolationVoice2026(
   scoreClipUrl: string | null;
   fullSpokenVi: string;
 } {
-  let spokenViolationVi = 'Bánh xe đè vạch. Trừ năm điểm.';
+  let spokenViolationVi = 'Bánh xe đè vạch.';
   let clipUrl = '/audio/voice/loi_banh_xe_de_vach.mp3';
 
   switch (code) {
     case 'MISSING_TURN_SIGNAL': {
       if (activeStationNumber === 1) {
-        spokenViolationVi = 'Không bật xi nhan trái khi xuất phát. Trừ năm điểm.';
+        spokenViolationVi = 'Không bật xi nhan trái khi xuất phát.';
         clipUrl = '/audio/voice/loi_khong_xi_nhan_trai_xuat_phat.mp3';
       } else if (activeStationNumber === 5) {
-        spokenViolationVi = 'Không bật xi nhan tại ngã tư. Trừ năm điểm.';
+        spokenViolationVi = 'Không bật xi nhan tại ngã tư.';
         clipUrl = '/audio/voice/loi_khong_xi_nhan_nga_tu.mp3';
       } else if (activeStationNumber === 11) {
-        spokenViolationVi = 'Không bật xi nhan phải khi kết thúc. Trừ năm điểm.';
+        spokenViolationVi = 'Không bật xi nhan phải khi kết thúc.';
         clipUrl = '/audio/voice/loi_khong_xi_nhan_phai_ket_thuc.mp3';
       } else {
-        spokenViolationVi = 'Không bật xi nhan trái khi xuất phát. Trừ năm điểm.';
+        spokenViolationVi = 'Không bật xi nhan trái khi xuất phát.';
         clipUrl = '/audio/voice/loi_khong_xi_nhan_trai_xuat_phat.mp3';
       }
       break;
     }
 
     case 'LATE_TURN_SIGNAL_OFF':
-      spokenViolationVi = 'Không tắt xi nhan trái sau khi qua vạch. Trừ năm điểm.';
+      spokenViolationVi = 'Không tắt xi nhan trái sau khi qua vạch.';
       clipUrl = '/audio/voice/loi_khong_tat_xi_nhan_trai.mp3';
       break;
 
     case 'START_TIMEOUT_20S':
-      spokenViolationVi =
-        'Quá hai mươi giây không xuất phát từ khi có lệnh bíp. Trừ năm điểm.';
+      spokenViolationVi = 'Quá hai mươi giây không xuất phát.';
       clipUrl = '/audio/voice/loi_qua_20s_xuat_phat.mp3';
       break;
 
     case 'START_DISQUALIFIED_30S':
       spokenViolationVi =
-        'Quá ba mươi giây không xuất phát. Học viên bị truột. Mời đưa xe về bãi.';
+        'Quá ba mươi giây không xuất phát. Học viên bị trượt. Mời đưa xe về bãi.';
       clipUrl = '/audio/voice/truot_qua_30s_xuat_phat.mp3';
       break;
 
     case 'INCORRECT_STOP_POSITION': {
       if (activeStationNumber === 3 && subContext === 'LATE_STOP') {
         spokenViolationVi =
-          'Dừng xe quá vạch trên dốc. Học viên bị truột. Mời đưa xe về bãi.';
+          'Dừng xe quá vạch trên dốc. Học viên bị trượt. Mời đưa xe về bãi.';
         clipUrl = '/audio/voice/truot_dung_qua_vach_tren_doc.mp3';
       } else if (subContext === 'EARLY_STOP') {
-        spokenViolationVi = 'Dừng xe chưa đến vạch quy định. Trừ năm điểm.';
+        spokenViolationVi = 'Dừng xe chưa đến vạch quy định.';
         clipUrl = '/audio/voice/loi_dung_chua_den_vach.mp3';
       } else if (subContext === 'LATE_STOP') {
-        spokenViolationVi = 'Dừng xe quá vạch quy định. Trừ năm điểm.';
+        spokenViolationVi = 'Dừng xe quá vạch quy định.';
         clipUrl = '/audio/voice/loi_dung_qua_vach.mp3';
       } else if (activeStationNumber === 7 || activeStationNumber === 10) {
-        spokenViolationVi = 'Xe không nhận bài ghép xe. Trừ năm điểm.';
+        spokenViolationVi = 'Xe không nhận bài ghép xe.';
         clipUrl = '/audio/voice/loi_khong_nhan_bai_ghep_xe.mp3';
       } else {
-        spokenViolationVi = 'Dừng xe quá vạch quy định. Trừ năm điểm.';
+        spokenViolationVi = 'Dừng xe quá vạch quy định.';
         clipUrl = '/audio/voice/loi_dung_qua_vach.mp3';
       }
       break;
@@ -286,10 +285,10 @@ export function resolveContextualViolationVoice2026(
     case 'FAILED_TO_STOP_AT_LINE': {
       if (activeStationNumber === 3 && subContext === 'LATE_STOP') {
         spokenViolationVi =
-          'Dừng xe quá vạch trên dốc. Học viên bị truột. Mời đưa xe về bãi.';
+          'Dừng xe quá vạch trên dốc. Học viên bị trượt. Mời đưa xe về bãi.';
         clipUrl = '/audio/voice/truot_dung_qua_vach_tren_doc.mp3';
       } else {
-        spokenViolationVi = 'Không dừng xe ở vạch dừng quy định. Trừ năm điểm.';
+        spokenViolationVi = 'Không dừng xe ở vạch dừng quy định.';
         clipUrl = '/audio/voice/loi_khong_dung_vach.mp3';
       }
       break;
@@ -297,23 +296,23 @@ export function resolveContextualViolationVoice2026(
 
     case 'HILL_HOLD_TIMEOUT_30S':
       spokenViolationVi =
-        'Quá ba mươi giây không qua dốc. Học viên bị truột. Mời đưa xe về bãi.';
+        'Quá ba mươi giây không qua dốc. Học viên bị trượt. Mời đưa xe về bãi.';
       clipUrl = '/audio/voice/truot_qua_30s_khong_qua_doc.mp3';
       break;
 
     case 'SLOPE_ROLLBACK':
       spokenViolationVi =
-        'Xe bị tụt dốc quá năm mươi centimet. Học viên bị truột. Mời đưa xe về bãi.';
+        'Xe bị tụt dốc quá năm mươi centimet. Học viên bị trượt. Mời đưa xe về bãi.';
       clipUrl = '/audio/voice/truot_tut_doc_50cm.mp3';
       break;
 
     case 'BOUNDARY_CROSSED': {
       if (subContext === 'OUTSIDE_NAIL_STRIP') {
         spokenViolationVi =
-          'Bánh xe đi ra ngoài hàng đinh. Học viên bị truột. Mời đưa xe về bãi.';
+          'Bánh xe đi ra ngoài hàng đinh. Học viên bị trượt. Mời đưa xe về bãi.';
         clipUrl = '/audio/voice/truot_ra_ngoai_hang_dinh.mp3';
       } else {
-        spokenViolationVi = 'Bánh xe đè vạch. Trừ năm điểm.';
+        spokenViolationVi = 'Bánh xe đè vạch.';
         clipUrl = '/audio/voice/loi_banh_xe_de_vach.mp3';
       }
       break;
@@ -322,80 +321,90 @@ export function resolveContextualViolationVoice2026(
     case 'RED_LIGHT_VIOLATION':
       if (subContext === 'GREEN_LIGHT_30S') {
         spokenViolationVi =
-          'Dừng quá ba mươi giây khi đèn xanh đã bật. Trừ năm điểm.';
+          'Dừng quá ba mươi giây khi đèn xanh đã bật.';
         clipUrl = '/audio/voice/loi_qua_30s_den_xanh.mp3';
       } else {
-        spokenViolationVi = 'Vi phạm tín hiệu đèn đỏ. Trừ năm điểm.';
+        spokenViolationVi = 'Vi phạm tín hiệu đèn đỏ.';
         clipUrl = '/audio/voice/loi_vi_pham_den_do.mp3';
       }
       break;
 
     case 'PARKING_OVERTIME_2MIN':
       spokenViolationVi =
-        'Quá thời gian hai phút một bài thi. Trừ năm điểm. Cứ mỗi hai phút quá hạn tiếp theo, trừ tiếp năm điểm.';
+        'Quá thời gian hai phút một bài thi.';
       clipUrl = '/audio/voice/loi_qua_2_phut_mot_bai.mp3';
       break;
 
     case 'GEAR_CHANGE_INCOMPLETE':
-    case 'SPEED_LIMIT_IN_COURSE':
       spokenViolationVi =
-        'Để tốc độ động cơ quá bốn nghìn vòng trên phút. Trừ năm điểm.';
-      clipUrl = '/audio/voice/loi_toc_do_dong_co_4000.mp3';
+        'Không thay đổi số trên đường thẳng theo quy định.';
+      clipUrl = '/audio/voice/loi_b9_thay_doi_so.mp3';
+      break;
+
+    case 'SPEED_LIMIT_IN_COURSE':
+      spokenViolationVi = 'Chạy quá tốc độ quy định.';
+      clipUrl = '/audio/voice/loi_qua_toc_do.mp3';
       break;
 
     case 'EMERGENCY_SIGNAL_VIOLATION':
       if (subContext === 'EARLY_HAZARD_OFF') {
         spokenViolationVi =
-          'Tắt nút ưu tiên trước khi có tiếng bíp báo hiệu kết thúc tình huống nguy hiểm. Trừ mười điểm.';
+          'Tắt nút ưu tiên trước khi có tiếng bíp kết thúc tình huống nguy hiểm.';
         clipUrl = '/audio/voice/loi_khan_cap_tat_som.mp3';
       } else {
         spokenViolationVi =
-          'Không phanh dừng xe hoặc không bấm nút ưu tiên trong vòng ba giây. Trừ mười điểm.';
+          'Không phanh dừng xe hoặc không bấm nút ưu tiên kịp thời.';
         clipUrl = '/audio/voice/loi_khan_cap_khong_dung.mp3';
       }
       break;
 
     case 'ENGINE_STALLED':
-      spokenViolationVi = 'Xe chết máy. Trừ năm điểm.';
+      spokenViolationVi = 'Xe chết máy.';
       clipUrl = '/audio/voice/loi_xe_chet_may.mp3';
       break;
 
     case 'ENGINE_OVER_RPM_4000':
       spokenViolationVi =
-        'Để tốc độ động cơ quá bốn nghìn vòng trên phút. Trừ năm điểm.';
+        'Để tốc độ động cơ quá bốn nghìn vòng trên phút.';
       clipUrl = '/audio/voice/loi_toc_do_dong_co_4000.mp3';
       break;
 
     case 'OBSTACLE_OR_CONE_HIT':
     case 'WRONG_CATEGORY_LANE':
       spokenViolationVi =
-        'Lái xe lên vỉa hè hoặc gây tai nạn. Học viên bị truột. Mời đưa xe về bãi.';
+        'Lái xe lên vỉa hè hoặc gây tai nạn. Học viên bị trượt. Mời đưa xe về bãi.';
       clipUrl = '/audio/voice/truot_len_via_he_tai_nan.mp3';
       break;
 
     case 'TIME_LIMIT_EXCEEDED':
       spokenViolationVi =
-        'Quá tổng thời gian mười tám phút quy định. Cứ mỗi ba giây, trừ một điểm.';
+        'Quá tổng thời gian mười tám phút quy định.';
       clipUrl = '/audio/voice/loi_qua_18_phut_toan_bai.mp3';
       break;
 
     case 'HANDBRAKE_DRIVING':
-      spokenViolationVi = 'Không thắt dây an toàn. Trừ năm điểm.';
-      clipUrl = '/audio/voice/loi_khong_that_day_an_toan.mp3';
+      spokenViolationVi = 'Chưa hạ hết phanh tay khi xe chạy.';
+      clipUrl = '/audio/voice/loi_phanh_tay.mp3';
       break;
 
     case 'MISSED_CHECKPOINT':
-      spokenViolationVi = 'Xe không nhận bài ghép xe. Trừ năm điểm.';
+      spokenViolationVi = 'Xe không nhận bài ghép xe.';
       clipUrl = '/audio/voice/loi_khong_nhan_bai_ghep_xe.mp3';
       break;
   }
 
+  const clampedScore = Math.max(0, Math.min(100, Math.round(_remainingScoreAfter)));
+  const scoreClipUrl =
+    clampedScore >= 65 && clampedScore <= 100
+      ? `/audio/voice/diem_con_${clampedScore}.mp3`
+      : '/audio/voice/diem_con_0.mp3';
+
   return {
     spokenViolationVi,
     clipUrl,
-    scoreSuffixVi: '',
-    scoreClipUrl: null,
-    fullSpokenVi: spokenViolationVi,
+    scoreSuffixVi: `Điểm còn lại: ${numberToVietnameseWords(clampedScore)} điểm.`,
+    scoreClipUrl,
+    fullSpokenVi: `${spokenViolationVi} Điểm còn lại: ${numberToVietnameseWords(clampedScore)} điểm.`,
   };
 }
 
@@ -578,7 +587,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Lỗi không phanh hoặc không bấm nút ưu tiên (-10đ)',
     keywords: ['không phanh dừng xe', 'không bấm nút ưu tiên', 'trong vòng ba giây', 'lỗi nguy hiểm'],
     spokenDialogueVi:
-      'Không phanh dừng xe hoặc không bấm nút ưu tiên trong vòng ba giây. Trừ mười điểm.',
+      'Không phanh dừng xe hoặc không bấm nút ưu tiên trong vòng ba giây.',
     pointsDeducted: 10,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khan_cap_khong_dung.mp3',
@@ -590,7 +599,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Lỗi tắt nút ưu tiên sớm trước tiếng bíp (-10đ)',
     keywords: ['tắt nút ưu tiên trước', 'trước khi có tiếng bíp', 'hết còi hú'],
     spokenDialogueVi:
-      'Tắt nút ưu tiên trước khi có tiếng bíp báo hiệu kết thúc tình huống nguy hiểm. Trừ mười điểm.',
+      'Tắt nút ưu tiên trước khi có tiếng bíp báo hiệu kết thúc tình huống nguy hiểm.',
     pointsDeducted: 10,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khan_cap_tat_som.mp3',
@@ -603,7 +612,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Không thắt dây an toàn (-5đ)',
     keywords: ['không thắt dây an toàn', 'dây an toàn'],
-    spokenDialogueVi: 'Không thắt dây an toàn. Trừ năm điểm.',
+    spokenDialogueVi: 'Không thắt dây an toàn.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_that_day_an_toan.mp3',
@@ -614,7 +623,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Không bật xi nhan trái khi xuất phát (-5đ)',
     keywords: ['không bật xi nhan trái khi xuất phát', 'xi nhan xuất phát'],
-    spokenDialogueVi: 'Không bật xi nhan trái khi xuất phát. Trừ năm điểm.',
+    spokenDialogueVi: 'Không bật xi nhan trái khi xuất phát.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_xi_nhan_trai_xuat_phat.mp3',
@@ -626,7 +635,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Không tắt xi nhan trái sau khi qua vạch (-5đ)',
     keywords: ['không tắt xi nhan trái', 'sau khi qua vạch', 'quên tắt xi nhan'],
     spokenDialogueVi:
-      'Không tắt xi nhan trái sau khi qua vạch. Trừ năm điểm.',
+      'Không tắt xi nhan trái sau khi qua vạch.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_tat_xi_nhan_trai.mp3',
@@ -637,7 +646,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Dừng xe chưa đến vạch quy định (-5đ)',
     keywords: ['dừng xe chưa đến vạch', 'chưa đến vạch', 'dừng non'],
-    spokenDialogueVi: 'Dừng xe chưa đến vạch quy định. Trừ năm điểm.',
+    spokenDialogueVi: 'Dừng xe chưa đến vạch quy định.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_dung_chua_den_vach.mp3',
@@ -648,7 +657,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Dừng xe quá vạch quy định (-5đ)',
     keywords: ['dừng xe quá vạch quy định', 'quá vạch quy định', 'dừng lố vạch'],
-    spokenDialogueVi: 'Dừng xe quá vạch quy định. Trừ năm điểm.',
+    spokenDialogueVi: 'Dừng xe quá vạch quy định.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_dung_qua_vach.mp3',
@@ -659,7 +668,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Không dừng xe ở vạch dừng quy định (-5đ)',
     keywords: ['không dừng xe ở vạch', 'bỏ qua vạch dừng'],
-    spokenDialogueVi: 'Không dừng xe ở vạch dừng quy định. Trừ năm điểm.',
+    spokenDialogueVi: 'Không dừng xe ở vạch dừng quy định.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_dung_vach.mp3',
@@ -670,7 +679,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Bánh xe đè vạch (-5đ)',
     keywords: ['bánh xe đè vạch', 'đè vạch', 'chạm vạch'],
-    spokenDialogueVi: 'Bánh xe đè vạch. Trừ năm điểm.',
+    spokenDialogueVi: 'Bánh xe đè vạch.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_banh_xe_de_vach.mp3',
@@ -681,7 +690,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Không bật xi nhan tại ngã tư (-5đ)',
     keywords: ['không bật xi nhan tại ngã tư', 'xi nhan ngã tư'],
-    spokenDialogueVi: 'Không bật xi nhan tại ngã tư. Trừ năm điểm.',
+    spokenDialogueVi: 'Không bật xi nhan tại ngã tư.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_xi_nhan_nga_tu.mp3',
@@ -692,7 +701,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Vi phạm tín hiệu đèn đỏ (-5đ)',
     keywords: ['vi phạm tín hiệu đèn đỏ', 'vượt đèn đỏ', 'đèn đỏ'],
-    spokenDialogueVi: 'Vi phạm tín hiệu đèn đỏ. Trừ năm điểm.',
+    spokenDialogueVi: 'Vi phạm tín hiệu đèn đỏ.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_vi_pham_den_do.mp3',
@@ -703,7 +712,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Xe không nhận bài ghép xe (-5đ)',
     keywords: ['xe không nhận bài ghép xe', 'không nhận bài', 'đỗ sai vị trí'],
-    spokenDialogueVi: 'Xe không nhận bài ghép xe. Trừ năm điểm.',
+    spokenDialogueVi: 'Xe không nhận bài ghép xe.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_nhan_bai_ghep_xe.mp3',
@@ -714,7 +723,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Không bật xi nhan phải khi kết thúc (-5đ)',
     keywords: ['không bật xi nhan phải khi kết thúc', 'xi nhan phải', 'xi nhan kết thúc'],
-    spokenDialogueVi: 'Không bật xi nhan phải khi kết thúc. Trừ năm điểm.',
+    spokenDialogueVi: 'Không bật xi nhan phải khi kết thúc.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_khong_xi_nhan_phai_ket_thuc.mp3',
@@ -725,7 +734,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     groupVi: '4. Lỗi và điểm số chung (-5đ)',
     labelVi: 'Xe chết máy (-5đ)',
     keywords: ['xe chết máy', 'chết máy', 'tắt máy'],
-    spokenDialogueVi: 'Xe chết máy. Trừ năm điểm.',
+    spokenDialogueVi: 'Xe chết máy.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_xe_chet_may.mp3',
@@ -737,7 +746,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Tốc độ động cơ quá 4000 vòng/phút (-5đ)',
     keywords: ['bốn nghìn vòng', '4000 vòng', 'quá bốn nghìn vòng', 'tốc độ động cơ'],
     spokenDialogueVi:
-      'Để tốc độ động cơ quá bốn nghìn vòng trên phút. Trừ năm điểm.',
+      'Để tốc độ động cơ quá bốn nghìn vòng trên phút.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_toc_do_dong_co_4000.mp3',
@@ -751,7 +760,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Quá 20 giây không xuất phát (-5đ)',
     keywords: ['quá hai mươi giây', 'quá 20 giây', 'không xuất phát từ khi có lệnh bíp'],
     spokenDialogueVi:
-      'Quá hai mươi giây không xuất phát từ khi có lệnh bíp. Trừ năm điểm.',
+      'Quá hai mươi giây không xuất phát từ khi có lệnh bíp.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_qua_20s_xuat_phat.mp3',
@@ -763,7 +772,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Quá 30 giây tại ngã tư đèn xanh (-5đ)',
     keywords: ['dừng quá ba mươi giây khi đèn xanh', 'quá 30 giây tại ngã tư', 'đèn xanh đã bật'],
     spokenDialogueVi:
-      'Dừng quá ba mươi giây khi đèn xanh đã bật. Trừ năm điểm.',
+      'Dừng quá ba mươi giây khi đèn xanh đã bật.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_qua_30s_den_xanh.mp3',
@@ -775,7 +784,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Quá 2 phút một bài thi (-5đ)',
     keywords: ['quá thời gian hai phút', 'quá 2 phút', 'hai phút một bài thi'],
     spokenDialogueVi:
-      'Quá thời gian hai phút một bài thi. Trừ năm điểm. Cứ mỗi hai phút quá hạn tiếp theo, trừ tiếp năm điểm.',
+      'Quá thời gian hai phút một bài thi.',
     pointsDeducted: 5,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_qua_2_phut_mot_bai.mp3',
@@ -787,21 +796,21 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
     labelVi: 'Quá tổng thời gian 18 phút (-1đ/3s)',
     keywords: ['quá tổng thời gian', 'mười tám phút', '18 phút', 'ba giây trừ một điểm'],
     spokenDialogueVi:
-      'Quá tổng thời gian mười tám phút quy định. Cứ mỗi ba giây, trừ một điểm.',
+      'Quá tổng thời gian mười tám phút quy định.',
     pointsDeducted: 1,
     isDisqualified: false,
     clipUrl: '/audio/voice/loi_qua_18_phut_toan_bai.mp3',
     soundCue: 'NONE',
   },
 
-  // ================= 6. THÔNG BÁO TRUỘT TRỰC TIẾP (TƯỚC QUYỀN SÁT HẠCH) =================
+  // ================= 6. THÔNG BÁO TRƯỢT TRỰC TIẾP (TƯỚC QUYỀN SÁT HẠCH) =================
   {
     id: 'disq_start_30s',
-    groupVi: '6. Truột trực tiếp (Tước quyền)',
-    labelVi: 'Quá 30 giây không xuất phát (Truột)',
+    groupVi: '6. Trượt trực tiếp (Tước quyền)',
+    labelVi: 'Quá 30 giây không xuất phát (Trượt)',
     keywords: ['quá ba mươi giây không xuất phát', 'quá 30 giây không xuất phát'],
     spokenDialogueVi:
-      'Quá ba mươi giây không xuất phát. Học viên bị truột. Mời đưa xe về bãi.',
+      'Quá ba mươi giây không xuất phát. Học viên bị trượt. Mời đưa xe về bãi.',
     pointsDeducted: 25,
     isDisqualified: true,
     clipUrl: '/audio/voice/truot_qua_30s_xuat_phat.mp3',
@@ -809,11 +818,11 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
   },
   {
     id: 'disq_hill_30s',
-    groupVi: '6. Truột trực tiếp (Tước quyền)',
-    labelVi: 'Quá 30 giây không qua dốc (Truột)',
+    groupVi: '6. Trượt trực tiếp (Tước quyền)',
+    labelVi: 'Quá 30 giây không qua dốc (Trượt)',
     keywords: ['quá ba mươi giây không qua dốc', 'quá 30 giây không qua dốc'],
     spokenDialogueVi:
-      'Quá ba mươi giây không qua dốc. Học viên bị truột. Mời đưa xe về bãi.',
+      'Quá ba mươi giây không qua dốc. Học viên bị trượt. Mời đưa xe về bãi.',
     pointsDeducted: 25,
     isDisqualified: true,
     clipUrl: '/audio/voice/truot_qua_30s_khong_qua_doc.mp3',
@@ -821,11 +830,11 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
   },
   {
     id: 'disq_hill_rollback_50cm',
-    groupVi: '6. Truột trực tiếp (Tước quyền)',
-    labelVi: 'Tụt dốc quá 50cm (Truột)',
+    groupVi: '6. Trượt trực tiếp (Tước quyền)',
+    labelVi: 'Tụt dốc quá 50cm (Trượt)',
     keywords: ['tụt dốc', 'năm mươi centimet', '50cm'],
     spokenDialogueVi:
-      'Xe bị tụt dốc quá năm mươi centimet. Học viên bị truột. Mời đưa xe về bãi.',
+      'Xe bị tụt dốc quá năm mươi centimet. Học viên bị trượt. Mời đưa xe về bãi.',
     pointsDeducted: 25,
     isDisqualified: true,
     clipUrl: '/audio/voice/truot_tut_doc_50cm.mp3',
@@ -833,11 +842,11 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
   },
   {
     id: 'disq_hill_stop_past_line',
-    groupVi: '6. Truột trực tiếp (Tước quyền)',
-    labelVi: 'Dừng xe quá vạch trên dốc (Truột)',
+    groupVi: '6. Trượt trực tiếp (Tước quyền)',
+    labelVi: 'Dừng xe quá vạch trên dốc (Trượt)',
     keywords: ['dừng xe quá vạch trên dốc', 'quá vạch trên dốc'],
     spokenDialogueVi:
-      'Dừng xe quá vạch trên dốc. Học viên bị truột. Mời đưa xe về bãi.',
+      'Dừng xe quá vạch trên dốc. Học viên bị trượt. Mời đưa xe về bãi.',
     pointsDeducted: 25,
     isDisqualified: true,
     clipUrl: '/audio/voice/truot_dung_qua_vach_tren_doc.mp3',
@@ -845,11 +854,11 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
   },
   {
     id: 'disq_outside_nail_strip',
-    groupVi: '6. Truột trực tiếp (Tước quyền)',
-    labelVi: 'Bánh xe đi ra ngoài hàng đinh (Truột)',
+    groupVi: '6. Trượt trực tiếp (Tước quyền)',
+    labelVi: 'Bánh xe đi ra ngoài hàng đinh (Trượt)',
     keywords: ['ra ngoài hàng đinh', 'ngoài hàng đinh'],
     spokenDialogueVi:
-      'Bánh xe đi ra ngoài hàng đinh. Học viên bị truột. Mời đưa xe về bãi.',
+      'Bánh xe đi ra ngoài hàng đinh. Học viên bị trượt. Mời đưa xe về bãi.',
     pointsDeducted: 25,
     isDisqualified: true,
     clipUrl: '/audio/voice/truot_ra_ngoai_hang_dinh.mp3',
@@ -857,11 +866,11 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
   },
   {
     id: 'disq_curb_or_accident',
-    groupVi: '6. Truột trực tiếp (Tước quyền)',
-    labelVi: 'Lên vỉa hè hoặc gây tai nạn (Truột)',
+    groupVi: '6. Trượt trực tiếp (Tước quyền)',
+    labelVi: 'Lên vỉa hè hoặc gây tai nạn (Trượt)',
     keywords: ['lên vỉa hè', 'gây tai nạn', 'vỉa hè', 'tai nạn'],
     spokenDialogueVi:
-      'Lái xe lên vỉa hè hoặc gây tai nạn. Học viên bị truột. Mời đưa xe về bãi.',
+      'Lái xe lên vỉa hè hoặc gây tai nạn. Học viên bị trượt. Mời đưa xe về bãi.',
     pointsDeducted: 25,
     isDisqualified: true,
     clipUrl: '/audio/voice/truot_len_via_he_tai_nan.mp3',
