@@ -10,8 +10,8 @@ declare global {
 }
 
 export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-4568419367261236';
-export const MONETAG_ZONE_ID = '300595';
-export const MONETAG_SCRIPT_URL = 'https://quge5.com/88/tag.min.js';
+export const MONETAG_ZONE_ID = '12099072';
+export const MONETAG_SCRIPT_URL = 'https://nap5k.com/tag.min.js';
 
 let adDismissObserver: MutationObserver | null = null;
 
