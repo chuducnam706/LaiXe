@@ -3398,13 +3398,6 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         } else if (keyCode === 'KeyK' && !e.repeat) {
           phys.toggleWiper();
           soundRef.current.playShiftClick();
-        } else if (keyCode === 'KeyN' && !e.repeat) {
-          phys.cycleWeatherMode();
-          soundRef.current.playShiftClick();
-          onTelemetryUpdateRef.current(
-            phys.getTelemetrySnapshot(),
-            exEngine.getRuntimeStateSnapshot()
-          );
         } else if (keyCode === 'KeyH') {
           soundRef.current.startCarHorn();
         } else if (keyCode === kb.resetVehicle && !e.repeat) {
@@ -4313,7 +4306,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           snap.peakSlip
         );
         soundRef.current.updateEmergencySiren(
-          exEngine.emergencyAlertActive &&
+          exEngine.isEmergencySirenActive() &&
             !isPausedRef.current &&
             !isTitleScreenRef.current
         );

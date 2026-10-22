@@ -3,6 +3,47 @@ import {
   sanitizeDigitsToWordsVi,
 } from '../course/InstructorVoice2026';
 
+export type EmergencySirenType =
+  | 'RANDOM'
+  | 'AMBULANCE' // Xe Cấp Cứu 115 VN (Còi ủ 2 tone cao-thấp dõng dạc)
+  | 'POLICE'    // Xe Công An / CSGT VN (Còi hú Fast Yelp dồn dập, sắc bén)
+  | 'FIRETRUCK' // Xe Cứu Hỏa PCCC VN (Còi Slow Wail ngân dài, âm vang trầm hùng)
+  | 'MILITARY'; // Xe Đoàn Quân Đội Ưu Tiên (Còi hú xung nhịp cao đanh thép)
+
+export interface EmergencySirenConfig {
+  type: EmergencySirenType;
+  labelVi: string;
+  descriptionVi: string;
+}
+
+export const VIETNAM_EMERGENCY_SIREN_PRESETS: EmergencySirenConfig[] = [
+  {
+    type: 'RANDOM',
+    labelVi: 'Ngẫu nhiên các loại còi ưu tiên VN',
+    descriptionVi: 'Hệ thống tự động chọn ngẫu nhiên giữa Cứu Thương, Công An, Cứu Hỏa và Quân Đội khi kích hoạt.',
+  },
+  {
+    type: 'AMBULANCE',
+    labelVi: 'Xe Cấp Cứu 115 Việt Nam',
+    descriptionVi: 'Còi ủ 2 âm vực Hi-Lo đặc trưng (Ò... É... Ò... É...) dõng dạc, ngân vang.',
+  },
+  {
+    type: 'POLICE',
+    labelVi: 'Xe Công An / CSGT Việt Nam',
+    descriptionVi: 'Còi hú Fast Yelp dồn dập, tần số quét sắc bén, yêu cầu nhường đường khẩn cấp.',
+  },
+  {
+    type: 'FIRETRUCK',
+    labelVi: 'Xe Cứu Hỏa PCCC Việt Nam',
+    descriptionVi: 'Còi hú chậm Slow Wail trầm hùng kết hợp âm bội còi hơi uy lực.',
+  },
+  {
+    type: 'MILITARY',
+    labelVi: 'Xe Đoàn Quân Đội Ưu Tiên',
+    descriptionVi: 'Còi hú xung nhịp cao đanh thép, chuẩn đoàn xe chỉ huy quân sự.',
+  },
+];
+
 export class SoundEngine {
   private ctx: AudioContext | null = null;
   public isMuted = false;
@@ -242,8 +283,210 @@ export class SoundEngine {
     }, durationMs);
   }
 
-  public updateEmergencySiren(_active: boolean): void {
-    // Continuous wailing siren ("tiếng hú") disabled per user preference
+  private sirenType: EmergencySirenType = 'RANDOM';
+  private currentActiveSirenType: 'AMBULANCE' | 'POLICE' | 'FIRETRUCK' | 'MILITARY' = 'POLICE';
+  public isSirenPlaying = false;
+  private sirenOsc1: OscillatorNode | null = null;
+  private sirenOsc2: OscillatorNode | null = null;
+  private sirenModulator: OscillatorNode | null = null;
+  private sirenModGain: GainNode | null = null;
+  private sirenFilter: BiquadFilterNode | null = null;
+  private sirenGain: GainNode | null = null;
+  private sirenCleanupTimeout: number | null = null;
+
+  public getEmergencySirenType(): EmergencySirenType {
+    return this.sirenType;
+  }
+
+  public setEmergencySirenType(type: EmergencySirenType): void {
+    this.sirenType = type;
+    if (this.isSirenPlaying) {
+      this.stopEmergencySiren();
+      this.startEmergencySiren(type);
+    }
+  }
+
+  public getCurrentActiveSirenType(): 'AMBULANCE' | 'POLICE' | 'FIRETRUCK' | 'MILITARY' {
+    return this.currentActiveSirenType;
+  }
+
+  public startEmergencySiren(forcedType?: EmergencySirenType): void {
+    this.init();
+    if (this.isMuted || !this.ctx || this.isSirenPlaying) return;
+    try {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      if (this.sirenCleanupTimeout !== null) {
+        window.clearTimeout(this.sirenCleanupTimeout);
+        this.sirenCleanupTimeout = null;
+      }
+
+      let chosen = forcedType || this.sirenType;
+      if (chosen === 'RANDOM') {
+        const types: ('AMBULANCE' | 'POLICE' | 'FIRETRUCK' | 'MILITARY')[] = [
+          'AMBULANCE',
+          'POLICE',
+          'FIRETRUCK',
+          'MILITARY',
+        ];
+        chosen = types[Math.floor(Math.random() * types.length)];
+      }
+      this.currentActiveSirenType = chosen as any;
+
+      const now = this.ctx.currentTime;
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const lfo = this.ctx.createOscillator();
+      const lfoGain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+      const mainGain = this.ctx.createGain();
+
+      if (chosen === 'AMBULANCE') {
+        // Cấp Cứu 115 Việt Nam: 2-tone hi-lo wail (650Hz ↔ 940Hz, chu kỳ ~0.9s)
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(780, now);
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(780, now);
+
+        lfo.type = 'square';
+        lfo.frequency.setValueAtTime(1.15, now);
+        lfoGain.gain.setValueAtTime(160, now);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2400, now);
+        filter.Q.setValueAtTime(2.2, now);
+
+        mainGain.gain.setValueAtTime(0.001, now);
+        mainGain.gain.linearRampToValueAtTime(0.12, now + 0.08);
+      } else if (chosen === 'POLICE') {
+        // Công An / CSGT Việt Nam: Còi hú Fast Yelp dồn dập sắc bén (650Hz - 1350Hz, chu kỳ ~0.35s)
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(950, now);
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(953, now);
+
+        lfo.type = 'sawtooth';
+        lfo.frequency.setValueAtTime(2.9, now);
+        lfoGain.gain.setValueAtTime(420, now);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(3200, now);
+        filter.Q.setValueAtTime(3.0, now);
+
+        mainGain.gain.setValueAtTime(0.001, now);
+        mainGain.gain.linearRampToValueAtTime(0.13, now + 0.06);
+      } else if (chosen === 'FIRETRUCK') {
+        // Cứu Hỏa PCCC Việt Nam: Còi ngân dài trầm uy lực Slow Wail (420Hz - 880Hz, chu kỳ ~1.3s)
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(620, now);
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(624, now);
+
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(0.78, now);
+        lfoGain.gain.setValueAtTime(320, now);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1900, now);
+        filter.Q.setValueAtTime(1.8, now);
+
+        mainGain.gain.setValueAtTime(0.001, now);
+        mainGain.gain.linearRampToValueAtTime(0.14, now + 0.10);
+      } else {
+        // MILITARY: Xe Đoàn Quân Đội Ưu Tiên: Còi hú nhịp cao dũng mãnh (680Hz - 1180Hz)
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(860, now);
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(1290, now);
+
+        lfo.type = 'triangle';
+        lfo.frequency.setValueAtTime(1.9, now);
+        lfoGain.gain.setValueAtTime(310, now);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2800, now);
+        filter.Q.setValueAtTime(2.4, now);
+
+        mainGain.gain.setValueAtTime(0.001, now);
+        mainGain.gain.linearRampToValueAtTime(0.11, now + 0.08);
+      }
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc1.frequency);
+      lfoGain.connect(osc2.frequency);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(mainGain);
+      mainGain.connect(this.ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      lfo.start(now);
+
+      this.sirenOsc1 = osc1;
+      this.sirenOsc2 = osc2;
+      this.sirenModulator = lfo;
+      this.sirenModGain = lfoGain;
+      this.sirenFilter = filter;
+      this.sirenGain = mainGain;
+      this.isSirenPlaying = true;
+    } catch {}
+  }
+
+  public stopEmergencySiren(): void {
+    if (!this.isSirenPlaying) return;
+    this.isSirenPlaying = false;
+    try {
+      if (this.ctx && this.sirenGain) {
+        const now = this.ctx.currentTime;
+        this.sirenGain.gain.cancelScheduledValues(now);
+        this.sirenGain.gain.setValueAtTime(
+          Math.max(0.001, this.sirenGain.gain.value),
+          now
+        );
+        this.sirenGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.08);
+        const o1 = this.sirenOsc1;
+        const o2 = this.sirenOsc2;
+        const lfo = this.sirenModulator;
+        const modG = this.sirenModGain;
+        const filt = this.sirenFilter;
+        const mainG = this.sirenGain;
+
+        this.sirenCleanupTimeout = window.setTimeout(() => {
+          try {
+            o1?.stop();
+            o2?.stop();
+            lfo?.stop();
+            o1?.disconnect();
+            o2?.disconnect();
+            lfo?.disconnect();
+            modG?.disconnect();
+            filt?.disconnect();
+            mainG?.disconnect();
+          } catch {}
+        }, 90);
+      }
+    } catch {}
+    this.sirenOsc1 = null;
+    this.sirenOsc2 = null;
+    this.sirenModulator = null;
+    this.sirenModGain = null;
+    this.sirenFilter = null;
+    this.sirenGain = null;
+  }
+
+  public updateEmergencySiren(active: boolean): void {
+    if (active) {
+      if (!this.isSirenPlaying) {
+        this.startEmergencySiren();
+      }
+    } else {
+      if (this.isSirenPlaying) {
+        this.stopEmergencySiren();
+      }
+    }
   }
 
   private activeAudioEl: HTMLAudioElement | null = null;
@@ -352,20 +595,7 @@ export class SoundEngine {
    * Plays the urgent electronic alarm burst ("Tút - Tút - Tút!") for the Emergency Hazard Station.
    */
   public playEmergencyHazardAlarm(): void {
-    this.init();
-    if (this.isMuted) return;
-    if (typeof Audio !== 'undefined') {
-      try {
-        const sfx = new Audio('/audio/voice/coi_hu_khan_cap.wav');
-        sfx.volume = 1.0;
-        this.activeSfxEl = sfx;
-        sfx.play().catch(() => {
-          this.playSensorRecognitionBeep();
-        });
-        return;
-      } catch {}
-    }
-    this.playSensorRecognitionBeep();
+    this.startEmergencySiren();
   }
 
   private resolvePreRecordedVoiceClipUrl(
@@ -449,7 +679,7 @@ export class SoundEngine {
 
     // 3. BÀI THI TÌNH HUỐNG NGUY HIỂM KHẨN CẤP
     if (t.includes('hú hú hú') || t.includes('dừng nguy hiểm')) {
-      return '/audio/voice/tinh_huong_khan_cap.mp3';
+      return null;
     }
     if (t.includes('không phanh dừng xe hoặc không bấm nút ưu tiên')) {
       return '/audio/voice/loi_khan_cap_khong_dung.mp3';

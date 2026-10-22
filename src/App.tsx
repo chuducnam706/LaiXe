@@ -27,6 +27,10 @@ import {
   Radio,
   Zap,
   Monitor,
+  Ticket,
+  Lock,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react';
 import { VehiclePhysicsEngine } from './physics/VehiclePhysicsEngine';
 import { ExerciseRuntimeEngine } from './course/ExerciseRuntimeEngine';
@@ -85,6 +89,15 @@ import {
 import { FirstTimeTutorialModal } from './components/FirstTimeTutorialModal';
 import { TheoryStudyModal } from './components/TheoryStudyModal';
 import { InstructorScoringConsoleModal } from './components/InstructorScoringConsoleModal';
+import { useAuth } from './context/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { ExamHistoryModal } from './components/ExamHistoryModal';
+import { UserAccountButton } from './components/UserAccountButton';
+import { useDailyPlayLimit } from './context/DailyPlayLimitContext';
+import { OutOfPlaysModal } from './components/OutOfPlaysModal';
+import { DailyPlaysBadge } from './components/DailyPlaysBadge';
+import { GuestTrialExpiredModal } from './components/GuestTrialExpiredModal';
+import { RoleManagementModal } from './components/RoleManagementModal';
 
 export default function App() {
   // Core mutable simulation & course engines (Lazy initialized ONCE so re-renders never reset physics state!)
@@ -163,6 +176,20 @@ export default function App() {
   const [isTheoryModalOpen, setIsTheoryModalOpen] = useState<boolean>(false);
   const [isInstructorConsoleOpen, setIsInstructorConsoleOpen] =
     useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+  const { currentUser, isAdmin, saveExamResult } = useAuth();
+  const {
+    dailyLimit,
+    guestTrialMinutes,
+    playsRemaining,
+    consumePlay,
+    isOutOfPlaysModalOpen,
+    setIsOutOfPlaysModalOpen,
+  } = useDailyPlayLimit();
+  const [guestSecondsRemaining, setGuestSecondsRemaining] = useState<number | null>(null);
+  const [isTrialExpiredModalOpen, setIsTrialExpiredModalOpen] = useState<boolean>(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [completedAttemptResult, setCompletedAttemptResult] =
     useState<PracticeAttemptResult | null>(null);
   const [failureNotice, setFailureNotice] = useState<{
@@ -277,9 +304,17 @@ export default function App() {
     };
     exEngine.onExerciseFinished = (result) => {
       setPracticeHistory(exEngine.loadPracticeHistory());
+      saveExamResult(result);
       if (result.passed) {
         setCompletedAttemptResult(result);
       } else {
+        // Dừng xe và khóa phanh khi đã thi trượt / truất quyền
+        physicsRef.current.isEngineRunning = false;
+        physicsRef.current.handbrakeActive = true;
+        physicsRef.current.rawInput.brake = 1;
+        physicsRef.current.rawInput.throttle = 0;
+        physicsRef.current.rawInput.handbrake = true;
+
         if (failureNoticeTimerRef.current) {
           clearInterval(failureNoticeTimerRef.current);
           failureNoticeTimerRef.current = null;
@@ -399,7 +434,7 @@ export default function App() {
 
       if (e.code === 'Escape') {
         if (completedAttemptResult) {
-          setCompletedAttemptResult(null);
+          handleCloseResultsModal();
         } else if (isTutorialModalOpen) {
           setIsTutorialModalOpen(false);
         } else if (isCourseModalOpen) {
@@ -460,6 +495,20 @@ export default function App() {
   ]);
 
   const handleStartSimulation = (mode?: TransmissionMode) => {
+    // If not registered/logged in, do NOT allow Automatic transmission
+    if (mode === 'AUTOMATIC' && !currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    if (!consumePlay()) {
+      return;
+    }
+    // Set guest trial duration (e.g. 3 mins from Remote Config)
+    if (!currentUser) {
+      setGuestSecondsRemaining(guestTrialMinutes * 60);
+    } else {
+      setGuestSecondsRemaining(null);
+    }
     tryLockNativeLandscape();
     soundRef.current.init();
     if (mode) {
@@ -519,6 +568,12 @@ export default function App() {
     exercise: DrivingExerciseDefinition,
     mode: ExerciseMode = 'SINGLE_EXERCISE'
   ) => {
+    if (!consumePlay()) {
+      return;
+    }
+    if (!currentUser) {
+      setGuestSecondsRemaining(guestTrialMinutes * 60);
+    }
     tryLockNativeLandscape();
     soundRef.current.init();
     soundRef.current.clearVoiceQueue();
@@ -553,7 +608,27 @@ export default function App() {
     setIsPaused(false);
   };
 
+  const handleCloseResultsModal = () => {
+    if (completedAttemptResult && !completedAttemptResult.passed) {
+      // Khi đã thi trượt/truất quyền, đóng bảng kết quả sẽ đưa học viên về màn hình chính, không cho lái tiếp phiên cũ
+      setIsTitleScreen(true);
+      setFailureNotice(null);
+      setCompletedAttemptResult(null);
+      setIsPaused(false);
+      soundRef.current.clearVoiceQueue();
+      exerciseEngineRef.current.status = 'NOT_STARTED';
+      return;
+    }
+    setCompletedAttemptResult(null);
+  };
+
   const handleRetryCurrent = () => {
+    if (!consumePlay()) {
+      return;
+    }
+    if (!currentUser) {
+      setGuestSecondsRemaining(guestTrialMinutes * 60);
+    }
     if (failureNoticeTimerRef.current) {
       clearInterval(failureNoticeTimerRef.current);
       failureNoticeTimerRef.current = null;
@@ -604,6 +679,10 @@ export default function App() {
   };
 
   const handleToggleTransmission = () => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const next: TransmissionMode =
       physicsRef.current.transmissionMode === 'MANUAL' ? 'AUTOMATIC' : 'MANUAL';
     physicsRef.current.transmissionMode = next;
@@ -616,6 +695,33 @@ export default function App() {
           : 'D';
     }
     setTelemetry(physicsRef.current.getTelemetrySnapshot());
+  };
+
+  // Guest Trial Countdown Effect (e.g. 3 mins from Remote Config)
+  useEffect(() => {
+    if (isTitleScreen || isPaused || currentUser || guestSecondsRemaining === null) return;
+    if (guestSecondsRemaining <= 0) {
+      // Pause vehicle, stop engine, show warning modal before returning to main screen
+      setIsPaused(true);
+      soundRef.current.clearVoiceQueue();
+      setIsTrialExpiredModalOpen(true);
+      return;
+    }
+    const timer = setInterval(() => {
+      setGuestSecondsRemaining((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isTitleScreen, isPaused, currentUser, guestSecondsRemaining]);
+
+  const handleReturnHomeFromTrial = () => {
+    setIsTrialExpiredModalOpen(false);
+    setIsTitleScreen(true);
+    setIsPaused(false);
+    setCompletedAttemptResult(null);
+    setFailureNotice(null);
+    setGuestSecondsRemaining(null);
+    soundRef.current.clearVoiceQueue();
+    exerciseEngineRef.current.status = 'NOT_STARTED';
   };
 
   const handleToggleMute = () => {
@@ -737,26 +843,15 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setIsCourseModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 shadow transition-colors whitespace-nowrap shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/90 text-white hover:bg-emerald-500 shadow transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <MapIcon className="w-3.5 h-3.5" />
-                Chọn Bài & Sơ Đồ (11 Bài)
-              </button>
-
-              <button
-                onClick={() => {
-                  soundRef.current.init();
-                  setIsInstructorConsoleOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/95 text-amber-300 border border-slate-700 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
-              >
-                <Radio className="w-3.5 h-3.5 text-amber-400" />
-                Chip Chấm Điểm
+                Chọn Bài (11 Bài)
               </button>
 
               <button
                 onClick={() => setIsTheoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/95 text-sky-300 border border-slate-700 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/90 text-sky-300 border border-slate-700 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 600 Câu Lý Thuyết
@@ -764,11 +859,28 @@ export default function App() {
 
               <button
                 onClick={() => setIsTutorialModalOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors whitespace-nowrap shrink-0 shadow"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                <HelpCircle className="w-3.5 h-3.5" />
+                <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
                 Hướng Dẫn
               </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => setIsRoleModalOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
+                  title="Quản trị: Tạo mã VIP & Đổi mật khẩu"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
+                  Quản Trị Admin
+                </button>
+              )}
+
+              <UserAccountButton
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onOpenHistory={() => setIsHistoryModalOpen(true)}
+                onOpenRoleModal={() => setIsRoleModalOpen(true)}
+              />
             </div>
           </div>
 
@@ -784,8 +896,9 @@ export default function App() {
                 Mô Phỏng Sát Hạch Lái Xe Sa Hình 3D
               </h1>
 
-              {/* Vehicle Category + Weather Row in a single compact line */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              {/* Vehicle Category Selector */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-xs text-slate-400 font-medium">Hạng xe:</span>
                 {(['B', 'C1', 'C'] as const).map((catCode) => {
                   const vehProfile = SELECTABLE_VEHICLE_PROFILES.find(
                     (v) => v.category === catCode
@@ -796,65 +909,86 @@ export default function App() {
                     <button
                       key={catCode}
                       onClick={() => handleUpdateProfile(vehProfile)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                         isActiveCat
                           ? 'bg-amber-500 text-slate-950 border-amber-300 shadow'
-                          : 'bg-slate-900/90 text-slate-200 border-slate-700 hover:bg-slate-800'
-                      }`}
-                    >
-                      Xe Hạng {catCode}
-                    </button>
-                  );
-                })}
-
-                <span className="text-slate-700 mx-0.5">|</span>
-
-                {(
-                  [
-                    { mode: 'CLEAR', label: '☀️ Nắng' },
-                    { mode: 'RAIN', label: '🌧️ Mưa' },
-                    { mode: 'FOG', label: '🌫️ Sương Mù' },
-                  ] as const
-                ).map((wItem) => {
-                  const isActiveWeather = telemetry.weatherMode === wItem.mode;
-                  return (
-                    <button
-                      key={wItem.mode}
-                      type="button"
-                      onClick={() => {
-                        physicsRef.current.setWeatherMode(wItem.mode);
-                        setTelemetry(physicsRef.current.getTelemetrySnapshot());
-                      }}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                        isActiveWeather
-                          ? 'bg-sky-500 text-slate-950 border-sky-300 shadow'
                           : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
                       }`}
                     >
-                      {wItem.label}
+                      Hạng {catCode} ({catCode === 'B' ? 'Xe con' : catCode === 'C1' ? 'Tải nhẹ' : 'Tải C'})
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Primary Launch Buttons */}
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <button
-                onClick={() => handleStartSimulation('MANUAL')}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold bg-sky-500 text-slate-950 hover:bg-sky-400 shadow-[0_0_20px_rgba(14,165,233,0.45)] transition-all active:scale-95 whitespace-nowrap"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Vào Lái Số Sàn (MT)
-              </button>
+            {/* Primary Launch Buttons & Prominent Daily Plays Indicator */}
+            <div className="flex flex-col items-start lg:items-end gap-2 shrink-0">
+              {/* Prominent Daily Plays Indicator (chỉ hiển thị cho người dùng đã đăng nhập) */}
+              {currentUser && (
+                <button
+                  type="button"
+                  onClick={() => setIsOutOfPlaysModalOpen(true)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-md cursor-pointer ${
+                    playsRemaining === 0
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+                      : playsRemaining <= 1
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                      : 'bg-slate-900/95 text-slate-200 border-slate-700 hover:bg-slate-800 hover:border-sky-500/50'
+                  }`}
+                  title="Số lượt thi thực hành sa hình hôm nay (Cấu hình tự động qua Firebase Remote Config)"
+                >
+                  <Ticket className={`w-4 h-4 ${playsRemaining === 0 ? 'text-rose-400' : playsRemaining <= 1 ? 'text-amber-400' : 'text-sky-400'}`} />
+                  <span className="text-slate-300 font-medium">Lượt thi hôm nay:</span>
+                  <span className="font-mono text-sm font-extrabold text-white">
+                    {playsRemaining}/{dailyLimit}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    (Reset 00:00)
+                  </span>
+                </button>
+              )}
 
-              <button
-                onClick={() => handleStartSimulation('AUTOMATIC')}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)] transition-all active:scale-95 whitespace-nowrap"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Vào Lái Số Tự Động (AT)
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handleStartSimulation('MANUAL')}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold bg-sky-500 text-slate-950 hover:bg-sky-400 shadow-[0_0_20px_rgba(14,165,233,0.45)] transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  Vào Lái Số Sàn (MT)
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!currentUser) {
+                      setIsAuthModalOpen(true);
+                      return;
+                    }
+                    handleStartSimulation('AUTOMATIC');
+                  }}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold transition-all active:scale-95 whitespace-nowrap cursor-pointer ${
+                    !currentUser
+                      ? 'bg-slate-900/90 text-slate-400 border border-slate-700/80 hover:border-amber-500/50 hover:text-amber-300'
+                      : 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)]'
+                  }`}
+                  title={!currentUser ? 'Xe số tự động (AT) chỉ dành cho học viên đã đăng ký tài khoản' : 'Vào Lái Số Tự Động (AT)'}
+                >
+                  {!currentUser ? (
+                    <>
+                      <Lock className="w-4 h-4 text-amber-400" />
+                      <span>Lái Số Tự Động (AT)</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Cần tài khoản
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 fill-current" />
+                      <span>Vào Lái Số Tự Động (AT)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -891,6 +1025,25 @@ export default function App() {
                   </span>
                 </div>
 
+                {/* Guest Trial Timer Indicator */}
+                {!currentUser && guestSecondsRemaining !== null && (
+                  <div
+                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-mono font-bold transition-all shrink-0 pl-1.5 border-l border-slate-800 ${
+                      guestSecondsRemaining <= 30
+                        ? 'bg-rose-500/25 text-rose-300 border-rose-500/60 animate-pulse'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    }`}
+                    title="Thời gian lái thử cho chế độ khách (Cấu hình bởi Firebase Remote Config)"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      {guestSecondsRemaining <= 30 ? 'Hết giờ sau: ' : 'Lái thử: '}
+                      {Math.floor(guestSecondsRemaining / 60)}:
+                      {String(guestSecondsRemaining % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
+
                 {/* Current Station / Exercise Title */}
                 <button
                   onClick={() => setIsCourseModalOpen(true)}
@@ -917,28 +1070,28 @@ export default function App() {
                 )}
               </div>
 
-              {/* Top-Right: Single-Row Compact Controls */}
-              <div className="pointer-events-auto flex items-center gap-1 overflow-x-auto max-w-full no-scrollbar">
+              {/* Top-Right: Streamlined Controls Strip */}
+              <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-full no-scrollbar">
                 <button
                   onClick={() => setIsCourseModalOpen(true)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-emerald-600/90 text-white border border-emerald-400/50 hover:bg-emerald-500 transition-colors whitespace-nowrap shrink-0"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/90 text-white hover:bg-emerald-500 shadow transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   title="Chọn bài thi sát hạch (Phím B)"
                 >
-                  <BookOpen className="w-3 h-3" />
+                  <MapIcon className="w-3.5 h-3.5" />
                   <span>Chọn Bài</span>
                 </button>
 
                 <button
                   onClick={() => setShowMinimap((prev) => !prev)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition-colors whitespace-nowrap shrink-0 ${
+                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     showMinimap
-                      ? 'bg-sky-500 text-slate-950 border-sky-300'
-                      : 'bg-slate-950/85 text-sky-300 border-slate-800 hover:bg-slate-800'
+                      ? 'bg-sky-500 text-slate-950 border-sky-400 font-bold'
+                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
                   }`}
                   title="Bật/Tắt Sơ Đồ Sa Hình 2D"
                 >
-                  <MapIcon className="w-3 h-3" />
-                  <span>Sơ Đồ</span>
+                  <MapIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sơ Đồ</span>
                 </button>
 
                 <button
@@ -955,11 +1108,11 @@ export default function App() {
                         : 'CHASE'
                     )
                   }
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-950/85 text-slate-200 border border-slate-800 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   title="Đổi góc nhìn Camera (Phím C)"
                 >
-                  <Camera className="w-3 h-3 text-sky-400" />
-                  <span>
+                  <Camera className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">
                     {cameraMode === 'CHASE'
                       ? 'Sau Xe'
                       : cameraMode === 'COCKPIT'
@@ -974,10 +1127,10 @@ export default function App() {
 
                 <button
                   onClick={() => setShowRearviewMirrors((prev) => !prev)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 ${
+                  className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     showRearviewMirrors
-                      ? 'bg-sky-950/90 text-sky-300 border-sky-500/60'
-                      : 'bg-slate-950/85 text-slate-300 border-slate-800 hover:bg-slate-800'
+                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/50'
+                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
                   }`}
                   title="Bật/Tắt Gương Chiếu Hậu (Phím G)"
                 >
@@ -986,40 +1139,32 @@ export default function App() {
 
                 <button
                   onClick={handleRetryCurrent}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-950/85 text-amber-400 border border-slate-800 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                  className="p-1.5 rounded-lg bg-slate-900/90 text-amber-400 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
                   title="Đặt lại bài tập hiện tại (Phím R)"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  <span className="hidden md:inline">Đặt Lại</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </button>
 
-                {/* Toggle between Mobile Landscape Touch UI and PC Cockpit Bar */}
                 <button
                   onClick={() => setIsMobileTouchEnabled((prev) => !prev)}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition-colors whitespace-nowrap shrink-0 ${
+                  className={`p-1.5 rounded-lg border transition-colors shrink-0 cursor-pointer ${
                     isMobileTouchEnabled
                       ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
-                      : 'bg-slate-950/85 text-slate-300 border-slate-800'
+                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
                   }`}
-                  title="Chuyển đổi giao diện Vô-lăng Điện Thoại Ngang / Bảng Điều Khiển PC"
+                  title="Chuyển đổi giao diện ĐT Ngang / PC"
                 >
                   {isMobileTouchEnabled ? (
-                    <>
-                      <Smartphone className="w-3 h-3 rotate-90 text-amber-400" />
-                      <span className="hidden sm:inline">ĐT Ngang</span>
-                    </>
+                    <Smartphone className="w-3.5 h-3.5 rotate-90 text-amber-400" />
                   ) : (
-                    <>
-                      <Monitor className="w-3 h-3 text-sky-400" />
-                      <span className="hidden sm:inline">PC</span>
-                    </>
+                    <Monitor className="w-3.5 h-3.5 text-sky-400" />
                   )}
                 </button>
 
                 <button
                   onClick={handleToggleMute}
-                  className="p-1.5 rounded-lg bg-slate-950/85 text-slate-300 border border-slate-800 hover:bg-slate-800 transition-colors shrink-0"
-                  aria-label={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
+                  className="p-1.5 rounded-lg bg-slate-900/90 text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+                  title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
                 >
                   {isMuted ? (
                     <VolumeX className="w-3.5 h-3.5 text-rose-400" />
@@ -1033,13 +1178,22 @@ export default function App() {
                     e.currentTarget.blur();
                     setIsTutorialModalOpen(true);
                   }}
-                  className="p-1.5 rounded-lg bg-slate-950/85 text-amber-400 border border-slate-800 hover:bg-slate-800 transition-colors shrink-0"
+                  className="p-1.5 rounded-lg bg-slate-900/90 text-amber-400 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
                   title="Hướng dẫn điều khiển (?)"
                 >
                   <HelpCircle className="w-3.5 h-3.5" />
                 </button>
+
+                <DailyPlaysBadge onClick={() => setIsOutOfPlaysModalOpen(true)} />
+
+                <UserAccountButton
+                  onOpenAuth={() => setIsAuthModalOpen(true)}
+                  onOpenHistory={() => setIsHistoryModalOpen(true)}
+                  onOpenRoleModal={() => setIsRoleModalOpen(true)}
+                />
               </div>
             </div>
+
 
             {/* Expandable Violation History Drawer (under Top-Left) */}
             {showViolationLogDrawer && exerciseState.violations.length > 0 && (
@@ -1079,6 +1233,11 @@ export default function App() {
                         </div>
                         <div className="text-[11px] text-rose-300">
                           Điểm còn lại: <strong className="text-white">{failureNotice.result.finalScore}/100</strong>
+                          {currentUser && (
+                            <span className="ml-2 pl-2 border-l border-rose-700/80">
+                              Lượt hôm nay: <strong className="text-amber-300 font-mono">{playsRemaining}/{dailyLimit}</strong>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2043,7 +2202,8 @@ export default function App() {
       {/* 6. Exercise Completion / Failure Results Screen (Tiếng Việt) */}
       <ExerciseResultsModal
         result={completedAttemptResult}
-        onClose={() => setCompletedAttemptResult(null)}
+        onClose={handleCloseResultsModal}
+        onReturnHome={handleCloseResultsModal}
         onRetryExercise={handleRetryCurrent}
         onNextExercise={handleNextExercise}
         onOpenCourseMenu={() => {
@@ -2113,6 +2273,42 @@ export default function App() {
             exerciseEngineRef.current.getRuntimeStateSnapshot()
           );
         }}
+      />
+
+      {/* 12. Firebase Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* 13. Firebase Exam History Modal */}
+      <ExamHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+      />
+
+      {/* 14. Out of Daily Plays Modal */}
+      <OutOfPlaysModal
+        isOpen={isOutOfPlaysModalOpen}
+        onClose={() => setIsOutOfPlaysModalOpen(false)}
+        onOpenTheory={() => setIsTheoryModalOpen(true)}
+      />
+
+      {/* 15. Guest Trial Expired Modal */}
+      <GuestTrialExpiredModal
+        isOpen={isTrialExpiredModalOpen}
+        trialMinutes={guestTrialMinutes}
+        onOpenAuth={() => {
+          setIsTrialExpiredModalOpen(false);
+          setIsAuthModalOpen(true);
+        }}
+        onReturnHome={handleReturnHomeFromTrial}
+      />
+
+      {/* Bảng Điều Khiển Quản Trị Admin & Tạo Mã VIP */}
+      <RoleManagementModal
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
       />
     </div>
   );

@@ -161,14 +161,14 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
       };
     }
 
-    // Priority 2: Emergency Alert in Bài 8
+    // Priority 2: Emergency Alert (Ngẫu nhiên từ sau Bài 4)
     if (exerciseState.emergencyAlertActive) {
       if (telemetry.speedKmh > 0.8) {
         return {
-          stepBadge: 'KHẨN CẤP BÀI 8',
+          stepBadge: 'CÒI ƯU TIÊN BÁO ĐỘNG',
           keyCap: 'SPACE',
           secondaryKeyCap: 'Hoặc S',
-          titleVi: 'CÒI BÁO ĐỘNG! Ấn giữ [ SPACE ] ngay để Phanh dừng + Bật đèn khẩn cấp!',
+          titleVi: 'CÒI ƯU TIÊN HÚ BÁO ĐỘNG! Ấn giữ [ SPACE ] ngay để Phanh dừng + Bật đèn khẩn cấp!',
           detailVi: 'Phải dừng hẳn xe trong vòng 3 giây kể từ khi còi hú để không bị trừ 10 điểm.',
           tone: 'rose',
           quickActionType: 'HOLD_BRAKE',
@@ -177,11 +177,11 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
       }
       if (telemetry.turnSignal !== 'HAZARD') {
         return {
-          stepBadge: 'KHẨN CẤP BÀI 8',
+          stepBadge: 'BẬT ĐÈN ƯU TIÊN',
           keyCap: 'V',
           secondaryKeyCap: 'Hoặc SPACE',
           titleVi: 'Xe đã dừng — Ấn phím [ V ] ngay để bật Đèn Khẩn Cấp (Hazard ▲)!',
-          detailVi: 'Giữ xe đứng yên và bật đèn tam giác đỏ cho đến khi tiếng còi tắt hẳn.',
+          detailVi: 'Bật đèn tam giác đỏ, còi hú sẽ ngắt và hệ thống đếm giữ ~2.2 giây chờ tiếng Tuýt.',
           tone: 'rose',
           quickActionType: 'HAZARD',
           quickActionLabel: 'Bật Đèn Hazard (V)',
@@ -190,8 +190,8 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
       return {
         stepBadge: 'ĐANG GIỮ KHẨN CẤP',
         keyCap: 'GIỮ YÊN',
-        titleVi: 'Đang làm đúng! Giữ xe đứng yên chờ hết tiếng còi hú (2.0 giây)...',
-        detailVi: 'Tuyệt đối chưa đạp ga hoặc tắt đèn khi còi vẫn đang kêu.',
+        titleVi: 'Đang làm đúng! Còi đã ngắt, giữ xe đứng yên chờ tiếng Tuýt nhận bài (~2.2s)...',
+        detailVi: 'Tuyệt đối chưa đạp ga hoặc tắt đèn trước khi có tiếng Tuýt báo hiệu.',
         tone: 'amber',
       };
     }
@@ -199,9 +199,9 @@ export const StepByStepHudCoach: React.FC<StepByStepHudCoachProps> = ({
     // Priority 2B: Turn off Hazard after Emergency Alert finishes
     if (!exerciseState.emergencyAlertActive && exerciseState.emergencyHoldProgressS >= 2.0 && telemetry.turnSignal === 'HAZARD') {
       return {
-        stepBadge: 'BƯỚC TIẾP THEO · BÀI 8',
+        stepBadge: 'TIẾP TỤC HÀNH TRÌNH',
         keyCap: 'V',
-        titleVi: 'Đã hết còi hú! Ấn phím [ V ] để Tắt Đèn Khẩn Cấp trước khi đạp ga đi tiếp',
+        titleVi: 'Đã nhận bài (Tuýt)! Ấn phím [ V ] để Tắt Đèn Khẩn Cấp trước khi đạp ga đi tiếp',
         detailVi: 'Nếu quên tắt đèn khẩn cấp mà cho xe chạy sẽ bị trừ 10 điểm.',
         tone: 'amber',
         quickActionType: 'HAZARD',

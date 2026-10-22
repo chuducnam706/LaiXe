@@ -60,12 +60,17 @@ export class ExerciseRuntimeEngine {
   public trafficLightRemainingS = GREEN_DURATION_S;
   private trafficCycleTimerS = 0;
 
-  // Live Emergency Hazard Alert State (Bài 10: Tình huống nguy hiểm - ngẫu nhiên 1 trong 3 vị trí)
+  // Live Emergency Hazard Alert State (Bài 10: Tình huống nguy hiểm - ngẫu nhiên 1 trong 7 cung đường từ sau Bài 4)
   public emergencyAlertActive = false;
   public emergencyHoldProgressS = 0;
+  public emergencySirenSilenced = false;
   private emergencyCompletedForRun = false;
   private emergencyTimeoutTimerS = 0;
-  private randomHazardZoneIndex = 2; // 0 = D1 (Central Road to Railway), 1 = D2 (North Straight), 2 = D3 (West Road before Finish)
+  private randomHazardZoneIndex = 5; // 0..6 (các cung đường ngẫu nhiên từ sau Bài 4 đến trước Vạch Kết thúc)
+
+  public isEmergencySirenActive(): boolean {
+    return this.emergencyAlertActive && !this.emergencySirenSilenced;
+  }
 
   public checkpointProgress: CheckpointProgressRecord[] = [];
   public violations: ViolationEventRecord[] = [];
@@ -472,9 +477,10 @@ export class ExerciseRuntimeEngine {
     this.maxGearReachedInGearZone = 1;
     this.emergencyAlertActive = false;
     this.emergencyHoldProgressS = 0;
+    this.emergencySirenSilenced = false;
     this.emergencyCompletedForRun = false;
     this.emergencyTimeoutTimerS = 0;
-    this.randomHazardZoneIndex = Math.floor(Math.random() * 3);
+    this.randomHazardZoneIndex = Math.floor(Math.random() * 7);
     this.trafficCycleTimerS = 0;
     this.trafficLightPhase = 'GREEN';
     this.trafficLightRemainingS = GREEN_DURATION_S;
@@ -611,7 +617,7 @@ export class ExerciseRuntimeEngine {
 
   public getCurrentVoicePromptVi(): string {
     if (this.emergencyAlertActive) {
-      return RAW_EMERGENCY_ALERT_SPOKEN_VI;
+      return 'TÌNH HUỐNG NGUY HIỂM: Phanh dừng xe & Bật đèn khẩn cấp (Phím V)!';
     }
     if (this.mode === 'FREE_PRACTICE' || !this.activeExercise) {
       return EXERCISE_VOICE_PROMPTS_2026[1].commandVi;
@@ -1204,58 +1210,107 @@ export class ExerciseRuntimeEngine {
       this.parkingEntryTimeS = null;
     }
 
-    // 12. Tình huống nguy hiểm khẩn cấp (Tiếng còi hú báo động - xuất hiện ngẫu nhiên 1 trong 3 vị trí D1, D2, D3 trên sân)
+    // 12. Tình huống nguy hiểm khẩn cấp (Còi ưu tiên xe Việt Nam hú báo động - ngẫu nhiên 7 cung đường từ sau Bài 4)
     const isEmergencyExerciseOrFullExam =
       ex.id === 'ex_10_emergency_hazard' ||
       ex.id === 'ex_11_full_10_exercises_c';
     if (isEmergencyExerciseOrFullExam && !this.emergencyCompletedForRun) {
+      // Đối với bài tập riêng lẻ ex_10_emergency_hazard: dùng vị trí Zone 5 (đường bao Tây Z = -24m)
       const activeZoneIdx =
-        ex.id === 'ex_10_emergency_hazard' ? 2 : this.randomHazardZoneIndex;
-      // Điểm D1: Trên đường ngang trung tâm đi từ Đèn đỏ Ngã tư sang Bài 8 Xe lửa
-      const inZoneD1 =
+        ex.id === 'ex_10_emergency_hazard' ? 5 : this.randomHazardZoneIndex;
+
+      // Zone 0: Sau Bài 4 (Hàng đinh & Chữ Z), trên đường Nam tiến về Tây rẽ ra Ngã tư Đèn đỏ lần 1
+      const inZone0 =
         activeZoneIdx === 0 &&
+        this.currentCheckpointIndex >= 5 &&
+        carX >= -2.0 &&
+        carX <= 18.0 &&
+        carZ >= 32.0 &&
+        carZ <= 40.0;
+
+      // Zone 1: Sau Bài 6 (Đường vòng quanh co Chữ S), đoạn đường thoát Chữ S tiến ra đường Bắc
+      const inZone1 =
+        activeZoneIdx === 1 &&
+        this.currentCheckpointIndex >= 8 &&
+        carX >= 8.0 &&
+        carX <= 20.0 &&
+        carZ >= -12.0 &&
+        carZ <= 2.0;
+
+      // Zone 2: Sau Bài 7 (Ghép dọc / Lùi chuồng), đường ngang rẽ phải đi xuống Ngã tư
+      const inZone2 =
+        activeZoneIdx === 2 &&
+        this.currentCheckpointIndex >= 10 &&
+        carX >= -28.0 &&
+        carX <= -10.0 &&
+        carZ >= -18.0 &&
+        carZ <= -2.0;
+
+      // Zone 3: Tuyến đường ngang trung tâm đi từ Ngã tư sang Bài 8 Xe lửa (Điểm D1 gốc)
+      const inZone3 =
+        activeZoneIdx === 3 &&
+        this.currentCheckpointIndex >= 10 &&
         carX >= 42.0 &&
         carX <= 62.0 &&
         carZ >= -2.5 &&
-        carZ <= 5.5 &&
-        this.currentCheckpointIndex >= 9;
-      // Điểm D2: Trên đường Đông Bắc sau khi qua Bài 8 Xe lửa trước khi rẽ vào Bài 9 Tăng tốc
-      const inZoneD2 =
-        activeZoneIdx === 1 &&
+        carZ <= 5.5;
+
+      // Zone 4: Đường Đông Bắc sau Bài 8 Xe lửa trước khi rẽ vào Bài 9 Tăng tốc (Điểm D2 gốc)
+      const inZone4 =
+        activeZoneIdx === 4 &&
+        this.currentCheckpointIndex >= 11 &&
         carX >= 72.5 &&
         carX <= 79.8 &&
         carZ >= -44.0 &&
-        carZ <= -31.0 &&
-        this.currentCheckpointIndex >= 11;
-      // Điểm D3: Trên đường bao Tây đi từ cuối Bài 9 Tăng tốc xuống Bài 10 Ghép xe ngang
-      const inZoneD3 =
-        activeZoneIdx === 2 &&
+        carZ <= -31.0;
+
+      // Zone 5: Đường bao Tây đi từ cuối Bài 9 Tăng tốc xuống Bài 10 Ghép xe ngang (Điểm D3 gốc)
+      const inZone5 =
+        activeZoneIdx === 5 &&
+        (ex.id === 'ex_10_emergency_hazard' || this.currentCheckpointIndex >= 13) &&
         carX >= -80.0 &&
         carX <= -72.0 &&
         carZ >= -28.0 &&
         carZ <= -6.0;
 
-      if (!this.emergencyAlertActive && (inZoneD1 || inZoneD2 || inZoneD3)) {
+      // Zone 6: Đường ngang sau Bài 10 Ghép xe ngang dẫn ra Vạch 11 Kết thúc
+      const inZone6 =
+        activeZoneIdx === 6 &&
+        this.currentCheckpointIndex >= 15 &&
+        carX >= -72.0 &&
+        carX <= -42.0 &&
+        carZ >= 13.5 &&
+        carZ <= 19.5;
+
+      const inAnyHazardZone =
+        inZone0 || inZone1 || inZone2 || inZone3 || inZone4 || inZone5 || inZone6;
+
+      if (!this.emergencyAlertActive && inAnyHazardZone) {
         this.emergencyAlertActive = true;
+        this.emergencySirenSilenced = false;
         this.emergencyHoldProgressS = 0;
         this.emergencyTimeoutTimerS = 0;
         this.emergencyHadHazardOn = false;
-        this.latestVoiceTranscriptVi = RAW_EMERGENCY_ALERT_SPOKEN_VI;
-        this.onVoiceAnnouncement?.(
-          RAW_EMERGENCY_ALERT_SPOKEN_VI,
-          'ALARM_AND_VOICE'
-        );
+        this.latestVoiceTranscriptVi =
+          'TÌNH HUỐNG NGUY HIỂM: Phanh dừng xe & Bật đèn khẩn cấp (Phím V)!';
+        // Kích hoạt còi ưu tiên hú liên tục (không đọc khẩu lệnh bằng giọng nói giả lập)
+        this.onVoiceAnnouncement?.('', 'ALARM_AND_VOICE');
       }
 
       if (this.emergencyAlertActive) {
         if (physics.turnSignal === 'HAZARD') {
           this.emergencyHadHazardOn = true;
+          // Ngay khi dừng xe và bật đèn khẩn cấp -> ngắt còi hú ngay lập tức
+          if (effectiveSpeedKmh <= 1.5) {
+            this.emergencySirenSilenced = true;
+          }
         } else if (
           this.emergencyHadHazardOn &&
           this.emergencyHoldProgressS < 2.2
         ) {
-          // Tắt nút ưu tiên trước khi có tiếng bíp báo hiệu kết thúc tình huống nguy hiểm
+          // Tắt nút ưu tiên trước khi có tiếng bíp Tuýt nhận bài: Trừ 10 điểm
           this.emergencyAlertActive = false;
+          this.emergencySirenSilenced = true;
           this.emergencyCompletedForRun = true;
           this.recordViolation(
             'EMERGENCY_SIGNAL_VIOLATION',
@@ -1269,11 +1324,14 @@ export class ExerciseRuntimeEngine {
 
         if (this.emergencyAlertActive) {
           if (effectiveSpeedKmh <= 1.2 && physics.turnSignal === 'HAZARD') {
+            this.emergencySirenSilenced = true;
             this.emergencyHoldProgressS += dt;
             if (this.emergencyHoldProgressS >= 2.2) {
               this.emergencyAlertActive = false;
+              this.emergencySirenSilenced = true;
               this.emergencyCompletedForRun = true;
               this.emergencyHoldProgressS = 0;
+              // Phát tiếng Tuýt báo nhận bài
               this.onVoiceAnnouncement?.('', 'TUYT');
               if (currentCp?.id === 'cp_ex10_hazard_zone') {
                 this.advanceCheckpoint(physics);
@@ -1283,6 +1341,7 @@ export class ExerciseRuntimeEngine {
             this.emergencyTimeoutTimerS += dt;
             if (this.emergencyTimeoutTimerS >= 4.5) {
               this.emergencyAlertActive = false;
+              this.emergencySirenSilenced = true;
               this.emergencyCompletedForRun = true;
               this.recordViolation('EMERGENCY_SIGNAL_VIOLATION', physics);
               if (currentCp?.id === 'cp_ex10_hazard_zone') {

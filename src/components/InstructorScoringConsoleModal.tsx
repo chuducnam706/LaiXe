@@ -21,7 +21,11 @@ import {
   RAW_START_BIP_SPOKEN_VI,
   RAW_START_PREPARE_SPOKEN_VI,
 } from '../course/InstructorVoice2026';
-import { SoundEngine } from '../audio/SoundEngine';
+import {
+  SoundEngine,
+  EmergencySirenType,
+  VIETNAM_EMERGENCY_SIREN_PRESETS,
+} from '../audio/SoundEngine';
 
 interface InstructorScoringConsoleModalProps {
   isOpen: boolean;
@@ -51,14 +55,35 @@ export const InstructorScoringConsoleModal: React.FC<
   );
   const [randomStartWaiting, setRandomStartWaiting] = useState<boolean>(false);
   const randomStartTimerRef = useRef<number | null>(null);
+  const [activeSirenPreset, setActiveSirenPreset] = useState<EmergencySirenType>(
+    soundEngine.getEmergencySirenType()
+  );
+  const [isSirenTestPlaying, setIsSirenTestPlaying] = useState<string | null>(null);
+
+  const handlePlaySirenTest = (type: EmergencySirenType) => {
+    if (isSirenTestPlaying === type) {
+      soundEngine.stopEmergencySiren();
+      setIsSirenTestPlaying(null);
+    } else {
+      soundEngine.stopEmergencySiren();
+      soundEngine.startEmergencySiren(type);
+      setIsSirenTestPlaying(type);
+    }
+  };
+
+  const handleSelectSirenPreset = (type: EmergencySirenType) => {
+    soundEngine.setEmergencySirenType(type);
+    setActiveSirenPreset(type);
+  };
 
   useEffect(() => {
     return () => {
       if (randomStartTimerRef.current !== null) {
         window.clearTimeout(randomStartTimerRef.current);
       }
+      soundEngine.stopEmergencySiren();
     };
-  }, []);
+  }, [soundEngine]);
 
   if (!isOpen) return null;
 
@@ -351,6 +376,73 @@ export const InstructorScoringConsoleModal: React.FC<
                 "{RAW_START_PREPARE_SPOKEN_VI}"
               </p>
             )}
+          </div>
+
+          {/* Vietnamese Emergency Sirens Control & Test Panel */}
+          <div className="md:col-span-12 p-3 rounded-xl bg-slate-900/90 border border-rose-500/30 flex flex-col gap-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+                <AlertTriangle className="w-4 h-4 text-rose-400 animate-pulse" />
+                Còi Ưu Tiên Việt Nam (Mô Phỏng Sát Hạch Thực Tế)
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Kích hoạt ngẫu nhiên bất kỳ cung đường nào từ sau Bài 4
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+              {VIETNAM_EMERGENCY_SIREN_PRESETS.map((preset) => {
+                const isSelected = activeSirenPreset === preset.type;
+                const isPlaying = isSirenTestPlaying === preset.type;
+                return (
+                  <button
+                    key={preset.type}
+                    onClick={() => {
+                      handleSelectSirenPreset(preset.type);
+                      handlePlaySirenTest(preset.type);
+                    }}
+                    className={`flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold transition-all border ${
+                      isPlaying
+                        ? 'bg-rose-600 text-white border-rose-400 ring-2 ring-rose-400/50 animate-pulse'
+                        : isSelected
+                        ? 'bg-slate-800 text-rose-300 border-rose-500/50'
+                        : 'bg-slate-900/80 text-slate-300 border-slate-700/60 hover:bg-slate-800'
+                    }`}
+                    title={preset.descriptionVi}
+                  >
+                    <span className="text-sm">
+                      {preset.type === 'AMBULANCE' && '🚑'}
+                      {preset.type === 'POLICE' && '🚓'}
+                      {preset.type === 'FIRETRUCK' && '🚒'}
+                      {preset.type === 'MILITARY' && '🪖'}
+                      {preset.type === 'RANDOM' && '🎲'}
+                    </span>
+                    <span className="text-[11px] font-bold mt-0.5 text-center leading-tight">
+                      {preset.type === 'AMBULANCE' && 'Cấp Cứu 115'}
+                      {preset.type === 'POLICE' && 'Công An / CSGT'}
+                      {preset.type === 'FIRETRUCK' && 'Cứu Hỏa PCCC'}
+                      {preset.type === 'MILITARY' && 'Quân Đội'}
+                      {preset.type === 'RANDOM' && 'Ngẫu Nhiên'}
+                    </span>
+                    <span className="text-[9px] text-slate-400 mt-0.5">
+                      {isPlaying ? 'Đang Hú 🔊' : isSelected ? 'Mặc định' : 'Thử còi'}
+                    </span>
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => {
+                  soundEngine.stopEmergencySiren();
+                  setIsSirenTestPlaying(null);
+                }}
+                className="flex flex-col items-center justify-center p-2 rounded-lg text-xs font-semibold transition-all border bg-slate-800/80 text-amber-300 border-slate-700 hover:bg-slate-700/90"
+              >
+                <span className="text-sm">⏹️</span>
+                <span className="text-[11px] font-bold mt-0.5">Dừng Còi Hú</span>
+                <span className="text-[9px] text-slate-400 mt-0.5">Tắt âm</span>
+              </button>
+            </div>
           </div>
         </div>
 

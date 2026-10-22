@@ -9,8 +9,11 @@ import {
   Clock,
   AlertTriangle,
   AlertOctagon,
+  Home,
 } from 'lucide-react';
 import { PracticeAttemptResult } from '../types/course';
+import { useAuth } from '../context/AuthContext';
+import { useDailyPlayLimit } from '../context/DailyPlayLimitContext';
 
 interface ExerciseResultsModalProps {
   result: PracticeAttemptResult | null;
@@ -18,6 +21,7 @@ interface ExerciseResultsModalProps {
   onRetryExercise: () => void;
   onNextExercise: () => void;
   onOpenCourseMenu: () => void;
+  onReturnHome?: () => void;
 }
 
 export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
@@ -26,7 +30,11 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
   onRetryExercise,
   onNextExercise,
   onOpenCourseMenu,
+  onReturnHome,
 }) => {
+  const { currentUser } = useAuth();
+  const { dailyLimit, playsRemaining, setIsOutOfPlaysModalOpen } = useDailyPlayLimit();
+
   if (!result) return null;
 
   const primaryViolation =
@@ -59,16 +67,21 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
           </div>
 
           <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            aria-label="Đóng bảng kết quả"
+            onClick={!result.passed ? (onReturnHome || onClose) : onClose}
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label={!result.passed ? 'Thoát ra màn hình chính' : 'Đóng bảng kết quả'}
+            title={!result.passed ? 'Thoát ra màn hình chính' : 'Đóng bảng kết quả'}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Summary Metrics Strip */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 p-4 sm:p-5 bg-slate-950/60 border-b border-slate-800 font-mono tabular-nums">
+        <div
+          className={`grid ${
+            currentUser ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'
+          } gap-2.5 sm:gap-3 p-4 sm:p-5 bg-slate-950/60 border-b border-slate-800 font-mono tabular-nums`}
+        >
           <div className="p-2.5 sm:p-3 rounded-lg bg-slate-900 border border-slate-800">
             <div className="text-[10px] sm:text-[11px] text-slate-400">
               ĐIỂM TỔNG KẾT
@@ -108,6 +121,24 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
               {result.violations.length} lỗi trừ điểm
             </div>
           </div>
+
+          {currentUser && (
+            <div className="p-2.5 sm:p-3 rounded-lg bg-slate-900 border border-slate-800">
+              <div className="text-[10px] sm:text-[11px] text-slate-400">
+                LƯỢT THI CÒN LẠI
+              </div>
+              <div
+                className={`text-xl sm:text-2xl font-extrabold mt-0.5 ${
+                  playsRemaining === 0 ? 'text-rose-400' : 'text-amber-400'
+                }`}
+              >
+                {playsRemaining} / {dailyLimit}
+              </div>
+              <div className="text-[10px] text-slate-500">
+                {playsRemaining === 0 ? 'Đã hết lượt hôm nay' : 'Reset lúc 00:00'}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Detailed Violations, Checkpoint Progress & Corrective Feedback */}
@@ -259,26 +290,53 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
 
         {/* Footer Actions */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 sm:px-6 py-4 bg-slate-950 border-t border-slate-800">
-          <button
-            onClick={onOpenCourseMenu}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition-colors"
-          >
-            <ListChecks className="w-4 h-4" />
-            Danh Sách 11 Bài & Lịch Sử
-          </button>
+          <div className="flex items-center gap-2">
+            {onReturnHome && (
+              <button
+                onClick={onReturnHome}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                title="Thoát khỏi sa hình và quay về màn hình chính"
+              >
+                <Home className="w-4 h-4" />
+                Về Màn Chính
+              </button>
+            )}
+
+            <button
+              onClick={onOpenCourseMenu}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
+            >
+              <ListChecks className="w-4 h-4" />
+              11 Bài Thi
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onRetryExercise}
+              onClick={() => {
+                if (currentUser && playsRemaining === 0) {
+                  setIsOutOfPlaysModalOpen(true);
+                  return;
+                }
+                onRetryExercise();
+              }}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                !result.passed
+                currentUser && playsRemaining === 0
+                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                  : !result.passed
                   ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-amber-400'
               }`}
-              title="Đưa xe về vạch xuất phát và chơi lại từ đầu (Phím R hoặc Phím Space)"
+              title={currentUser && playsRemaining === 0 ? 'Đã hết lượt thi sa hình hôm nay' : 'Đưa xe về vạch xuất phát và chơi lại từ đầu (Phím R hoặc Phím Space)'}
             >
               <RotateCcw className="w-4 h-4" />
-              <span>{!result.passed ? 'Chơi Lại Từ Đầu (Phím R)' : 'Thử Lại Bài Này (R)'}</span>
+              <span>
+                {currentUser && playsRemaining === 0
+                  ? `Hết Lượt Thi (0/${dailyLimit})`
+                  : !result.passed
+                  ? `Chơi Lại Từ Đầu (Phím R)${currentUser ? ` · Còn ${playsRemaining} lượt` : ''}`
+                  : `Thử Lại Bài Này (R)${currentUser ? ` · Còn ${playsRemaining} lượt` : ''}`}
+              </span>
             </button>
 
             <button
