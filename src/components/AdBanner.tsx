@@ -106,9 +106,11 @@ export const AdBanner: React.FC<AdBannerProps> = ({
           </div>
         )}
 
-        <div className="text-[9px] text-slate-500 text-center font-mono pt-1 border-t border-slate-800/60">
-          Chế độ chạy thử nghiệm (data-adbreak-test="on")
-        </div>
+        {GOOGLE_ADSENSE_CLIENT_ID === 'ca-pub-PUBLISHER_ID' && (
+          <div className="text-[9px] text-slate-500 text-center font-mono pt-1 border-t border-slate-800/60">
+            Chế độ chạy thử nghiệm
+          </div>
+        )}
       </div>
     );
   }

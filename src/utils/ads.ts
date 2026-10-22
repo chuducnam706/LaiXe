@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-PUBLISHER_ID';
+export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-4568419367261236';
  
 export const isAdsGloballyEnabled = (): boolean => {
   if (typeof window === 'undefined') return true;
