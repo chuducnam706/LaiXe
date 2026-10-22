@@ -907,7 +907,7 @@ export class SoundEngine {
       clipsToPlay.push(resolvedClip);
     }
 
-    // 3. Remaining Score Clip (if provided and valid)
+    // 3. Score failure clip (if score dropped below 80, announce fail without reading remaining score number)
     if (
       remainingScoreForVoice !== undefined &&
       remainingScoreForVoice !== null &&
@@ -916,13 +916,7 @@ export class SoundEngine {
       !resolvedClip?.includes('truot_')
     ) {
       const s = Math.max(0, Math.min(100, Math.round(remainingScoreForVoice)));
-      if (s >= 65 && s <= 100) {
-        clipsToPlay.push(`/audio/voice/diem_con_${s}.mp3`);
-      } else if (s === 0) {
-        clipsToPlay.push('/audio/voice/diem_con_0.mp3');
-      }
-
-      // If score is under 80, also chain the fail message
+      // If score dropped under 80, chain the exam fail message
       if (s < 80) {
         clipsToPlay.push('/audio/voice/ket_qua_truot_duoi_80.mp3');
       }

@@ -5,6 +5,8 @@ import {
   getRemoteConfig,
   fetchAndActivate,
   getNumber,
+  getBoolean,
+  getString,
   RemoteConfig
 } from "firebase/remote-config";
 
@@ -23,17 +25,19 @@ export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Remote Config for dynamic parameters (e.g. daily_play_limit)
+// Remote Config for dynamic parameters (e.g. daily_play_limit, enable_vip_features)
 let rc: RemoteConfig | null = null;
 if (typeof window !== "undefined") {
   try {
     rc = getRemoteConfig(app);
-    // In production, cache for 1 hour. During dev, shorter interval.
-    rc.settings.minimumFetchIntervalMillis = 60000; // 1 minute
+    // Realtime fetch for live admin adjustments
+    rc.settings.minimumFetchIntervalMillis = 0;
     rc.defaultConfig = {
       daily_play_limit: 5,
       guest_trial_minutes: 3,
       history_retention_hours: 3,
+      enable_vip_features: true,
+      enable_ads: 1, // 1: Bật quảng cáo, 0: Tắt quảng cáo
     };
   } catch (err) {
     console.warn("Firebase Remote Config initialization failed:", err);
@@ -41,20 +45,40 @@ if (typeof window !== "undefined") {
 }
 export const remoteConfig = rc;
 
+let syncPromise: Promise<boolean> | null = null;
+export async function syncRemoteConfig(): Promise<boolean> {
+  if (!remoteConfig) return false;
+  if (syncPromise) return syncPromise;
+  syncPromise = (async () => {
+    try {
+      const ok = await Promise.race([
+        fetchAndActivate(remoteConfig),
+        new Promise<boolean>((_, reject) =>
+          setTimeout(() => reject(new Error('RC_TIMEOUT')), 4000)
+        ),
+      ]);
+      return ok;
+    } catch (err) {
+      console.warn("Firebase Remote Config fetch warning, using defaults:", err);
+      return false;
+    } finally {
+      setTimeout(() => {
+        syncPromise = null;
+      }, 500);
+    }
+  })();
+  return syncPromise;
+}
+
 /**
  * Fetches and activates the latest Remote Config values from Firebase.
  * Returns the configured daily play limit (default: 5).
  */
 export async function fetchDailyPlayLimit(): Promise<number> {
   if (!remoteConfig) return 5;
-  try {
-    await fetchAndActivate(remoteConfig);
-    const limit = getNumber(remoteConfig, "daily_play_limit");
-    return limit > 0 ? limit : 5;
-  } catch (err) {
-    console.warn("Could not fetch remote config, using fallback default (5):", err);
-    return 5;
-  }
+  await syncRemoteConfig();
+  const limit = getNumber(remoteConfig, "daily_play_limit");
+  return limit > 0 ? limit : 5;
 }
 
 /**
@@ -63,14 +87,9 @@ export async function fetchDailyPlayLimit(): Promise<number> {
  */
 export async function fetchGuestTrialMinutes(): Promise<number> {
   if (!remoteConfig) return 3;
-  try {
-    await fetchAndActivate(remoteConfig);
-    const mins = getNumber(remoteConfig, "guest_trial_minutes");
-    return mins > 0 ? mins : 3;
-  } catch (err) {
-    console.warn("Could not fetch remote config guest trial minutes, using fallback (3):", err);
-    return 3;
-  }
+  await syncRemoteConfig();
+  const mins = getNumber(remoteConfig, "guest_trial_minutes");
+  return mins > 0 ? mins : 3;
 }
 
 /**
@@ -79,13 +98,41 @@ export async function fetchGuestTrialMinutes(): Promise<number> {
  */
 export async function fetchHistoryRetentionHours(): Promise<number> {
   if (!remoteConfig) return 3;
+  await syncRemoteConfig();
+  const hours = getNumber(remoteConfig, "history_retention_hours");
+  return hours > 0 ? hours : 3;
+}
+
+/**
+ * Fetches and activates the latest VIP features toggle from Remote Config (default: true).
+ * When true, activates VIP mode (unlimited drives, VIP badge).
+ * When false, behaves as standard mode with daily play limits.
+ */
+export async function fetchEnableVipFeatures(): Promise<boolean> {
+  if (!remoteConfig) return true;
+  await syncRemoteConfig();
+  return getBoolean(remoteConfig, "enable_vip_features");
+}
+
+/**
+ * Fetches and activates the latest Ads toggle from Remote Config (default: 1 / true).
+ * 1 (hoặc true) => Bật quảng cáo.
+ * 0 (hoặc false) => Tắt quảng cáo hoàn toàn.
+ */
+export async function fetchEnableAds(): Promise<boolean> {
+  if (!remoteConfig) return true;
+  await syncRemoteConfig();
   try {
-    await fetchAndActivate(remoteConfig);
-    const hours = getNumber(remoteConfig, "history_retention_hours");
-    return hours > 0 ? hours : 3;
-  } catch (err) {
-    console.warn("Could not fetch remote config history retention hours, using fallback (3):", err);
-    return 3;
+    const valStr = getString(remoteConfig, "enable_ads").trim().toLowerCase();
+    if (valStr === "0" || valStr === "false" || valStr === "off") return false;
+    if (valStr === "1" || valStr === "true" || valStr === "on") return true;
+    const valNum = getNumber(remoteConfig, "enable_ads");
+    if (valNum === 0) return false;
+    const valBool = getBoolean(remoteConfig, "enable_ads");
+    if (valBool === false) return false;
+  } catch (e) {
+    console.warn("fetchEnableAds parse error:", e);
   }
+  return true;
 }
 

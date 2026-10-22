@@ -15,6 +15,7 @@ import {
 } from '../data/courseDefinitions';
 import {
   detectWheelSolidLineTouch,
+  sampleBlueprintGroundAt,
   SA_HINH_BLUEPRINT_ZONES,
 } from '../data/saHinhBlueprintData';
 import { VehiclePhysicsEngine } from '../physics/VehiclePhysicsEngine';
@@ -122,6 +123,8 @@ export class ExerciseRuntimeEngine {
   private hillPassedCrest = false;
   private hillRequiredHoldS = 3.5;
   private parkingBayBeepIssued = false;
+  private bai4RightWheelsEnteredTrack = false;
+  private bai4OutsideTrackFault = false;
 
   public latestVoiceTranscriptVi: string =
     EXERCISE_VOICE_PROMPTS_2026[1].commandVi;
@@ -422,15 +425,16 @@ export class ExerciseRuntimeEngine {
       exercise.id === 'ex_11_full_10_exercises_c';
     const isHillStartExercise = exercise.id === 'ex_03_hill_start';
 
-    // At the Start Line (Bài 1 & Full 10-Exercise Exam), vehicle starts parked with Engine OFF, Gear in N/P (0), and Handbrake LOCKED (true)
-    // On Hill Start (Bài 3), vehicle spawns with Handbrake LOCKED so it never rolls backward before driver is ready!
-    physics.isEngineRunning = !isStartLineExercise;
+    // Khởi tạo xe ở vị trí xuất phát an toàn: Nổ máy ở garanti, số Mo (N/P), kéo phanh tay
+    const isAT = physics.transmissionMode === 'AUTOMATIC';
+    physics.isEngineRunning = true;
     physics.isStalled = false;
     physics.stallReasonVi = null;
-    physics.engineRpm = physics.isEngineRunning ? physics.profile.idleRpm : 0;
+    physics.engineRpm = physics.profile.idleRpm;
     physics.currentGear = 0;
-    physics.atSelectorPosition = 'P';
-    physics.handbrakeActive = true;
+    physics.atSelectorPosition = isAT ? 'P' : 'N';
+    physics.handbrakeActive = true; // Luôn giữ phanh tay an toàn khi bắt đầu bài thi
+    physics.headlightMode = 'OFF';
     physics.isInsideStopCheckpointZone = false;
     physics.turnSignal = 'OFF';
     physics.turnSignalBlinkOn = false;
@@ -489,7 +493,7 @@ export class ExerciseRuntimeEngine {
     this.stationEntryChimeLatched.clear();
     this.greenLightStallTimerS = 0;
     this.greenLightStallLatched = false;
-    this.startRandomBeepDelayS = 3.0 + Math.random() * 2.0; // Đứng yên trước vạch xuất phát 3-5 giây
+    this.startRandomBeepDelayS = 1.0 + Math.random() * 1.0; // Đứng yên trước vạch xuất phát 1-2 giây
     this.startRandomBeepElapsedS = 0;
     this.startPreparationElapsedS = 0;
     this.startBeepIssued = false;
@@ -498,6 +502,8 @@ export class ExerciseRuntimeEngine {
     this.hillStopBeepIssued = false;
     this.hillPassedCrest = false;
     this.hillRequiredHoldS = Math.round((3.0 + Math.random() * 2.0) * 10) / 10; // Đứng yên 3s - 5s trên dốc Bài 3
+    this.bai4RightWheelsEnteredTrack = false;
+    this.bai4OutsideTrackFault = false;
     if (this.activeExercise) {
       this.examModeManager.resetForExercise(
         this.activeExercise.number,
@@ -521,7 +527,7 @@ export class ExerciseRuntimeEngine {
     if (cp.id.includes('_01_')) return 1;
     if (cp.id.includes('_02_')) return 2;
     if (cp.id.includes('_03_')) return 3;
-    if (cp.id.includes('_04_')) return 4;
+    if (cp.id.includes('_04_') || cp.id === 'cp_full_05_z_corner') return 4;
     if (cp.id.includes('_05_')) return 5;
     if (cp.id.includes('_06_')) return 6;
     if (cp.id.includes('_07_')) return 7;
@@ -716,16 +722,28 @@ export class ExerciseRuntimeEngine {
         const isBeforeStartLine = frontX < -56.0;
         const isStandingStill = speedKmh < 0.8;
 
-        // Nếu xe đang ở vị trí xuất phát ban đầu (chưa tiến lên), chờ câu lệnh hướng dẫn chuẩn bị (~8.2s) phát xong
+        // Nếu xe đang ở vị trí xuất phát ban đầu (chưa tiến lên), chờ câu lệnh hướng dẫn chuẩn bị (~1.5s)
         if (carX < -63.0) {
           this.startPreparationElapsedS += dt;
         }
 
         const isReadyForWaitCount =
-          carX >= -63.0 || this.startPreparationElapsedS >= 8.2;
+          carX >= -63.0 || this.startPreparationElapsedS >= 1.5;
 
-        if (isBeforeStartLine && isStandingStill && isReadyForWaitCount) {
-          // Xe đang đứng trước vạch xuất phát và đứng yên: tích luỹ thời gian đứng yên 3-5 giây
+        // Bất cứ khi nào người lái đạp ga (throttle > 0.04) hoặc xe bắt đầu nhúc nhích lăn bánh:
+        // LẬP TỨC phát lệnh xuất phát kèm tiếng tuýt và bắt đầu tính giờ, không để màn hình đứng yên chờ đợi!
+        const isDriverInitiatingDrive =
+          physics.rawInput.throttle > 0.04 ||
+          this.hasDriverAppliedThrottle ||
+          speedKmh > 0.5 ||
+          frontX >= -56.0;
+
+        if (isDriverInitiatingDrive) {
+          this.startBeepIssued = true;
+          this.latestVoiceTranscriptVi = RAW_START_BIP_SPOKEN_VI;
+          this.onVoiceAnnouncement?.(RAW_START_BIP_SPOKEN_VI, 'TUYT');
+        } else if (isBeforeStartLine && isStandingStill && isReadyForWaitCount) {
+          // Xe đang đứng trước vạch xuất phát và đứng yên: tích luỹ thời gian đứng yên 1-2 giây
           this.startRandomBeepElapsedS += dt;
           if (this.startRandomBeepElapsedS >= this.startRandomBeepDelayS) {
             this.startBeepIssued = true;
@@ -733,24 +751,14 @@ export class ExerciseRuntimeEngine {
             this.onVoiceAnnouncement?.(RAW_START_BIP_SPOKEN_VI, 'TUYT');
           }
         } else if (!isStandingStill) {
-          // Nếu xe di chuyển khi chưa đứng yên đủ 3-5s: reset lại bộ đếm đứng yên
+          // Nếu xe di chuyển khi chưa đứng yên đủ: reset lại bộ đếm đứng yên
           this.startRandomBeepElapsedS = 0;
-        }
-
-        // Nếu xe vượt hoặc chạm vạch xuất phát mà chưa có lệnh (thí sinh tự ý lăn bánh qua trước)
-        if (frontX >= -56.0) {
-          this.startBeepIssued = true;
-          this.latestVoiceTranscriptVi = RAW_START_BIP_SPOKEN_VI;
-          this.onVoiceAnnouncement?.(RAW_START_BIP_SPOKEN_VI, 'TUYT');
         }
       } else {
         // Sau khi đã phát lệnh "Xuất phát." (kèm tiếng Tuýt): bắt đầu đếm 20s / 30s qua vạch!
         this.elapsedSeconds += dt;
       }
-    } else if (
-      this.hasDriverAppliedThrottle ||
-      this.activeExercise?.id === 'ex_11_full_10_exercises_c'
-    ) {
+    } else {
       this.elapsedSeconds += dt;
     }
 
@@ -799,12 +807,10 @@ export class ExerciseRuntimeEngine {
 
     const effectiveSpeedKmh = physics.velocity.length() * 3.6;
 
-    // 1. Detect Obstacle or Cone Collision Events (suppress phantom collisions on Bài 3 ramp)
+    // 1. Detect Obstacle or Cone Collision Events
     if (physics.collisionCount > this.lastRecordedCollisionCount) {
       this.lastRecordedCollisionCount = physics.collisionCount;
-      if (!isOnBai3RampArea) {
-        this.recordViolation('OBSTACLE_OR_CONE_HIT', physics);
-      }
+      this.recordViolation('OBSTACLE_OR_CONE_HIT', physics);
     }
 
     // 2. Detect Manual Engine Stall (Latched once per stall incident — NEVER exempt on Bài 3 ramp so stall on hill is announced immediately and mission stays IN_PROGRESS!)
@@ -933,6 +939,7 @@ export class ExerciseRuntimeEngine {
     }
 
     const ex = this.activeExercise;
+    const targetCp = ex.checkpoints[this.currentCheckpointIndex];
 
     // 6. Check Exercise Time Limit (Tổng thời gian toàn bài 18 phút = 1080s: cứ mỗi 3 giây trừ 1 điểm; Thời gian mỗi bài riêng lẻ: 2 phút = 120s)
     if (this.elapsedSeconds >= ex.timeLimitSeconds) {
@@ -1003,32 +1010,51 @@ export class ExerciseRuntimeEngine {
     ];
 
     let touchingSolidSensorLine = false;
+    let wheelsOnCurbCount = 0;
     if (!isOnBai3RampArea) {
       for (let wIdx = 0; wIdx < 4; wIdx++) {
         const [lx, lz] = wheelOffsets[wIdx];
         const wx = carX + lx * cRightX - lz * cFwdX;
         const wz = carZ + lx * cRightZ - lz * cFwdZ;
         if (
-          detectWheelSolidLineTouch(wx, wz, 0.20) !== null ||
-          physics.wheelSurface[wIdx] === 'OFF_TRACK'
+          physics.wheelSurface[wIdx] === 'OFF_TRACK' ||
+          sampleBlueprintGroundAt(wx, wz).surface === 'OFF_TRACK'
         ) {
+          wheelsOnCurbCount++;
+        }
+        if (detectWheelSolidLineTouch(wx, wz, 0.20) !== null) {
           touchingSolidSensorLine = true;
-          break;
         }
       }
+    }
+
+    // Kiểm tra cản trước, cản sau hoặc gầm xe có leo lên vỉa hè / bờ kè không
+    const frontGround = sampleBlueprintGroundAt(frontX, frontZ);
+    const rearGround = sampleBlueprintGroundAt(rearX, rearZ);
+    const centerGround = sampleBlueprintGroundAt(carX, carZ);
+    const chassisMountedCurb =
+      !isOnBai3RampArea &&
+      (frontGround.surface === 'OFF_TRACK' ||
+        rearGround.surface === 'OFF_TRACK' ||
+        centerGround.surface === 'OFF_TRACK');
+
+    // LÁI XE LÊN VỈA HÈ / LỀ ĐƯỜNG: Truất quyền sát hạch ngay lập tức (trừ hết 100 điểm, điểm về 0)!
+    if ((wheelsOnCurbCount > 0 || chassisMountedCurb) && !isOnBai3RampArea) {
+      physics.lastCollisionObjectVi = 'Vỉa hè / Bờ kè bê tông';
+      this.recordViolation('OBSTACLE_OR_CONE_HIT', physics);
     }
 
     const boundaryViolated =
       !isOnBai3RampArea && (!insideAnyCorridor || touchingSolidSensorLine);
     this.isOutOfBounds = boundaryViolated;
 
-    if (boundaryViolated) {
+    if (boundaryViolated && wheelsOnCurbCount === 0) {
       this.boundarySafeTimerS = 0;
       if (!this.boundaryLatched) {
         this.boundaryLatched = true;
         this.recordViolation('BOUNDARY_CROSSED', physics);
       }
-    } else {
+    } else if (wheelsOnCurbCount === 0) {
       this.boundarySafeTimerS += dt;
       if (this.boundarySafeTimerS >= 1.2) {
         this.boundaryLatched = false;
@@ -1184,17 +1210,26 @@ export class ExerciseRuntimeEngine {
       }
     }
 
-    // 11. Check 2-Minute (120s) Parking Overtime (Bài 7 Đỗ xe dọc ⑦ & Bài 10 Ghép xe ngang ⑩)
+    // 11. Check 2-Minute (120s) Parking Overtime (Bài 7 Ghép xe dọc ⑦ & Bài 10 Ghép xe ngang ⑩)
+    const isAtBai7 =
+      ex.id === 'ex_07_vertical_parking' ||
+      (ex.id === 'ex_11_full_10_exercises_c' &&
+        (targetCp?.id === 'cp_full_07_parking_alley' ||
+          targetCp?.id === 'cp_full_07_parking'));
     const inVerticalBayArea =
-      (ex.id === 'ex_07_vertical_parking' ||
-        ex.id === 'ex_11_full_10_exercises_c') &&
+      isAtBai7 &&
       carX > -63.0 &&
       carX < -18.0 &&
       carZ > -48.5 &&
       carZ < -11.5;
+
+    const isAtBai10 =
+      ex.id === 'ex_10_parallel_parking' ||
+      (ex.id === 'ex_11_full_10_exercises_c' &&
+        (targetCp?.id === 'cp_full_10_parallel_approach' ||
+          targetCp?.id === 'cp_full_10_parallel_bay'));
     const inParallelBayArea =
-      (ex.id === 'ex_10_parallel_parking' ||
-        ex.id === 'ex_11_full_10_exercises_c') &&
+      isAtBai10 &&
       carX > -62.0 &&
       carX < -28.0 &&
       carZ > 1.0 &&
@@ -1366,7 +1401,6 @@ export class ExerciseRuntimeEngine {
     }
 
     // 14. Sequential Checkpoint & Stop-Line Evaluation
-    const targetCp = ex.checkpoints[this.currentCheckpointIndex];
     if (!targetCp) {
       physics.isInsideStopCheckpointZone = false;
       return;
@@ -1397,6 +1431,12 @@ export class ExerciseRuntimeEngine {
     const isBai10ParallelBayCp =
       targetCp.id === 'cp_ex10_parallel_bay' ||
       targetCp.id === 'cp_full_10_parallel_bay';
+    const isBai4NailEntryCp =
+      targetCp.id === 'cp_full_04_nail_entry' ||
+      targetCp.id === 'cp_ex4_nail_entry';
+    const isBai4NailStripCp =
+      targetCp.id === 'cp_full_04_nail_strip' ||
+      targetCp.id === 'cp_ex4_nail_strip';
 
     // Compute exact world positions of all 4 wheels: 0=FL, 1=FR, 2=RL (Bánh sau trái), 3=RR (Bánh sau phải)
     const wheelWorldX: [number, number, number, number] = [0, 0, 0, 0];
@@ -1465,7 +1505,8 @@ export class ExerciseRuntimeEngine {
 
     // 2. Bài 3 (Dừng và khởi hành ngang dốc 10%): White stop line at X = +2.0m (front edge +1.83m), Yellow entry line at X = -3.8m
     //    Quy chuẩn 2026: Dừng xe quá vạch quy định trên dốc -> Học viên bị trượt trực tiếp!
-    if (isBai3StopCp && Math.abs(carZ - 50.0) <= 5.5) {
+    //    Chỉ phạt quá vạch khi CHƯA dừng đỗ hợp lệ (nếu đã nhận Bíp hillStopBeepIssued thì được phép vượt qua vạch để leo dốc)!
+    if (isBai3StopCp && !this.hillStopBeepIssued && Math.abs(carZ - 50.0) <= 5.5) {
       if (frontX > 2.05) {
         // Front bumper crossed the white stop line at X = +2.0m on the hill!
         if (effectiveSpeedKmh < 3.0 || (frontX > 2.45 && effectiveSpeedKmh < 4.2)) {
@@ -1604,6 +1645,69 @@ export class ExerciseRuntimeEngine {
           wheelWorldZ.filter((wz) => wz >= 6.45 && wz <= 8.35).length >= 2);
 
       insideCp = inBay1 || inBay2;
+    } else if (isBai4NailEntryCp) {
+      // Bài 4: Cổng phân làn vào Hàng đinh (Hạng B làn dưới Z=23.5m · Hạng C làn trên Z=13.5m, hướng Tây -X)
+      const targetLaneZ = isCatBVehicle ? 23.5 : 13.5;
+      insideCp =
+        frontX <= 61.5 &&
+        frontX >= 56.0 &&
+        Math.abs(carZ - targetLaneZ) <= 3.2;
+
+      // Kiểm tra học viên có bỏ qua cổng vào Bài 4 hay không:
+      // CHỈ kiểm tra trong chế độ FULL_COURSE khi xe đã đi hết đường Nam và đã rẽ vào trục đường Đông (carX >= 65.0 và carZ <= 40.0)
+      if (this.mode === 'MOCK_COURSE' && carX >= 65.0 && carZ <= 40.0) {
+        const skippedNorthTowardsBai8 = carZ <= (isCatBVehicle ? 15.0 : 6.0);
+        if (skippedNorthTowardsBai8) {
+          this.recordViolation('MISSED_CHECKPOINT', physics);
+        }
+      }
+    } else if (isBai4NailStripCp) {
+      // Bài 4: Dải cảm biến vệt bánh xe (Hàng đinh)
+      // Hai bánh xe bên phải (FR wIdx=1 và RR wIdx=3) BẮT BUỘC phải đi lọt vào giữa 2 ống cảm biến:
+      // Hạng B: X in [45.2 .. 50.2], Z in [22.10 .. 22.78]
+      // Hạng C: X in [43.5 .. 52.0], Z in [12.15 .. 12.85]
+      const minX = isCatBVehicle ? 45.2 : 43.5;
+      const maxX = isCatBVehicle ? 50.2 : 52.0;
+      const minZ = isCatBVehicle ? 22.10 : 12.15;
+      const maxZ = isCatBVehicle ? 22.78 : 12.85;
+      const targetLaneZ = isCatBVehicle ? 23.5 : 13.5;
+
+      for (const wIdx of [1, 3]) {
+        const wx = wheelWorldX[wIdx];
+        const wz = wheelWorldZ[wIdx];
+        if (wx >= minX && wx <= maxX) {
+          if (wz >= minZ && wz <= maxZ) {
+            this.bai4RightWheelsEnteredTrack = true;
+          } else {
+            this.bai4OutsideTrackFault = true;
+          }
+        }
+      }
+
+      // Xe đã đi qua hết dải hàng đinh (theo hướng Tây -X):
+      const passedNailStrip =
+        frontX <= minX - 0.4 &&
+        carX <= minX + 1.2 &&
+        Math.abs(carZ - targetLaneZ) <= 3.2;
+      if (passedNailStrip) {
+        if (!this.bai4RightWheelsEnteredTrack || this.bai4OutsideTrackFault) {
+          // Bánh xe không đi qua vệt bánh xe -> Truất quyền sát hạch theo quy định!
+          this.recordViolation('BOUNDARY_CROSSED', physics, 'OUTSIDE_NAIL_STRIP');
+        } else {
+          insideCp = true;
+        }
+      } else {
+        // Chỉ bắt lỗi bánh xe ra ngoài hàng đinh khi xe THỰC SỰ đang ở trong làn Bài 4 và đã tiến qua dải hàng đinh:
+        if (
+          Math.abs(carZ - targetLaneZ) <= 3.2 &&
+          carX >= 35.0 &&
+          carX < minX - 1.5 &&
+          !this.bai4RightWheelsEnteredTrack
+        ) {
+          this.recordViolation('BOUNDARY_CROSSED', physics, 'OUTSIDE_NAIL_STRIP');
+        }
+        insideCp = false;
+      }
     } else {
       insideCp = minDistToCp <= effectiveRadius;
       if (targetCp.boxSizeM) {
@@ -1645,9 +1749,27 @@ export class ExerciseRuntimeEngine {
       return;
     }
 
-    // Gate B: Nếu Bài 3 (Đề-pa dốc) đang trên dốc -> Ghi nhận vượt đỉnh dốc khi carX >= 5.0m
-    if (this.hillStopBeepIssued && carX >= 5.0) {
-      this.hillPassedCrest = true;
+    // Gate B: Nếu Bài 3 (Đề-pa dốc) đang trên dốc:
+    // Xe BẮT BUỘC phải tiếp tục khởi hành máy nổ bình thường, vượt qua đỉnh dốc (carX >= 7.5m)
+    // và đi xuống chân dốc an toàn (carX >= 20.0m) thì mới HOÀN THÀNH Bài 3 và chuyển sang Bài 4!
+    if (isBai3StopCp && this.hillStopBeepIssued) {
+      if (carX >= 7.5) {
+        this.hillPassedCrest = true;
+      }
+      if (
+        targetCp.id === 'cp_full_03_hill' &&
+        physics.isEngineRunning &&
+        !physics.isStalled &&
+        carX >= 20.0
+      ) {
+        this.examModeManager.evaluateCurrentMissionCompletion({
+          engine_running: true,
+          hill_stop_recorded: true,
+          passed_ramp_crest: true,
+        });
+        this.advanceCheckpoint(physics);
+      }
+      return;
     }
 
     // Gate C: Nếu Bài 7 (Ghép dọc) hoặc Bài 10 (Ghép ngang) đã nhận "Bíp" trong chuồng -> Chỉ COMPLETED khi lái xe tiến hẳn ra khỏi vạch giới hạn chuồng đỗ!
@@ -1767,19 +1889,22 @@ export class ExerciseRuntimeEngine {
           this.stopHoldProgressS += dt;
           if (this.stopHoldProgressS >= requiredHoldS) {
             if (isBai3StopCp) {
-              // Bài 3: Dừng xe đúng vạch trên dốc và đứng yên đủ 3s - 5s -> Xác nhận thành công, phát tiếng Bíp và lập tức thông báo bài tiếp theo!
-              this.hillStopBeepIssued = true;
-              if (this.hillZoneEnteredTimeS === null) {
-                this.hillZoneEnteredTimeS = this.elapsedSeconds;
+              // Bài 3: Dừng xe đúng vạch trên dốc và đứng yên đủ 3.5s -> Xác nhận thành công và phát tiếng Tuýt nhận bài!
+              if (!this.hillStopBeepIssued) {
+                this.hillStopBeepIssued = true;
+                if (this.hillZoneEnteredTimeS === null) {
+                  this.hillZoneEnteredTimeS = this.elapsedSeconds;
+                }
+                this.onVoiceAnnouncement?.('', 'TUYT');
               }
-              this.examModeManager.evaluateCurrentMissionCompletion({
-                engine_running: true,
-                hill_stop_recorded: true,
-              });
-              this.verifyTurnSignalAndAdvance(
-                targetCp.requiredTurnSignal,
-                physics
-              );
+              // Với bài đơn lẻ ex_03_hill_start, chuyển sang checkpoint Đỉnh dốc
+              if (targetCp.id === 'cp_ex3_hill_stop') {
+                this.verifyTurnSignalAndAdvance(
+                  targetCp.requiredTurnSignal,
+                  physics
+                );
+              }
+              // Với FULL_COURSE (cp_full_03_hill), Gate B sẽ advance khi xe leo qua đỉnh dốc xuống chân dốc (carX >= 20.0m)
               return;
             }
             if (isParkingBayCp) {
@@ -1864,28 +1989,49 @@ export class ExerciseRuntimeEngine {
         }
       }
 
-      // Check if driver skipped the active checkpoint and drove through a subsequent checkpoint
-      // STRICT MISSION STATE MACHINE RULE: If the vehicle is stalled (!physics.isEngineRunning) or currently in Bài 3 / Bài 7 / Bài 10 IN_PROGRESS,
-      // DO NOT allow later checkpoint triggers to force-advance to the next exercise!
+      // Kiểm tra học viên có bỏ bài sát hạch theo quy định (MISSED_CHECKPOINT):
+      // CHỈ áp dụng trong chế độ FULL_COURSE (Sát hạch toàn bộ 11 bài sa hình liên hoàn).
+      // Trong chế độ SINGLE_EXERCISE, thí sinh đang luyện tập một bài riêng lẻ nên không có quy tắc bỏ bài sang bài tiếp theo.
       if (
+        this.mode === 'MOCK_COURSE' &&
+        ex.id === 'ex_11_full_10_exercises_c' &&
         physics.isEngineRunning &&
-        !physics.isStalled &&
-        !isBai3StopCp &&
-        !isBai7VerticalBayCp &&
-        !isBai10ParallelBayCp
+        !physics.isStalled
       ) {
-        const nextIdx = this.currentCheckpointIndex + 1;
-        if (nextIdx < ex.checkpoints.length) {
-          const nextCp = ex.checkpoints[nextIdx];
-          const distNext = Math.hypot(
-            carX - nextCp.position.x,
-            carZ - nextCp.position.z
-          );
-          if (distNext < nextCp.radiusM * 0.8) {
-            if (targetCp.requiresFullStop) {
-              this.recordViolation('FAILED_TO_STOP_AT_LINE', physics);
-            }
-            this.advanceCheckpoint(physics);
+        // 1. Bỏ Bài 7 (Ghép xe dọc): Đang ở Bài 7 mà chưa hoàn thành lùi chuồng (chưa nhận Bíp vạch vàng),
+        //    nhưng đã lái xe bỏ chạy sang khu vực Bài 8 (Đường sắt phía Đông: carX >= 70.0m)
+        const isAtBai7 =
+          targetCp.id === 'cp_full_07_parking_alley' ||
+          targetCp.id === 'cp_full_07_parking';
+        if (isAtBai7 && !this.parkingBayBeepIssued) {
+          const reachedBai8WithoutParking =
+            carX >= 70.0 && carZ >= -30.0 && carZ <= 0.0;
+          if (reachedBai8WithoutParking) {
+            this.recordViolation('MISSED_CHECKPOINT', physics);
+            return;
+          }
+        }
+
+        // 2. Bỏ Bài 8 (Đường sắt): Đang ở Bài 8 mà không dừng, lái xe vượt sang đường Tăng tốc phía Bắc
+        if (targetCp.id === 'cp_full_08_railway') {
+          const reachedAccelZoneEarly =
+            carZ <= -50.0 && carX <= 45.0 && carX >= -10.0;
+          if (reachedAccelZoneEarly) {
+            this.recordViolation('MISSED_CHECKPOINT', physics);
+            return;
+          }
+        }
+
+        // 3. Bỏ Bài 10 (Ghép xe ngang): Đang ở Bài 10 mà không ghép xe, chạy thẳng vào ngõ về đích Bài 11
+        if (
+          targetCp.id === 'cp_full_10_parallel_approach' ||
+          targetCp.id === 'cp_full_10_parallel_bay'
+        ) {
+          const reachedFinishEarly =
+            carX <= -50.0 && carZ >= 38.0;
+          if (reachedFinishEarly) {
+            this.recordViolation('MISSED_CHECKPOINT', physics);
+            return;
           }
         }
       }
@@ -1916,6 +2062,8 @@ export class ExerciseRuntimeEngine {
     this.hillStopBeepIssued = false;
     this.hillPassedCrest = false;
     this.parkingBayBeepIssued = false;
+    this.bai4RightWheelsEnteredTrack = false;
+    this.bai4OutsideTrackFault = false;
 
     const completedCp =
       this.activeExercise.checkpoints[this.currentCheckpointIndex];
@@ -2009,14 +2157,18 @@ export class ExerciseRuntimeEngine {
       isBai4OutsideNailStripDisqualification;
 
     const effectivePointsDeducted =
-      isBai3LateStopDisqualification || isBai4OutsideNailStripDisqualification
-        ? 25
+      effectiveDisqualification
+        ? 100
         : rule.pointsDeducted;
 
-    this.currentScore = Math.max(
-      0,
-      this.currentScore - effectivePointsDeducted
-    );
+    if (effectiveDisqualification) {
+      this.currentScore = 0;
+    } else {
+      this.currentScore = Math.max(
+        0,
+        this.currentScore - effectivePointsDeducted
+      );
+    }
 
     const voiceInfo = resolveContextualViolationVoice2026(
       code,
@@ -2061,9 +2213,10 @@ export class ExerciseRuntimeEngine {
 
     // Chế độ Luyện Tập Tự Do: không truất quyền hay dừng bài thi, để học viên tự do lái xe trải nghiệm sa hình!
     if (this.mode === 'FREE_PRACTICE') {
+      const isCrash = code === 'OBSTACLE_OR_CONE_HIT';
       this.onVoiceAnnouncement?.(
-        voiceInfo.spokenViolationVi,
-        false,
+        isCrash ? specificViolationExplanationVi : voiceInfo.spokenViolationVi,
+        isCrash ? 'ALARM_AND_VOICE' : false,
         this.currentScore,
         voiceInfo.clipUrl
       );
@@ -2106,6 +2259,15 @@ export class ExerciseRuntimeEngine {
     if (this.status === 'COMPLETED' || this.status === 'FAILED') return;
     this.status = finalStatus;
     this.failureReasonVi = finalStatus === 'FAILED' ? summaryNoteVi : null;
+
+    if (
+      finalStatus === 'FAILED' &&
+      (summaryNoteVi.includes('Truất quyền') ||
+        summaryNoteVi.includes('trượt') ||
+        this.currentScore < this.ruleSet.passingThresholdScore)
+    ) {
+      this.currentScore = 0;
+    }
 
     // Dừng hẳn xe và kéo phanh tay an toàn khi kết thúc bài
     physics.rawInput.throttle = 0;

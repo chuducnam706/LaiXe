@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { TransmissionMode } from '../types/simulation';
+import { AdBanner } from './AdBanner';
 
 interface FirstTimeTutorialModalProps {
   isOpen: boolean;
@@ -53,6 +54,15 @@ export const FirstTimeTutorialModal: React.FC<FirstTimeTutorialModalProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Banner Quảng Cáo Top */}
+        <div className="px-4 py-1.5 bg-slate-950/90 border-b border-slate-800/80 flex justify-center">
+          <AdBanner
+            format="header_top"
+            slotId="tutorial_modal_top_banner"
+            className="w-full !max-w-none"
+          />
         </div>
 
         {/* Navigation Tabs */}
@@ -261,6 +271,15 @@ export const FirstTimeTutorialModal: React.FC<FirstTimeTutorialModalProps> = ({
               Bắt Đầu Lái Ngay — Số Tự Động D1 (Dễ Nhất)
             </button>
           </div>
+        </div>
+
+        {/* Banner Quảng Cáo Bottom */}
+        <div className="px-4 py-2 bg-slate-950 border-t border-slate-800/80 flex justify-center">
+          <AdBanner
+            format="horizontal_leaderboard"
+            slotId="tutorial_modal_bottom_banner"
+            className="w-full !max-w-none"
+          />
         </div>
       </div>
     </div>

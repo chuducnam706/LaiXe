@@ -124,7 +124,7 @@ export class VehiclePhysicsEngine {
   public turnSignalBlinkOn = false;
   private turnSignalTimerS = 0;
   private turnSignalPeakSteerDeg = 0;
-  public headlightMode: HeadlightMode = 'LOW_BEAM';
+  public headlightMode: HeadlightMode = 'OFF';
   public wiperActive = false;
   public wiperPhaseRad = 0;
   public weatherMode: WeatherMode = 'CLEAR';
@@ -135,6 +135,7 @@ export class VehiclePhysicsEngine {
   public autoClutchEnabled = true;
   public speedLimitGovernorKmh: number | null = 22.0;
   public isInsideStopCheckpointZone = false;
+  public isCruisingActive = false;
 
   // Inputs snapshot
   public rawInput: RawDriverInput = {
@@ -329,16 +330,18 @@ export class VehiclePhysicsEngine {
     this.wheelSteerRad = [0, 0, 0, 0];
     this.currentSteerAngleDeg = 0;
 
-    const isStartLine = presetId === 'start_line';
-    this.isEngineRunning = !isStartLine;
+    const isAT = this.transmissionMode === 'AUTOMATIC';
+    this.isEngineRunning = true;
     this.isStalled = false;
     this.stallReasonVi = null;
-    this.engineRpm = this.isEngineRunning ? this.profile.idleRpm : 0;
+    this.engineRpm = this.profile.idleRpm;
     this.currentGear = 0;
-    this.atSelectorPosition = 'P';
+    this.atSelectorPosition = isAT ? 'P' : 'N';
     this.hillHoldElapsedS = 0;
     this.clutchSamples = [];
     this.handbrakeActive = true;
+    this.isCruisingActive = false;
+    this.headlightMode = 'OFF';
     this.turnSignal = 'OFF';
     this.turnSignalBlinkOn = false;
     this.lastCollisionObjectVi = null;
@@ -852,19 +855,37 @@ export class VehiclePhysicsEngine {
       throttleCmd = 0;
     }
 
+    // Quản lý trạng thái hành trình tự động (Cruising):
+    // - Chỉ kích hoạt khi người lái đã chủ động nhấn ga (W) khi đang ở số tiến
+    // - Tự động hủy khi xe đã dừng lại do phanh, hoặc về số N/P/R, hoặc kéo phanh tay
+    if (this.currentGear >= 1 && this.rawInput.throttle > 0.05) {
+      this.isCruisingActive = true;
+    }
+    if (
+      this.currentGear <= 0 ||
+      this.handbrakeActive ||
+      !this.isEngineRunning ||
+      (brakeCmd > 0.12 && speedKmh < 1.0)
+    ) {
+      this.isCruisingActive = false;
+    }
+
     // Authentic Idle Creep / Automatic 10 km/h Cruising (Yêu cầu: Tốc độ tự động là 10 km/h; người dùng có thể tăng tốc, khi nhả ga thì đưa về 10 km/h):
-    // Chỉ kích hoạt khi: Nổ máy + Đang cài số tiến (>= 1 / D) + Đã hạ phanh tay + Không đạp phanh chân + Nhả côn.
+    // Chỉ kích hoạt khi: Nổ máy + Đang cài số tiến (>= 1 / D) + Đã hạ phanh tay + Không đạp phanh chân + Nhả côn
+    // VÀ xe đang trong hành trình di chuyển (isCruisingActive) sau khi người lái đã đạp ga khởi hành.
+    // Tuyệt đối KHÔNG tự động tăng tốc khi xe đang đứng yên / chưa có lệnh ga từ người lái để tránh xe tự chạy khi mới vào game!
     const AUTO_CRUISE_TARGET_KMH = 10.0;
     const isAutoCruiseForwardActive =
       this.isEngineRunning &&
       this.currentGear >= 1 &&
       !this.handbrakeActive &&
       brakeCmd < 0.08 &&
-      this.rawInput.clutch < 0.45;
+      this.rawInput.clutch < 0.45 &&
+      this.isCruisingActive;
 
     if (isAutoCruiseForwardActive) {
       if (speedKmh < AUTO_CRUISE_TARGET_KMH) {
-        // Tự động bù ga mượt mà để tăng tốc lên 10 km/h (khi leo dốc hoặc bắt đầu chạy)
+        // Tự động bù ga mượt mà để tăng tốc lên 10 km/h (khi leo dốc hoặc khi đang chạy)
         const speedDeficit = AUTO_CRUISE_TARGET_KMH - speedKmh;
         const autoThrottle = THREE.MathUtils.clamp(
           0.12 + (speedDeficit / AUTO_CRUISE_TARGET_KMH) * (isOnUphillRamp ? 0.35 : 0.20),
@@ -879,9 +900,10 @@ export class VehiclePhysicsEngine {
       !this.handbrakeActive &&
       brakeCmd < 0.08 &&
       this.rawInput.clutch < 0.45 &&
-      !isOnUphillRamp
+      !isOnUphillRamp &&
+      (speedKmh >= 1.5 || this.rawInput.throttle > 0.05)
     ) {
-      // Số lùi (R): Giữ tốc độ trôi lùi an toàn (~5.5 km/h) để lùi chuồng kiểm soát tốt
+      // Số lùi (R): Giữ tốc độ trôi lùi an toàn (~5.5 km/h) để lùi chuồng kiểm soát tốt khi đang lùi
       const creepTargetKmh = 5.5;
       if (speedKmh < creepTargetKmh) {
         const creepFactor = THREE.MathUtils.clamp(
@@ -1110,9 +1132,13 @@ export class VehiclePhysicsEngine {
           : 0;
 
       // Idle creep torque: Real engines naturally generate ~45-65 Nm of idle torque at 900-1000 RPM
-      // In 1st gear / D, this transfers to the wheels, allowing creeping forward and climbing a 10% slope on clutch alone!
+      // Only active when cruising is active OR driver is actively applying throttle OR on uphill ramp
+      const canCreep =
+        this.isCruisingActive || this.rawInput.throttle > 0.02 || isOnUphillRamp;
       const idleCreepTorque =
-        this.currentGear === 1 || this.transmissionMode === 'AUTOMATIC'
+        canCreep &&
+        (this.currentGear === 1 ||
+          (this.transmissionMode === 'AUTOMATIC' && this.atSelectorPosition === 'D'))
           ? 55 * massTorqueScale
           : 0;
 
@@ -1359,11 +1385,25 @@ export class VehiclePhysicsEngine {
 
       netYawTorqueNm += leverZ * fChassisRight + leverX * fChassisFwd * 0.25;
 
-      // Physical curb step reaction force when a wheel is climbing a raised concrete curb
-      if (ground.surface === 'OFF_TRACK' && (ground.normalX !== 0 || ground.normalZ !== 0)) {
-        const curbStepForce = this.profile.massKg * 9.81 * 0.22;
-        netForceX += ground.normalX * curbStepForce;
-        netForceZ += ground.normalZ * curbStepForce;
+      // Physical curb step reaction force & collision detection when a wheel climbs or rests on a raised concrete curb
+      if (ground.surface === 'OFF_TRACK') {
+        if (ground.normalX !== 0 || ground.normalZ !== 0) {
+          const curbStepForce = this.profile.massKg * 9.81 * 0.22;
+          netForceX += ground.normalX * curbStepForce;
+          netForceZ += ground.normalZ * curbStepForce;
+        }
+
+        if (this.collisionCooldownS <= 0) {
+          this.collisionCount += 1;
+          this.lastCollisionObjectVi = 'Vỉa hè / Bờ kè bê tông';
+          this.lastCollisionImpulse =
+            Math.max(1.2, this.velocity.length()) * this.profile.massKg;
+          this.collisionCooldownS = 0.8;
+          this.onCollisionCallback?.(
+            Math.max(1.2, this.velocity.length()),
+            'Vỉa hè / Bờ kè bê tông'
+          );
+        }
       }
 
       // Advance visual wheel rolling rotation angle
@@ -1495,9 +1535,16 @@ export class VehiclePhysicsEngine {
     const isHandbrakeOrFootBrakeStop =
       (this.handbrakeActive || brakeCmd > 0.12) && speedMs < 0.85;
 
+    const isIdleStandstillHold =
+      !this.isCruisingActive &&
+      this.rawInput.throttle <= 0.02 &&
+      !isOnUphillRamp &&
+      speedMs < 0.45;
+
     if (
       isStationaryNeutralStop ||
       isHandbrakeOrFootBrakeStop ||
+      isIdleStandstillHold ||
       (isHillHoldAssistActive && speedMs < 0.35)
     ) {
       this.velocity.set(0, 0, 0);
@@ -1896,7 +1943,7 @@ export class VehiclePhysicsEngine {
       return 'Bài 6: Đường vòng quanh co — Chữ S (⑥)';
     }
     if (x >= -64 && x <= -15 && z >= -49 && z <= -10) {
-      return 'Bài 7: Đỗ xe — Ghép xe dọc (⑦)';
+      return 'Bài 7: Ghép xe dọc vào nơi đỗ (Lùi chuồng)';
     }
     if (x >= 70 && z >= -48 && z <= 6) {
       return 'Bài 8: Xe lửa — Đường sắt (⑧)';

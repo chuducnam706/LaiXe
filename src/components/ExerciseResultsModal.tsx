@@ -14,6 +14,7 @@ import {
 import { PracticeAttemptResult } from '../types/course';
 import { useAuth } from '../context/AuthContext';
 import { useDailyPlayLimit } from '../context/DailyPlayLimitContext';
+import { AdBanner } from './AdBanner';
 
 interface ExerciseResultsModalProps {
   result: PracticeAttemptResult | null;
@@ -33,7 +34,7 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
   onReturnHome,
 }) => {
   const { currentUser } = useAuth();
-  const { dailyLimit, playsRemaining, setIsOutOfPlaysModalOpen } = useDailyPlayLimit();
+  const { dailyLimit, playsRemaining, isUnlimited, setIsOutOfPlaysModalOpen } = useDailyPlayLimit();
 
   if (!result) return null;
 
@@ -43,8 +44,15 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
       : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 pointer-events-auto">
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center gap-3.5 bg-black/85 p-2 sm:p-4 pointer-events-auto overflow-y-auto">
+      {/* Ads 2 Bên: Banner Dọc Bên Trái (ẩn trên mobile/tablet) */}
+      <div className="hidden xl:flex flex-col items-center shrink-0">
+        <AdBanner format="side_skyscraper" closable slotId="modal_left_side" />
+      </div>
+
+      {/* Cột Trung Tâm: Khung Thông Báo Kết Quả & Banner Dưới Bottom */}
+      <div className="flex flex-col items-center w-full max-w-2xl gap-2.5">
+        <div className="w-full max-h-[82vh] flex flex-col rounded-xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 bg-slate-950 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -67,10 +75,10 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
           </div>
 
           <button
-            onClick={!result.passed ? (onReturnHome || onClose) : onClose}
+            onClick={onReturnHome || onClose}
             className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            aria-label={!result.passed ? 'Thoát ra màn hình chính' : 'Đóng bảng kết quả'}
-            title={!result.passed ? 'Thoát ra màn hình chính' : 'Đóng bảng kết quả'}
+            aria-label="Thoát ra màn hình chính"
+            title="Thoát ra màn hình chính"
           >
             <X className="w-5 h-5" />
           </button>
@@ -129,13 +137,13 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
               </div>
               <div
                 className={`text-xl sm:text-2xl font-extrabold mt-0.5 ${
-                  playsRemaining === 0 ? 'text-rose-400' : 'text-amber-400'
+                  isUnlimited ? 'text-amber-300 text-3xl font-black' : playsRemaining === 0 ? 'text-rose-400' : 'text-amber-400'
                 }`}
               >
-                {playsRemaining} / {dailyLimit}
+                {isUnlimited ? '∞' : `${playsRemaining} / ${dailyLimit}`}
               </div>
               <div className="text-[10px] text-slate-500">
-                {playsRemaining === 0 ? 'Đã hết lượt hôm nay' : 'Reset lúc 00:00'}
+                {isUnlimited ? 'VIP Vô hạn lượt thi' : playsRemaining === 0 ? 'Đã hết lượt hôm nay' : 'Reset lúc 00:00'}
               </div>
             </div>
           )}
@@ -194,6 +202,9 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
               )}
             </div>
           )}
+
+          {/* Quảng Cáo Xen Kẽ Giữa Khối Màu Đỏ (Lỗi/Truất Quyền) và Khối Màu Xanh (Nhận Xét/Quy Chuẩn) */}
+          <AdBanner format="compact_strip" closable slotId="modal_interleaved_banner" />
 
           <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 space-y-1">
             <div>
@@ -314,28 +325,28 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                if (currentUser && playsRemaining === 0) {
+                if (currentUser && !isUnlimited && playsRemaining === 0) {
                   setIsOutOfPlaysModalOpen(true);
                   return;
                 }
                 onRetryExercise();
               }}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
-                currentUser && playsRemaining === 0
+                currentUser && !isUnlimited && playsRemaining === 0
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
                   : !result.passed
                   ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'bg-slate-800 hover:bg-slate-700 text-amber-400'
               }`}
-              title={currentUser && playsRemaining === 0 ? 'Đã hết lượt thi sa hình hôm nay' : 'Đưa xe về vạch xuất phát và chơi lại từ đầu (Phím R hoặc Phím Space)'}
+              title={currentUser && !isUnlimited && playsRemaining === 0 ? 'Đã hết lượt thi sa hình hôm nay' : 'Đưa xe về vạch xuất phát và chơi lại từ đầu (Phím R hoặc Phím Space)'}
             >
               <RotateCcw className="w-4 h-4" />
               <span>
-                {currentUser && playsRemaining === 0
+                {currentUser && !isUnlimited && playsRemaining === 0
                   ? `Hết Lượt Thi (0/${dailyLimit})`
                   : !result.passed
-                  ? `Chơi Lại Từ Đầu (Phím R)${currentUser ? ` · Còn ${playsRemaining} lượt` : ''}`
-                  : `Thử Lại Bài Này (R)${currentUser ? ` · Còn ${playsRemaining} lượt` : ''}`}
+                  ? `Chơi Lại Từ Đầu (Phím R)${currentUser ? (isUnlimited ? ' · ∞ lượt' : ` · Còn ${playsRemaining} lượt`) : ''}`
+                  : `Thử Lại Bài Này (R)${currentUser ? (isUnlimited ? ' · ∞ lượt' : ` · Còn ${playsRemaining} lượt`) : ''}`}
               </span>
             </button>
 
@@ -349,6 +360,17 @@ export const ExerciseResultsModal: React.FC<ExerciseResultsModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Ads Hiển Thị Dưới Bottom Của Thông Báo */}
+      <div className="w-full flex justify-center shrink-0">
+        <AdBanner format="horizontal_leaderboard" closable slotId="modal_bottom_leaderboard" />
+      </div>
     </div>
+
+    {/* Ads 2 Bên: Banner Dọc Bên Phải (ẩn trên mobile/tablet) */}
+    <div className="hidden xl:flex flex-col items-center shrink-0">
+      <AdBanner format="side_skyscraper" closable slotId="modal_right_side" />
+    </div>
+  </div>
   );
 };

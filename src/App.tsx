@@ -28,6 +28,7 @@ import {
   Zap,
   Monitor,
   Ticket,
+  Crown,
   Lock,
   Clock,
   ShieldCheck,
@@ -78,7 +79,6 @@ import {
   VehicleAssetMetadata,
 } from './three/CarModelBuilder';
 import { InspectorTuningModal } from './components/InspectorTuningModal';
-import { UnityWorkbenchModal } from './components/UnityWorkbenchModal';
 import { CourseSelectionModal } from './components/CourseSelectionModal';
 import { ExerciseResultsModal } from './components/ExerciseResultsModal';
 import {
@@ -88,16 +88,17 @@ import {
 } from './components/MobileTouchControls';
 import { FirstTimeTutorialModal } from './components/FirstTimeTutorialModal';
 import { TheoryStudyModal } from './components/TheoryStudyModal';
-import { InstructorScoringConsoleModal } from './components/InstructorScoringConsoleModal';
 import { useAuth } from './context/AuthContext';
 import { AuthModal } from './components/AuthModal';
-import { ExamHistoryModal } from './components/ExamHistoryModal';
 import { UserAccountButton } from './components/UserAccountButton';
 import { useDailyPlayLimit } from './context/DailyPlayLimitContext';
 import { OutOfPlaysModal } from './components/OutOfPlaysModal';
 import { DailyPlaysBadge } from './components/DailyPlaysBadge';
 import { GuestTrialExpiredModal } from './components/GuestTrialExpiredModal';
 import { RoleManagementModal } from './components/RoleManagementModal';
+import { PolicyModal } from './components/PolicyModal';
+import { AdBanner } from './components/AdBanner';
+import { triggerAdBreak } from './utils/ads';
 
 export default function App() {
   // Core mutable simulation & course engines (Lazy initialized ONCE so re-renders never reset physics state!)
@@ -169,20 +170,18 @@ export default function App() {
 
   // Modals
   const [isCourseModalOpen, setIsCourseModalOpen] = useState<boolean>(false);
-  const [isUnityWorkbenchOpen, setIsUnityWorkbenchOpen] =
-    useState<boolean>(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(false);
   const [isTutorialModalOpen, setIsTutorialModalOpen] = useState<boolean>(false);
   const [isTheoryModalOpen, setIsTheoryModalOpen] = useState<boolean>(false);
-  const [isInstructorConsoleOpen, setIsInstructorConsoleOpen] =
-    useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState<boolean>(false);
+  const [policyDefaultTab, setPolicyDefaultTab] = useState<'privacy' | 'terms'>('privacy');
   const { currentUser, isAdmin, saveExamResult } = useAuth();
   const {
     dailyLimit,
     guestTrialMinutes,
     playsRemaining,
+    isUnlimited,
     consumePlay,
     isOutOfPlaysModalOpen,
     setIsOutOfPlaysModalOpen,
@@ -198,6 +197,11 @@ export default function App() {
     remainingSeconds: number;
   } | null>(null);
   const failureNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [crashNotice, setCrashNotice] = useState<{
+    objectNameVi: string;
+    timestamp: number;
+  } | null>(null);
+  const crashNoticeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Simulation settings & 3D Vehicle Appearance
   const [cameraMode, setCameraMode] = useState<CameraMode>('CHASE');
@@ -287,6 +291,21 @@ export default function App() {
     exEngine.onViolationTriggered = (record) => {
       if (record.code === 'OBSTACLE_OR_CONE_HIT') {
         soundRef.current.playCollisionImpact(1.2);
+        const objName =
+          physicsRef.current.lastCollisionObjectVi ||
+          record.titleVi ||
+          'Chướng ngại vật / Vỉa hè';
+        if (crashNoticeTimerRef.current) {
+          clearTimeout(crashNoticeTimerRef.current);
+        }
+        setCrashNotice({
+          objectNameVi: objName,
+          timestamp: Date.now(),
+        });
+        crashNoticeTimerRef.current = setTimeout(() => {
+          setCrashNotice(null);
+          crashNoticeTimerRef.current = null;
+        }, 5000);
       }
     };
     exEngine.onVoiceAnnouncement = (
@@ -381,10 +400,9 @@ export default function App() {
         e.keyCode === 87 ||
         e.keyCode === 38;
 
-      if (isTheoryModalOpen || isInstructorConsoleOpen) {
+      if (isTheoryModalOpen) {
         if (e.code === 'Escape') {
           setIsTheoryModalOpen(false);
-          setIsInstructorConsoleOpen(false);
         }
         return;
       }
@@ -439,8 +457,6 @@ export default function App() {
           setIsTutorialModalOpen(false);
         } else if (isCourseModalOpen) {
           setIsCourseModalOpen(false);
-        } else if (isUnityWorkbenchOpen) {
-          setIsUnityWorkbenchOpen(false);
         } else if (isInspectorOpen) {
           setIsInspectorOpen(false);
         } else {
@@ -487,12 +503,79 @@ export default function App() {
     isTheoryModalOpen,
     isTutorialModalOpen,
     isCourseModalOpen,
-    isUnityWorkbenchOpen,
     isInspectorOpen,
     completedAttemptResult,
     failureNotice,
     keyBindings,
   ]);
+
+  const handleReturnHome = () => {
+    if (failureNoticeTimerRef.current) {
+      clearInterval(failureNoticeTimerRef.current);
+      failureNoticeTimerRef.current = null;
+    }
+    setCompletedAttemptResult(null);
+    setFailureNotice(null);
+    setIsPaused(false);
+    setIsTrialExpiredModalOpen(false);
+    setIsCourseModalOpen(false);
+    setGuestSecondsRemaining(null);
+    soundRef.current.clearVoiceQueue();
+
+    // Luôn reset hoàn toàn bài thi và đưa xe về vị trí xuất phát Bài 1 (không lưu giữ trạng thái dở dang)
+    const defaultContinuousEx =
+      DRIVING_EXERCISES_LIST.find((e) => e.id === 'ex_11_full_10_exercises_c') ??
+      DRIVING_EXERCISES_LIST[0];
+    exerciseEngineRef.current.startExercise(
+      defaultContinuousEx,
+      'MOCK_COURSE',
+      physicsRef.current
+    );
+    exerciseEngineRef.current.status = 'NOT_STARTED';
+
+    physicsRef.current.handbrakeActive = true;
+    physicsRef.current.isEngineRunning = false;
+    physicsRef.current.engineRpm = 0;
+    physicsRef.current.isStalled = false;
+    physicsRef.current.stallReasonVi = null;
+    physicsRef.current.currentGear = 0;
+    physicsRef.current.atSelectorPosition = 'P';
+    physicsRef.current.headlightMode = 'OFF';
+    physicsRef.current.velocity.set(0, 0, 0);
+    physicsRef.current.rawInput.throttle = 0;
+    physicsRef.current.rawInput.brake = 0;
+    physicsRef.current.rawInput.clutch = 0;
+    physicsRef.current.rawInput.steer = 0;
+
+    setManualClutchSlider(0);
+    setTelemetry(physicsRef.current.getTelemetrySnapshot());
+    setExerciseState(exerciseEngineRef.current.getRuntimeStateSnapshot());
+    setIsTitleScreen(true);
+  };
+
+  const closeAllModalsAndResume = () => {
+    setIsPaused(false);
+    setIsCourseModalOpen(false);
+    setIsInspectorOpen(false);
+    setIsTutorialModalOpen(false);
+    setIsTheoryModalOpen(false);
+    setIsAuthModalOpen(false);
+    setIsPolicyModalOpen(false);
+    setIsOutOfPlaysModalOpen(false);
+    setIsTrialExpiredModalOpen(false);
+    setIsRoleModalOpen(false);
+    setShowMinimap(false);
+    setCompletedAttemptResult(null);
+    setFailureNotice(null);
+    if (failureNoticeTimerRef.current) {
+      clearInterval(failureNoticeTimerRef.current);
+      failureNoticeTimerRef.current = null;
+    }
+    window.focus();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
 
   const handleStartSimulation = (mode?: TransmissionMode) => {
     // If not registered/logged in, do NOT allow Automatic transmission
@@ -509,23 +592,51 @@ export default function App() {
     } else {
       setGuestSecondsRemaining(null);
     }
-    tryLockNativeLandscape();
     soundRef.current.init();
+    soundRef.current.clearVoiceQueue();
+    closeAllModalsAndResume();
+
     if (mode) {
       physicsRef.current.transmissionMode = mode;
-      if (mode === 'MANUAL') {
-        setAutoClutchAssist(false);
-        physicsRef.current.autoClutchEnabled = false;
-      }
+      // Mặc định luôn bật Tự Đỡ Côn (Auto-Clutch Assist) để người lái bấm W là xe lăn bánh ngay mượt mà
+      setAutoClutchAssist(true);
+      physicsRef.current.autoClutchEnabled = true;
     }
+
+    // Khách vãng lai chưa có tài khoản: khóa xe tải (C1/C), bắt buộc lái xe con Hạng B
+    if (!currentUser && (profile.category === 'C1' || profile.category === 'C')) {
+      setProfile(DEFAULT_CATEGORY_B_PROFILE);
+      physicsRef.current.profile = structuredClone(DEFAULT_CATEGORY_B_PROFILE);
+    }
+
+    // Luôn reset về Bài 1 (Xuất phát) khi vào lái mới từ màn hình chính
+    const defaultContinuousEx =
+      DRIVING_EXERCISES_LIST.find((e) => e.id === 'ex_11_full_10_exercises_c') ??
+      DRIVING_EXERCISES_LIST[0];
+    exerciseEngineRef.current.startExercise(
+      defaultContinuousEx,
+      'MOCK_COURSE',
+      physicsRef.current
+    );
+
+    const isAT = physicsRef.current.transmissionMode === 'AUTOMATIC';
     physicsRef.current.handbrakeActive = true;
-    physicsRef.current.isEngineRunning = false;
-    physicsRef.current.engineRpm = 0;
+    physicsRef.current.isEngineRunning = true;
+    physicsRef.current.engineRpm = physicsRef.current.profile.idleRpm;
     physicsRef.current.isStalled = false;
     physicsRef.current.stallReasonVi = null;
     physicsRef.current.currentGear = 0;
-    physicsRef.current.atSelectorPosition = 'P';
+    physicsRef.current.atSelectorPosition = isAT ? 'P' : 'N';
+    physicsRef.current.headlightMode = 'OFF';
+    physicsRef.current.velocity.set(0, 0, 0);
+    physicsRef.current.rawInput.throttle = 0;
+    physicsRef.current.rawInput.brake = 0;
+    physicsRef.current.rawInput.clutch = 0;
+    physicsRef.current.rawInput.steer = 0;
+
+    setManualClutchSlider(0);
     setTelemetry(physicsRef.current.getTelemetrySnapshot());
+    setExerciseState(exerciseEngineRef.current.getRuntimeStateSnapshot());
     setIsTitleScreen(false);
     setIsPaused(false);
     soundRef.current.announceExerciseVoiceVi(
@@ -577,7 +688,7 @@ export default function App() {
     tryLockNativeLandscape();
     soundRef.current.init();
     soundRef.current.clearVoiceQueue();
-    setCompletedAttemptResult(null);
+    closeAllModalsAndResume();
     exerciseEngineRef.current.startExercise(
       exercise,
       mode,
@@ -587,7 +698,6 @@ export default function App() {
     setTelemetry(physicsRef.current.getTelemetrySnapshot());
     setExerciseState(exerciseEngineRef.current.getRuntimeStateSnapshot());
     setIsTitleScreen(false);
-    setIsPaused(false);
     soundRef.current.announceExerciseVoiceVi(
       exerciseEngineRef.current.getCurrentVoicePromptVi(),
       true
@@ -598,28 +708,17 @@ export default function App() {
     tryLockNativeLandscape();
     soundRef.current.init();
     soundRef.current.clearVoiceQueue();
-    setCompletedAttemptResult(null);
+    closeAllModalsAndResume();
     exerciseEngineRef.current.startFreePractice(physicsRef.current);
     physicsRef.current.resetToPreset(activeSpawnId);
     setManualClutchSlider(0);
     setTelemetry(physicsRef.current.getTelemetrySnapshot());
     setExerciseState(exerciseEngineRef.current.getRuntimeStateSnapshot());
     setIsTitleScreen(false);
-    setIsPaused(false);
   };
 
   const handleCloseResultsModal = () => {
-    if (completedAttemptResult && !completedAttemptResult.passed) {
-      // Khi đã thi trượt/truất quyền, đóng bảng kết quả sẽ đưa học viên về màn hình chính, không cho lái tiếp phiên cũ
-      setIsTitleScreen(true);
-      setFailureNotice(null);
-      setCompletedAttemptResult(null);
-      setIsPaused(false);
-      soundRef.current.clearVoiceQueue();
-      exerciseEngineRef.current.status = 'NOT_STARTED';
-      return;
-    }
-    setCompletedAttemptResult(null);
+    handleReturnHome();
   };
 
   const handleRetryCurrent = () => {
@@ -629,12 +728,8 @@ export default function App() {
     if (!currentUser) {
       setGuestSecondsRemaining(guestTrialMinutes * 60);
     }
-    if (failureNoticeTimerRef.current) {
-      clearInterval(failureNoticeTimerRef.current);
-      failureNoticeTimerRef.current = null;
-    }
-    setFailureNotice(null);
-    setCompletedAttemptResult(null);
+    closeAllModalsAndResume();
+    soundRef.current.init();
     soundRef.current.clearVoiceQueue();
     const exEngine = exerciseEngineRef.current;
     if (exEngine.activeExercise && exEngine.mode !== 'FREE_PRACTICE') {
@@ -656,7 +751,7 @@ export default function App() {
   };
 
   const handleNextExercise = () => {
-    setCompletedAttemptResult(null);
+    closeAllModalsAndResume();
     const currentId = exerciseEngineRef.current.activeExercise?.id;
     const idx = DRIVING_EXERCISES_LIST.findIndex((e) => e.id === currentId);
     const nextEx =
@@ -665,6 +760,11 @@ export default function App() {
   };
 
   const handleUpdateProfile = (nextProfile: VehicleProfileConfig) => {
+    // Khách vãng lai chưa đăng ký tài khoản bị khóa xe tải (C1 và C)
+    if (!currentUser && (nextProfile.category === 'C1' || nextProfile.category === 'C')) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     setProfile(nextProfile);
     physicsRef.current.profile = structuredClone(nextProfile);
     const exEngine = exerciseEngineRef.current;
@@ -714,14 +814,7 @@ export default function App() {
   }, [isTitleScreen, isPaused, currentUser, guestSecondsRemaining]);
 
   const handleReturnHomeFromTrial = () => {
-    setIsTrialExpiredModalOpen(false);
-    setIsTitleScreen(true);
-    setIsPaused(false);
-    setCompletedAttemptResult(null);
-    setFailureNotice(null);
-    setGuestSecondsRemaining(null);
-    soundRef.current.clearVoiceQueue();
-    exerciseEngineRef.current.status = 'NOT_STARTED';
+    handleReturnHome();
   };
 
   const handleToggleMute = () => {
@@ -734,16 +827,14 @@ export default function App() {
     isPaused ||
     isTutorialModalOpen ||
     isCourseModalOpen ||
-    isUnityWorkbenchOpen ||
     isInspectorOpen ||
-    isInstructorConsoleOpen ||
+    isTheoryModalOpen ||
+    isAuthModalOpen ||
+    isPolicyModalOpen ||
+    isOutOfPlaysModalOpen ||
+    isTrialExpiredModalOpen ||
+    isRoleModalOpen ||
     completedAttemptResult !== null;
-
-  const needsStartupStrip =
-    !telemetry.isEngineRunning ||
-    telemetry.currentGear === 0 ||
-    telemetry.handbrakeActive ||
-    Boolean(telemetry.stallReasonVi);
 
   return (
     <div
@@ -786,6 +877,23 @@ export default function App() {
         isCssRotated90={isCssRotated90}
         customGlbUpload={customGlbUpload}
         onVehicleAssetLoaded={(meta) => setVehicleAssetMeta(meta)}
+        onCollision={(impulse, labelVi) => {
+          const objName =
+            labelVi ||
+            physicsRef.current.lastCollisionObjectVi ||
+            'Chướng ngại vật / Vỉa hè';
+          if (crashNoticeTimerRef.current) {
+            clearTimeout(crashNoticeTimerRef.current);
+          }
+          setCrashNotice({
+            objectNameVi: objName,
+            timestamp: Date.now(),
+          });
+          crashNoticeTimerRef.current = setTimeout(() => {
+            setCrashNotice(null);
+            crashNoticeTimerRef.current = null;
+          }, 5000);
+        }}
         onTelemetryUpdate={(snap, exSnap) => {
           setTelemetry(snap);
           setExerciseState(exSnap);
@@ -821,9 +929,11 @@ export default function App() {
           {/* Top Navigation Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-md bg-sky-500/20 border border-sky-400/40 text-[11px] font-mono font-extrabold text-sky-300 tracking-wider">
-                SA HÌNH LÁI XE 3D · 11 BÀI THI
-              </span>
+              {/* Home Vị trí 1: Banner Header Top (468x60 / 320x50) */}
+              <div className="hidden sm:block">
+                <AdBanner format="header_top" closable />
+              </div>
+
               {viewportSize.h > viewportSize.w && (
                 <button
                   type="button"
@@ -846,7 +956,7 @@ export default function App() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/90 text-white hover:bg-emerald-500 shadow transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <MapIcon className="w-3.5 h-3.5" />
-                Chọn Bài (11 Bài)
+                Chọn Bài
               </button>
 
               <button
@@ -865,33 +975,30 @@ export default function App() {
                 Hướng Dẫn
               </button>
 
-              {isAdmin && (
-                <button
-                  onClick={() => setIsRoleModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800/60 transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
-                  title="Quản trị: Tạo mã VIP & Đổi mật khẩu"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
-                  Quản Trị Admin
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setPolicyDefaultTab('privacy');
+                  setIsPolicyModalOpen(true);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                title="Chính sách quyền riêng tư & Điều khoản sử dụng"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+                Chính Sách
+              </button>
 
               <UserAccountButton
                 onOpenAuth={() => setIsAuthModalOpen(true)}
-                onOpenHistory={() => setIsHistoryModalOpen(true)}
                 onOpenRoleModal={() => setIsRoleModalOpen(true)}
+                onOpenInspector={() => setIsInspectorOpen(true)}
               />
             </div>
           </div>
 
+
           {/* Center-Bottom Horizontal Landscape Hero Panel */}
           <div className="my-auto flex flex-col lg:flex-row lg:items-end justify-between gap-4 bg-slate-950/75 backdrop-blur-md border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-2xl">
             <div className="space-y-2.5 max-w-xl">
-              <div className="inline-flex items-center gap-2 text-[11px] font-mono text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2.5 py-0.5 rounded-md">
-                <span>✓ Chuẩn Sát Hạch QCVN 41 & Thông Tư 108</span>
-                <span>·</span>
-                <span>Hỗ Trợ Điện Thoại Ngang & PC</span>
-              </div>
               <h1 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight">
                 Mô Phỏng Sát Hạch Lái Xe Sa Hình 3D
               </h1>
@@ -905,17 +1012,35 @@ export default function App() {
                   );
                   if (!vehProfile) return null;
                   const isActiveCat = profile.category === catCode;
+                  const isTruck = catCode === 'C1' || catCode === 'C';
+                  const isLockedForGuest = !currentUser && isTruck;
+
                   return (
                     <button
                       key={catCode}
-                      onClick={() => handleUpdateProfile(vehProfile)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                        isActiveCat
+                      onClick={() => {
+                        if (isLockedForGuest) {
+                          setIsAuthModalOpen(true);
+                          return;
+                        }
+                        handleUpdateProfile(vehProfile);
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        isLockedForGuest
+                          ? 'bg-slate-900/60 text-slate-400 border-slate-800 hover:border-amber-500/50 hover:text-amber-300'
+                          : isActiveCat
                           ? 'bg-amber-500 text-slate-950 border-amber-300 shadow'
                           : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
                       }`}
+                      title={isLockedForGuest ? `Xe tải Hạng ${catCode} chỉ dành cho học viên có tài khoản. Bấm để đăng nhập!` : undefined}
                     >
-                      Hạng {catCode} ({catCode === 'B' ? 'Xe con' : catCode === 'C1' ? 'Tải nhẹ' : 'Tải C'})
+                      {isLockedForGuest && <Lock className="w-3 h-3 text-amber-400" />}
+                      <span>Hạng {catCode} ({catCode === 'B' ? 'Xe con' : catCode === 'C1' ? 'Tải nhẹ' : 'Tải C'})</span>
+                      {isLockedForGuest && (
+                        <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          Khóa
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -926,27 +1051,38 @@ export default function App() {
             <div className="flex flex-col items-start lg:items-end gap-2 shrink-0">
               {/* Prominent Daily Plays Indicator (chỉ hiển thị cho người dùng đã đăng nhập) */}
               {currentUser && (
-                <button
-                  type="button"
-                  onClick={() => setIsOutOfPlaysModalOpen(true)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-md cursor-pointer ${
-                    playsRemaining === 0
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
-                      : playsRemaining <= 1
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                      : 'bg-slate-900/95 text-slate-200 border-slate-700 hover:bg-slate-800 hover:border-sky-500/50'
-                  }`}
-                  title="Số lượt thi thực hành sa hình hôm nay (Cấu hình tự động qua Firebase Remote Config)"
-                >
-                  <Ticket className={`w-4 h-4 ${playsRemaining === 0 ? 'text-rose-400' : playsRemaining <= 1 ? 'text-amber-400' : 'text-sky-400'}`} />
-                  <span className="text-slate-300 font-medium">Lượt thi hôm nay:</span>
-                  <span className="font-mono text-sm font-extrabold text-white">
-                    {playsRemaining}/{dailyLimit}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-normal">
-                    (Reset 00:00)
-                  </span>
-                </button>
+                isUnlimited ? (
+                  <div
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium shadow-md select-none bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-300 border-amber-500/50 cursor-default pointer-events-none"
+                  >
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="text-amber-300 font-bold">Lượt thi VIP:</span>
+                    <span className="font-mono text-base font-black text-amber-300 leading-none">∞</span>
+                    <span className="text-[10px] text-amber-300/80 font-normal">(Vô hạn)</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsOutOfPlaysModalOpen(true)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-md cursor-pointer ${
+                      playsRemaining === 0
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
+                        : playsRemaining <= 1
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                        : 'bg-slate-900/95 text-slate-200 border-slate-700 hover:bg-slate-800 hover:border-sky-500/50'
+                    }`}
+                    title="Số lượt thi thực hành sa hình hôm nay"
+                  >
+                    <Ticket className={`w-4 h-4 ${playsRemaining === 0 ? 'text-rose-400' : playsRemaining <= 1 ? 'text-amber-400' : 'text-sky-400'}`} />
+                    <span className="text-slate-300 font-medium">Lượt thi hôm nay:</span>
+                    <span className="font-mono text-sm font-extrabold text-white">
+                      {playsRemaining}/{dailyLimit}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      (Reset 00:00)
+                    </span>
+                  </button>
+                )
               )}
 
               <div className="flex flex-wrap items-center gap-2">
@@ -991,6 +1127,11 @@ export default function App() {
               </div>
             </div>
           </div>
+
+          {/* Home Screen Vị trí Bottom: Banner Dài Ngang Nằm Dưới Đáy Màn Hình */}
+          <div className="w-full flex justify-center pt-2 shrink-0 pointer-events-auto">
+            <AdBanner format="horizontal_leaderboard" closable slotId="home_bottom_wide" />
+          </div>
         </div>
       )}
 
@@ -1000,28 +1141,34 @@ export default function App() {
           {/* Top Bar: Single-Row Sleek Status & Action Strip */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-1.5">
-              {/* Top-Left: Exit, Score, Timer, Current Exercise Name */}
-              <div className="pointer-events-auto flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-950/88 backdrop-blur-md border border-slate-800/90 shadow-lg min-w-0">
+              {/* Top-Left: Exit, Score, Timer theo đúng quy định */}
+              <div className="pointer-events-auto flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-950/88 backdrop-blur-md border border-slate-800/90 shadow-lg min-w-0">
                 <button
-                  onClick={() => setIsTitleScreen(true)}
-                  className="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0"
-                  title="Thoát ra màn hình chính"
+                  onClick={handleReturnHome}
+                  className="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  title="Thoát ra màn hình chính (Reset về Bài 1)"
                 >
                   ← Thoát
                 </button>
 
-                <div className="flex items-center gap-1.5 font-mono text-xs tabular-nums shrink-0 pl-1.5 border-l border-slate-800">
+                <div className="flex items-center gap-2 font-mono text-xs tabular-nums shrink-0 pl-2 border-l border-slate-800">
                   <strong
                     className={`text-sm font-extrabold ${
                       exerciseState.currentScore >= exerciseState.passingScore
                         ? 'text-emerald-400'
                         : 'text-rose-400'
                     }`}
+                    title="Điểm thi sát hạch (Tối đa 100đ, Đạt >= 80đ)"
                   >
                     {exerciseState.currentScore}đ
                   </strong>
-                  <span className="text-slate-300 text-[11px]">
-                    {exerciseState.remainingSeconds}s
+                  <span
+                    className="text-slate-200 font-bold text-xs flex items-center gap-1"
+                    title="Thời gian thi sa hình theo quy định (18 phút = 18:00)"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {Math.floor(exerciseState.remainingSeconds / 60)}:
+                    {String(exerciseState.remainingSeconds % 60).padStart(2, '0')}
                   </span>
                 </div>
 
@@ -1035,27 +1182,13 @@ export default function App() {
                     }`}
                     title="Thời gian lái thử cho chế độ khách (Cấu hình bởi Firebase Remote Config)"
                   >
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
                     <span>
-                      {guestSecondsRemaining <= 30 ? 'Hết giờ sau: ' : 'Lái thử: '}
+                      {guestSecondsRemaining <= 30 ? 'Hết giờ: ' : 'Lái thử: '}
                       {Math.floor(guestSecondsRemaining / 60)}:
                       {String(guestSecondsRemaining % 60).padStart(2, '0')}
                     </span>
                   </div>
                 )}
-
-                {/* Current Station / Exercise Title */}
-                <button
-                  onClick={() => setIsCourseModalOpen(true)}
-                  className="hidden sm:flex items-center gap-1 pl-1.5 border-l border-slate-800 text-[11px] font-bold text-sky-300 hover:text-sky-200 truncate max-w-[180px] md:max-w-[260px]"
-                  title="Nhấn để đổi bài thi (Phím B)"
-                >
-                  <span className="truncate">
-                    {exerciseState.exercise
-                      ? exerciseState.exercise.titleVi
-                      : `Bài ${exerciseState.activeStationNumber}/11`}
-                  </span>
-                </button>
 
                 {exerciseState.violations.length > 0 && (
                   <button
@@ -1081,18 +1214,7 @@ export default function App() {
                   <span>Chọn Bài</span>
                 </button>
 
-                <button
-                  onClick={() => setShowMinimap((prev) => !prev)}
-                  className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                    showMinimap
-                      ? 'bg-sky-500 text-slate-950 border-sky-400 font-bold'
-                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
-                  }`}
-                  title="Bật/Tắt Sơ Đồ Sa Hình 2D"
-                >
-                  <MapIcon className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Sơ Đồ</span>
-                </button>
+
 
                 <button
                   onClick={() =>
@@ -1173,25 +1295,13 @@ export default function App() {
                   )}
                 </button>
 
-                <button
-                  onClick={(e) => {
-                    e.currentTarget.blur();
-                    setIsTutorialModalOpen(true);
-                  }}
-                  className="p-1.5 rounded-lg bg-slate-900/90 text-amber-400 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
-                  title="Hướng dẫn điều khiển (?)"
-                >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                </button>
 
-                <DailyPlaysBadge onClick={() => setIsOutOfPlaysModalOpen(true)} />
-
-                <UserAccountButton
-                  onOpenAuth={() => setIsAuthModalOpen(true)}
-                  onOpenHistory={() => setIsHistoryModalOpen(true)}
-                  onOpenRoleModal={() => setIsRoleModalOpen(true)}
-                />
               </div>
+            </div>
+
+            {/* In-Game Vị trí 1: Mini Floating Ad Banner (Góc trái trên) */}
+            <div className="pointer-events-auto self-start mt-1">
+              <AdBanner format="mini_floating" closable />
             </div>
 
 
@@ -1216,6 +1326,33 @@ export default function App() {
 
             {/* Compact Top-Center Banners (Startup Quick Strip / Stop Prompt / Violation Toast) */}
             <div className="mx-auto max-w-2xl w-full flex flex-col gap-1 items-center">
+              {/* Real-Time Collision / Crash Alert Banner (Always visible for Admin & all users) */}
+              {crashNotice && (
+                <div className="pointer-events-auto w-full max-w-lg mx-auto px-4 py-2.5 rounded-2xl bg-gradient-to-r from-rose-700 via-red-600 to-rose-700 border-2 border-white/80 shadow-[0_0_36px_rgba(239,68,68,0.9)] flex items-center justify-between gap-3 text-white animate-pulse z-50">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-xl bg-white text-rose-600 shrink-0">
+                      <AlertOctagon className="w-5 h-5 fill-current" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-black uppercase tracking-wider">
+                        ⚠️ CẢNH BÁO VA CHẠM / ĐÂM XE!
+                      </div>
+                      <div className="text-[11px] font-semibold text-rose-100">
+                        Va chạm với: <span className="text-yellow-300 font-bold">{crashNotice.objectNameVi}</span>
+                        {exerciseState.mode !== 'FREE_PRACTICE' ? ' — Truất quyền sát hạch' : ' — Mất an toàn'}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCrashNotice(null)}
+                    className="px-2 py-1 rounded-lg bg-black/30 hover:bg-black/50 text-[10px] font-bold text-white shrink-0 border border-white/30 cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              )}
+
               {/* Prominent Real-Time Failure Notification Banner */}
               {failureNotice && !completedAttemptResult && (
                 <div className="pointer-events-auto w-full max-w-xl mx-auto rounded-2xl bg-gradient-to-r from-rose-950 via-rose-900/95 to-slate-950 border-2 border-rose-500 shadow-[0_0_36px_rgba(239,68,68,0.7)] p-4 space-y-2.5 z-50">
@@ -1235,7 +1372,7 @@ export default function App() {
                           Điểm còn lại: <strong className="text-white">{failureNotice.result.finalScore}/100</strong>
                           {currentUser && (
                             <span className="ml-2 pl-2 border-l border-rose-700/80">
-                              Lượt hôm nay: <strong className="text-amber-300 font-mono">{playsRemaining}/{dailyLimit}</strong>
+                              Lượt hôm nay: <strong className="text-amber-300 font-mono">{isUnlimited ? '∞ (Vô hạn)' : `${playsRemaining}/${dailyLimit}`}</strong>
                             </span>
                           )}
                         </div>
@@ -1296,6 +1433,40 @@ export default function App() {
                 </div>
               )}
 
+              {/* Start Line Ready / Go Indicator Banner */}
+              {exerciseState.mode !== 'FREE_PRACTICE' &&
+                exerciseState.activeStationNumber === 1 &&
+                !exerciseState.hasPassedStartLine &&
+                !failureNotice && (
+                  <div className="pointer-events-auto px-4 py-2.5 rounded-2xl bg-slate-950/85 backdrop-blur-xl border border-emerald-500/40 shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex items-center gap-3 text-white transition-all max-w-xl">
+                    <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-400/40 text-emerald-300 shrink-0 shadow-inner">
+                      <span className="text-lg leading-none">🚦</span>
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-sky-200 uppercase">
+                          SẴN SÀNG XUẤT PHÁT (BÀI 1)
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          {telemetry.speedKmh < 0.5 ? 'XE ĐANG ĐỨNG YÊN' : 'ĐANG LĂN BÁNH'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 flex items-center gap-2 flex-wrap mt-0.5">
+                        <span>
+                          Chờ tín hiệu <strong className="text-emerald-300 font-bold">"BÍP"</strong> rồi nhấn <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-white text-[10px] shadow-sm">W</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-white text-[10px] shadow-sm">↑</kbd> để xuất phát
+                        </span>
+                        {telemetry.turnSignal !== 'LEFT' && (
+                          <span className="inline-flex items-center gap-1 text-amber-300 font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[10px]">
+                            ⚠️ Cần bật xi-nhan Trái (Z)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               {/* Stop Zone Prompt */}
               {exerciseState.isInsideStopZone && telemetry.speedKmh > 0.8 && (
                 <div className="pointer-events-auto px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-extrabold shadow-lg animate-pulse">
@@ -1352,118 +1523,6 @@ export default function App() {
                   <span className="font-mono font-extrabold text-rose-400">
                     -{exerciseState.latestViolationToast.pointsDeducted}đ
                   </span>
-                </div>
-              )}
-
-              {/* Ultra-Compact 1-Line Quick-Start Strip (Only visible before car is ready to move) */}
-              {needsStartupStrip && (
-                <div className="pointer-events-auto px-2.5 py-1 rounded-xl bg-slate-950/88 backdrop-blur-md border border-slate-700/90 shadow-lg flex flex-wrap items-center justify-center gap-1 text-[10px]">
-                  {telemetry.stallReasonVi && (
-                    <span className="font-bold text-amber-300 mr-1">
-                      ⚠️ {telemetry.stallReasonVi}
-                    </span>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleQuickReadyToDrive}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold shadow transition-colors"
-                    title="Tự động Đề nổ + Vào số 1/D + Hạ phanh tay + Bật xi-nhan trái"
-                  >
-                    <Zap className="w-3 h-3 fill-current" />
-                    Khởi Hành Nhanh
-                  </button>
-
-                  <span className="text-slate-600 mx-0.5">|</span>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundRef.current.init();
-                      if (!physicsRef.current.isEngineRunning) {
-                        physicsRef.current.toggleEngineIgnition();
-                        setTelemetry(physicsRef.current.getTelemetrySnapshot());
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 rounded font-mono font-bold transition-colors ${
-                      telemetry.isEngineRunning
-                        ? 'bg-slate-800/90 text-emerald-300 border border-slate-700'
-                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                    }`}
-                  >
-                    {telemetry.isEngineRunning ? '✓ 1.Đã nổ' : '① Đề nổ (F)'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundRef.current.init();
-                      if (physicsRef.current.currentGear === 0) {
-                        if (
-                          physicsRef.current.transmissionMode === 'AUTOMATIC'
-                        ) {
-                          physicsRef.current.selectDirectGearPosition(
-                            'D',
-                            true
-                          );
-                        } else {
-                          physicsRef.current.shiftGearUp(true);
-                        }
-                        setTelemetry(physicsRef.current.getTelemetrySnapshot());
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 rounded font-mono font-bold transition-colors ${
-                      telemetry.currentGear !== 0
-                        ? 'bg-slate-800/90 text-emerald-300 border border-slate-700'
-                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                    }`}
-                  >
-                    {telemetry.currentGear !== 0
-                      ? `✓ 2.Số ${telemetry.gearLabel}`
-                      : '② Vào số (E)'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundRef.current.init();
-                      if (physicsRef.current.handbrakeActive) {
-                        physicsRef.current.handbrakeActive = false;
-                        physicsRef.current.stallReasonVi = null;
-                        soundRef.current.playShiftClick();
-                        setTelemetry(physicsRef.current.getTelemetrySnapshot());
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 rounded font-mono font-bold transition-colors ${
-                      !telemetry.handbrakeActive
-                        ? 'bg-slate-800/90 text-emerald-300 border border-slate-700'
-                        : 'bg-rose-600 text-white hover:bg-rose-500'
-                    }`}
-                  >
-                    {!telemetry.handbrakeActive
-                      ? '✓ 3.Phanh tay'
-                      : '③ Hạ phanh (Space)'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundRef.current.init();
-                      if (physicsRef.current.turnSignal !== 'LEFT') {
-                        physicsRef.current.toggleTurnSignal('LEFT');
-                        setTelemetry(physicsRef.current.getTelemetrySnapshot());
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 rounded font-mono font-bold transition-colors ${
-                      telemetry.turnSignal === 'LEFT'
-                        ? 'bg-slate-800/90 text-emerald-300 border border-slate-700'
-                        : 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                    }`}
-                  >
-                    {telemetry.turnSignal === 'LEFT'
-                      ? '✓ 4.Xi-nhan Trái'
-                      : '④ Xi-nhan (Z)'}
-                  </button>
                 </div>
               )}
             </div>
@@ -1728,31 +1787,31 @@ export default function App() {
 
           {/* Streamlined PC Cockpit Control Console (Shown when user switches from ĐT Ngang to PC mode) */}
           {!isMobileTouchEnabled && (
-            <div className="pointer-events-auto mx-auto w-full max-w-[760px] flex flex-col items-center">
-              <div className="flex items-center gap-2 mb-1">
+            <div className="pointer-events-auto mx-auto w-full max-w-[820px] flex flex-col items-center">
+              <div className="flex items-center justify-center mb-1.5">
                 <button
                   onClick={() => setIsHudCollapsed((prev) => !prev)}
-                  className="flex items-center gap-1 px-2.5 py-0.5 rounded-t-lg bg-slate-950/90 border border-b-0 border-slate-800 text-[10px] font-medium text-slate-300 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/10 hover:border-sky-500/40 text-[10px] font-mono tracking-wider font-medium text-slate-300 hover:text-white transition-all shadow-md group"
                 >
                   {isHudCollapsed ? (
                     <>
-                      <ChevronUp className="w-3 h-3 text-sky-400" />
-                      Hiện Bảng Điều Khiển PC
+                      <ChevronUp className="w-3.5 h-3.5 text-sky-400 group-hover:-translate-y-0.5 transition-transform" />
+                      <span>BẢNG ĐIỀU KHIỂN BUỒNG LÁI</span>
                     </>
                   ) : (
                     <>
-                      <ChevronDown className="w-3 h-3 text-sky-400" />
-                      Thu Gọn
+                      <ChevronDown className="w-3.5 h-3.5 text-sky-400 group-hover:translate-y-0.5 transition-transform" />
+                      <span>THU GỌN BUỒNG LÁI</span>
                     </>
                   )}
                 </button>
               </div>
 
               {!isHudCollapsed && (
-                <div className="w-full rounded-xl bg-slate-950/90 backdrop-blur-md border border-slate-800 shadow-2xl px-2.5 py-1.5">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                    {/* 1. Nút Đề Nổ & Đồng Hồ Tốc Độ */}
-                    <div className="md:col-span-3 flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800/80">
+                <div className="w-full rounded-2xl bg-gradient-to-b from-slate-950/95 via-slate-900/95 to-slate-950/98 backdrop-blur-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] p-2">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-stretch">
+                    {/* 1. Đề Nổ & Đồng Hồ Tốc Độ */}
+                    <div className="md:col-span-3 flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-slate-950/70 border border-white/5 shadow-inner">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1763,46 +1822,155 @@ export default function App() {
                             physicsRef.current.getTelemetrySnapshot()
                           );
                         }}
-                        className={`flex flex-col items-center justify-center w-11 h-10 rounded-full border-2 font-mono transition-all shrink-0 ${
+                        className={`relative flex flex-col items-center justify-center w-11 h-11 rounded-full border transition-all shrink-0 active:scale-95 ${
                           telemetry.isEngineRunning
-                            ? 'bg-slate-800 border-sky-400 text-sky-300 hover:bg-slate-700'
-                            : 'bg-amber-500 border-amber-300 text-slate-950 font-extrabold shadow-[0_0_12px_rgba(245,158,11,0.5)] hover:bg-amber-400'
+                            ? 'bg-gradient-to-b from-slate-800 to-slate-900 border-sky-500/60 text-sky-300 shadow-[0_0_15px_rgba(56,189,248,0.25)] hover:border-sky-400'
+                            : 'bg-gradient-to-b from-amber-500 to-amber-600 border-amber-300 text-slate-950 font-black shadow-[0_0_18px_rgba(245,158,11,0.45)] hover:from-amber-400 hover:to-amber-500'
                         }`}
                         title="Đề Nổ Máy / Tắt Máy (Phím F)"
                       >
-                        <Power className="w-3.5 h-3.5" />
-                        <span className="text-[8px] leading-none font-bold mt-0.5">
+                        <Power className={`w-3.5 h-3.5 ${telemetry.isEngineRunning ? 'text-sky-400' : 'text-slate-950'}`} />
+                        <span className="text-[7.5px] leading-tight font-mono font-bold mt-0.5 tracking-tight">
                           {telemetry.isEngineRunning ? 'ON (F)' : 'START'}
                         </span>
                       </button>
 
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-end justify-center min-w-0 flex-1">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-xl font-extrabold font-mono tabular-nums text-white leading-none">
+                          <span className="text-2xl font-black font-mono tabular-nums text-white tracking-tight leading-none drop-shadow-sm">
                             {Math.round(telemetry.speedKmh)}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400">
+                          <span className="text-[10px] font-mono font-semibold text-slate-400 uppercase">
                             km/h
                           </span>
                         </div>
-                        <span
-                          className={`text-[9px] font-mono ${
-                            telemetry.isEngineRunning
-                              ? 'text-slate-300'
-                              : 'text-rose-400'
-                          }`}
-                        >
-                          {telemetry.isEngineRunning
-                            ? `${telemetry.engineRpm} RPM`
-                            : 'MÁY TẮT'}
-                        </span>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold leading-none ${
+                              telemetry.isEngineRunning
+                                ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
+                                : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                            }`}
+                          >
+                            {telemetry.isEngineRunning
+                              ? `${telemetry.engineRpm} RPM`
+                              : 'TẮT MÁY'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* 2. Cần Gạt Trái: Công Tắc Đèn (L) & Gạt Xi-Nhan (Z / X) */}
-                    <div className="md:col-span-4 flex flex-col gap-1 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800/80">
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400">
+                    {/* 2. Điều Khiển Mũi Tên & Phanh Tay */}
+                    <div className="md:col-span-3 flex items-center px-2 py-2 rounded-xl bg-slate-950/70 border border-white/5 shadow-inner">
+                      <div className="grid grid-cols-5 gap-1.5 w-full h-full items-center">
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.currentTarget.blur();
+                            soundRef.current.init();
+                            touchInputRef.current.steer = -1;
+                          }}
+                          onPointerUp={() => { touchInputRef.current.steer = 0; }}
+                          onPointerLeave={() => { touchInputRef.current.steer = 0; }}
+                          onPointerCancel={() => { touchInputRef.current.steer = 0; }}
+                          className="h-10 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-white/10 active:border-sky-500/80 active:bg-sky-500/20 text-slate-200 text-sm font-bold flex items-center justify-center transition-all select-none cursor-pointer active:scale-95 shadow-sm"
+                          title="Rẽ trái (Mũi tên Trái)"
+                        >
+                          ←
+                        </button>
+
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.currentTarget.blur();
+                            soundRef.current.init();
+                            const phys = physicsRef.current;
+                            if (!phys.isEngineRunning || phys.isStalled) {
+                              phys.isEngineRunning = true;
+                              phys.isStalled = false;
+                              phys.engineRpm = Math.max(phys.engineRpm, phys.profile.idleRpm);
+                            }
+                            if (phys.handbrakeActive) {
+                              phys.handbrakeActive = false;
+                            }
+                            if (phys.currentGear === 0) {
+                              phys.currentGear = 1;
+                              if (phys.transmissionMode === 'AUTOMATIC') {
+                                phys.atSelectorPosition = 'D';
+                              }
+                            }
+                            touchInputRef.current.throttle = 1;
+                            setTelemetry(phys.getTelemetrySnapshot());
+                          }}
+                          onPointerUp={() => { touchInputRef.current.throttle = 0; }}
+                          onPointerLeave={() => { touchInputRef.current.throttle = 0; }}
+                          onPointerCancel={() => { touchInputRef.current.throttle = 0; }}
+                          className="h-10 rounded-lg bg-gradient-to-b from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 border border-emerald-400 text-slate-950 text-sm font-black flex items-center justify-center transition-all select-none cursor-pointer active:scale-95 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                          title="Đạp ga tăng tốc (Mũi tên Lên)"
+                        >
+                          ↑
+                        </button>
+
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.currentTarget.blur();
+                            soundRef.current.init();
+                            touchInputRef.current.brake = 1;
+                          }}
+                          onPointerUp={() => { touchInputRef.current.brake = 0; }}
+                          onPointerLeave={() => { touchInputRef.current.brake = 0; }}
+                          onPointerCancel={() => { touchInputRef.current.brake = 0; }}
+                          className="h-10 rounded-lg bg-gradient-to-b from-rose-950/70 to-rose-900/80 hover:from-rose-900 hover:to-rose-800 border border-rose-500/40 text-rose-200 text-sm font-black flex items-center justify-center transition-all select-none cursor-pointer active:scale-95 active:bg-rose-600 shadow-sm"
+                          title="Đạp phanh dừng xe (Mũi tên Xuống)"
+                        >
+                          ↓
+                        </button>
+
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.currentTarget.blur();
+                            soundRef.current.init();
+                            touchInputRef.current.steer = 1;
+                          }}
+                          onPointerUp={() => { touchInputRef.current.steer = 0; }}
+                          onPointerLeave={() => { touchInputRef.current.steer = 0; }}
+                          onPointerCancel={() => { touchInputRef.current.steer = 0; }}
+                          className="h-10 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-white/10 active:border-sky-500/80 active:bg-sky-500/20 text-slate-200 text-sm font-bold flex items-center justify-center transition-all select-none cursor-pointer active:scale-95 shadow-sm"
+                          title="Rẽ phải (Mũi tên Phải)"
+                        >
+                          →
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.currentTarget.blur();
+                            soundRef.current.init();
+                            soundRef.current.playShiftClick();
+                            physicsRef.current.handbrakeActive =
+                              !physicsRef.current.handbrakeActive;
+                            setTelemetry(
+                              physicsRef.current.getTelemetrySnapshot()
+                            );
+                          }}
+                          className={`h-10 rounded-lg border text-xs font-mono font-black transition-all flex items-center justify-center select-none active:scale-95 ${
+                            telemetry.handbrakeActive
+                              ? 'bg-rose-600/95 hover:bg-rose-600 border-rose-400 text-white shadow-[0_0_14px_rgba(244,63,94,0.45)]'
+                              : 'bg-slate-900/90 border-white/10 text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                          }`}
+                          title="Phanh tay (Phím Space)"
+                        >
+                          (P)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. Đèn Chiếu Sáng & Xi-Nhan */}
+                    <div className="md:col-span-3 flex flex-col justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-slate-950/70 border border-white/5 shadow-inner">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
                           Đèn & Xi-Nhan
                         </span>
                         <button
@@ -1816,13 +1984,14 @@ export default function App() {
                               physicsRef.current.getTelemetrySnapshot()
                             );
                           }}
-                          className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold border transition-colors ${
+                          className={`px-2 py-0.5 rounded-md text-[9px] font-mono font-bold border transition-all active:scale-95 ${
                             telemetry.headlightMode === 'HIGH_BEAM'
-                              ? 'bg-sky-500 text-slate-950 border-sky-300'
+                              ? 'bg-sky-500/25 text-sky-300 border-sky-400/60 shadow-[0_0_10px_rgba(56,189,248,0.25)]'
                               : telemetry.headlightMode === 'LOW_BEAM'
-                              ? 'bg-amber-500 text-slate-950 border-amber-300'
-                              : 'bg-slate-950 text-slate-400 border-slate-700'
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                              : 'bg-slate-900/80 text-slate-400 border-white/10 hover:text-slate-200 hover:border-slate-600'
                           }`}
+                          title="Bật/Tắt Đèn Chiếu Sáng (Phím L)"
                         >
                           💡 Đèn (L):{' '}
                           {telemetry.headlightMode === 'HIGH_BEAM'
@@ -1843,14 +2012,15 @@ export default function App() {
                               physicsRef.current.getTelemetrySnapshot()
                             );
                           }}
-                          className={`py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                          className={`py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all border select-none active:scale-95 ${
                             telemetry.turnSignal === 'LEFT' ||
                             telemetry.turnSignal === 'HAZARD'
                               ? telemetry.turnSignalBlinkOn
-                                ? 'bg-amber-500 text-slate-950'
-                                : 'bg-amber-950/90 text-amber-300 border border-amber-500/50'
-                              : 'bg-slate-950 text-slate-300 border border-slate-800 hover:bg-slate-800'
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                                : 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+                              : 'bg-slate-900/80 text-slate-300 border-white/10 hover:bg-slate-800'
                           }`}
+                          title="Bật xi-nhan trái (Phím Z)"
                         >
                           ◀ Trái (Z)
                         </button>
@@ -1864,13 +2034,14 @@ export default function App() {
                               physicsRef.current.getTelemetrySnapshot()
                             );
                           }}
-                          className={`py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                          className={`py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all border select-none active:scale-95 ${
                             telemetry.turnSignal === 'HAZARD'
                               ? telemetry.turnSignalBlinkOn
-                                ? 'bg-rose-600 text-white'
-                                : 'bg-rose-950/90 text-rose-300 border border-rose-500/50'
-                              : 'bg-slate-950 text-rose-300 border border-slate-800 hover:bg-slate-800'
+                                ? 'bg-rose-600 text-white border-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.6)]'
+                                : 'bg-rose-950/80 text-rose-300 border-rose-500/50'
+                              : 'bg-slate-900/80 text-rose-300/80 border-white/10 hover:bg-slate-800'
                           }`}
+                          title="Đèn khẩn cấp / Hazard (Phím V)"
                         >
                           ▲ Khẩn (V)
                         </button>
@@ -1884,162 +2055,142 @@ export default function App() {
                               physicsRef.current.getTelemetrySnapshot()
                             );
                           }}
-                          className={`py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
+                          className={`py-1 rounded-lg text-[9.5px] font-mono font-bold transition-all border select-none active:scale-95 ${
                             telemetry.turnSignal === 'RIGHT' ||
                             telemetry.turnSignal === 'HAZARD'
                               ? telemetry.turnSignalBlinkOn
-                                ? 'bg-amber-500 text-slate-950'
-                                : 'bg-amber-950/90 text-amber-300 border border-amber-500/50'
-                              : 'bg-slate-950 text-slate-300 border border-slate-800 hover:bg-slate-800'
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]'
+                                : 'bg-amber-950/80 text-amber-300 border-amber-500/50'
+                              : 'bg-slate-900/80 text-slate-300 border-white/10 hover:bg-slate-800'
                           }`}
+                          title="Bật xi-nhan phải (Phím X)"
                         >
                           Phải (X) ▶
                         </button>
                       </div>
                     </div>
 
-                    {/* 3. Cần Số (Q/E), Cần Phanh Tay (Space) & Còi */}
-                    <div className="md:col-span-5 flex items-center justify-between gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800/80">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-9 h-9 rounded-lg bg-slate-950 border border-slate-700 flex flex-col items-center justify-center shrink-0">
-                          <span className="text-[8px] text-slate-400 font-mono leading-none">
-                            {telemetry.transmissionMode === 'AUTOMATIC'
-                              ? 'AT'
-                              : 'MT'}
-                          </span>
-                          <span
-                            className={`text-sm font-extrabold font-mono tabular-nums leading-tight ${
-                              telemetry.currentGear === -1
-                                ? 'text-rose-400'
-                                : telemetry.currentGear === 0
-                                ? 'text-amber-400'
-                                : 'text-sky-400'
-                            }`}
-                          >
-                            {telemetry.gearLabel}
-                          </span>
-                        </div>
+                    {/* 4. Cần Số & Hộp Số */}
+                    <div className="md:col-span-3 flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-950/70 border border-white/5 shadow-inner">
+                      {/* Gear indicator badge */}
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-slate-900 to-slate-950 border border-white/10 flex flex-col items-center justify-center shrink-0 shadow-sm">
+                        <span className="text-[7.5px] text-slate-400 font-mono font-medium leading-none">
+                          {telemetry.transmissionMode === 'AUTOMATIC'
+                            ? 'AT'
+                            : 'MT'}
+                        </span>
+                        <span
+                          className={`text-base font-black font-mono tabular-nums leading-tight ${
+                            telemetry.currentGear === -1
+                              ? 'text-rose-400'
+                              : telemetry.currentGear === 0
+                              ? 'text-amber-400'
+                              : 'text-emerald-400'
+                          }`}
+                        >
+                          {telemetry.gearLabel}
+                        </span>
+                      </div>
 
-                        <div className="flex flex-col gap-1">
-                          {telemetry.transmissionMode === 'AUTOMATIC' ? (
-                            <div className="flex items-center gap-0.5">
-                              {(['P', 'R', 'N', 'D'] as const).map((pos) => (
-                                <button
-                                  key={pos}
-                                  type="button"
-                                  onClick={() => {
-                                    soundRef.current.init();
-                                    physicsRef.current.selectDirectGearPosition(
-                                      pos,
-                                      true
-                                    );
-                                    setTelemetry(
-                                      physicsRef.current.getTelemetrySnapshot()
-                                    );
-                                  }}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition-colors ${
-                                    telemetry.atSelectorPosition === pos
-                                      ? 'bg-sky-500 text-slate-950'
-                                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                                  }`}
-                                >
-                                  {pos}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1">
+                      {/* Controls */}
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        {telemetry.transmissionMode === 'AUTOMATIC' ? (
+                          <div className="flex items-center gap-1">
+                            {(['P', 'R', 'N', 'D'] as const).map((pos) => (
                               <button
+                                key={pos}
                                 type="button"
                                 onClick={() => {
                                   soundRef.current.init();
-                                  physicsRef.current.shiftGearDown(true);
+                                  physicsRef.current.selectDirectGearPosition(
+                                    pos,
+                                    true
+                                  );
                                   setTelemetry(
                                     physicsRef.current.getTelemetrySnapshot()
                                   );
                                 }}
-                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-200"
-                              >
-                                - (Q)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  soundRef.current.init();
-                                  physicsRef.current.shiftGearUp(true);
-                                  setTelemetry(
-                                    physicsRef.current.getTelemetrySnapshot()
-                                  );
-                                }}
-                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-200"
-                              >
-                                + (E)
-                              </button>
-                              <span
-                                className={`px-1 py-0.5 rounded text-[9px] font-mono font-bold ${
-                                  telemetry.clutchInput >= 0.9
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                                    : 'bg-slate-950 text-slate-400 border border-slate-800'
+                                className={`flex-1 py-1 rounded text-[10px] font-mono font-bold transition-all border ${
+                                  telemetry.atSelectorPosition === pos
+                                    ? 'bg-sky-500/25 text-sky-300 border-sky-400/60 shadow-[0_0_8px_rgba(56,189,248,0.25)]'
+                                    : 'bg-slate-900/80 hover:bg-slate-700 text-slate-400 border-white/5'
                                 }`}
                               >
-                                Côn {Math.round(telemetry.clutchInput * 100)}%
-                              </span>
-                            </div>
-                          )}
-
+                                {pos}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
                           <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={handleToggleTransmission}
-                              className="px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 hover:bg-slate-800 text-[9px] font-mono font-semibold text-sky-400 whitespace-nowrap"
+                              onClick={() => {
+                                soundRef.current.init();
+                                physicsRef.current.shiftGearDown(true);
+                                setTelemetry(
+                                  physicsRef.current.getTelemetrySnapshot()
+                                );
+                              }}
+                              className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-white/10 text-[10px] font-mono font-bold text-slate-200 active:scale-95"
+                              title="Về số thấp (Phím Q)"
                             >
-                              {telemetry.transmissionMode === 'MANUAL'
-                                ? 'Số Sàn (MT)'
-                                : 'Số Tự Động (AT)'}
+                              - (Q)
                             </button>
-                            {telemetry.transmissionMode === 'MANUAL' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const next = !autoClutchAssist;
-                                  setAutoClutchAssist(next);
-                                  physicsRef.current.autoClutchEnabled = next;
-                                }}
-                                className={`px-1.5 py-0.5 rounded border text-[9px] font-mono font-semibold whitespace-nowrap ${
-                                  !autoClutchAssist
-                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                                    : 'bg-slate-950 border-slate-700 text-slate-400'
-                                }`}
-                              >
-                                {!autoClutchAssist ? 'Côn Thật' : 'Tự Đỡ Côn'}
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                soundRef.current.init();
+                                physicsRef.current.shiftGearUp(true);
+                                setTelemetry(
+                                  physicsRef.current.getTelemetrySnapshot()
+                                );
+                              }}
+                              className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-white/10 text-[10px] font-mono font-bold text-slate-200 active:scale-95"
+                              title="Lên số cao (Phím E)"
+                            >
+                              + (E)
+                            </button>
+                            <span
+                              className={`px-1.5 py-1 rounded text-[9px] font-mono font-bold border ${
+                                telemetry.clutchInput >= 0.9
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                                  : 'bg-slate-900/60 text-slate-400 border-white/5'
+                              }`}
+                            >
+                              Côn {Math.round(telemetry.clutchInput * 100)}%
+                            </span>
                           </div>
+                        )}
+
+                        <div className="flex flex-col gap-1 items-start">
+                          <button
+                            type="button"
+                            onClick={handleToggleTransmission}
+                            className="px-2 py-0.5 rounded bg-slate-900/90 border border-white/10 hover:border-sky-500/40 text-[9px] font-mono font-semibold text-sky-400 whitespace-nowrap active:scale-95"
+                          >
+                            {telemetry.transmissionMode === 'MANUAL'
+                              ? 'Số Sàn (MT)'
+                              : 'Số Tự Động (AT)'}
+                          </button>
+                          {telemetry.transmissionMode === 'MANUAL' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = !autoClutchAssist;
+                                setAutoClutchAssist(next);
+                                physicsRef.current.autoClutchEnabled = next;
+                              }}
+                              className={`px-2 py-0.5 rounded border text-[8.5px] font-mono font-semibold whitespace-nowrap active:scale-95 ${
+                                !autoClutchAssist
+                                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                                  : 'bg-slate-900/60 border-white/5 text-slate-400'
+                              }`}
+                            >
+                              {!autoClutchAssist ? 'Côn Thật' : 'Tự Đỡ Côn'}
+                            </button>
+                          )}
                         </div>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.currentTarget.blur();
-                          soundRef.current.init();
-                          soundRef.current.playShiftClick();
-                          physicsRef.current.handbrakeActive =
-                            !physicsRef.current.handbrakeActive;
-                          setTelemetry(
-                            physicsRef.current.getTelemetrySnapshot()
-                          );
-                        }}
-                        className={`flex flex-col items-center justify-center px-2 py-1 rounded-lg border text-[10px] font-mono font-bold transition-colors whitespace-nowrap shrink-0 ${
-                          telemetry.handbrakeActive
-                            ? 'bg-rose-600 border-rose-400 text-white shadow'
-                            : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'
-                        }`}
-                      >
-                        <span>
-                          {telemetry.handbrakeActive ? 'PHANH TAY' : 'ĐÃ HẠ (P)'}
-                        </span>
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -2114,7 +2265,6 @@ export default function App() {
       {isPaused &&
         !isTitleScreen &&
         !isCourseModalOpen &&
-        !isUnityWorkbenchOpen &&
         !isInspectorOpen &&
         !completedAttemptResult && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-3 pointer-events-auto">
@@ -2159,10 +2309,7 @@ export default function App() {
                 </button>
 
                 <button
-                  onClick={() => {
-                    setIsPaused(false);
-                    setIsTitleScreen(true);
-                  }}
+                  onClick={handleReturnHome}
                   className="py-2.5 px-4 rounded-lg bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs font-medium transition-colors"
                 >
                   Về Màn Hình Chính
@@ -2197,25 +2344,20 @@ export default function App() {
           exerciseEngineRef.current.clearPracticeHistory();
           setPracticeHistory([]);
         }}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
       />
 
       {/* 6. Exercise Completion / Failure Results Screen (Tiếng Việt) */}
       <ExerciseResultsModal
         result={completedAttemptResult}
-        onClose={handleCloseResultsModal}
-        onReturnHome={handleCloseResultsModal}
+        onClose={handleReturnHome}
+        onReturnHome={handleReturnHome}
         onRetryExercise={handleRetryCurrent}
         onNextExercise={handleNextExercise}
         onOpenCourseMenu={() => {
           setCompletedAttemptResult(null);
           setIsCourseModalOpen(true);
         }}
-      />
-
-      {/* 7. Unity 6 C# Codebase & Architecture Workbench Modal */}
-      <UnityWorkbenchModal
-        isOpen={isUnityWorkbenchOpen}
-        onClose={() => setIsUnityWorkbenchOpen(false)}
       />
 
       {/* 8. Live Unity Inspector Physics & Keybindings Tuning Modal */}
@@ -2257,37 +2399,24 @@ export default function App() {
         }
       />
 
-      {/* 11. Giảng Viên Sát Hạch Ảo & Hệ Thống Chip Chấm Điểm Tự Động (2026) */}
-      <InstructorScoringConsoleModal
-        isOpen={isInstructorConsoleOpen}
-        onClose={() => {
-          setIsInstructorConsoleOpen(false);
-          window.focus();
-        }}
-        soundEngine={soundRef.current}
-        liveScore={exerciseState.currentScore}
-        licenseCategory={profile.category}
-        onSyncScoreToSim={(nextScore) => {
-          exerciseEngineRef.current.currentScore = nextScore;
-          setExerciseState(
-            exerciseEngineRef.current.getRuntimeStateSnapshot()
-          );
-        }}
-      />
-
       {/* 12. Firebase Authentication Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        onOpenPolicy={(tab) => {
+          setPolicyDefaultTab(tab || 'privacy');
+          setIsPolicyModalOpen(true);
+        }}
       />
 
-      {/* 13. Firebase Exam History Modal */}
-      <ExamHistoryModal
-        isOpen={isHistoryModalOpen}
-        onClose={() => setIsHistoryModalOpen(false)}
+      {/* 12b. Privacy Policy & Terms of Service Modal */}
+      <PolicyModal
+        isOpen={isPolicyModalOpen}
+        onClose={() => setIsPolicyModalOpen(false)}
+        defaultTab={policyDefaultTab}
       />
 
-      {/* 14. Out of Daily Plays Modal */}
+      {/* 13. Out of Daily Plays Modal */}
       <OutOfPlaysModal
         isOpen={isOutOfPlaysModalOpen}
         onClose={() => setIsOutOfPlaysModalOpen(false)}

@@ -2014,7 +2014,7 @@ export function sampleBlueprintGroundAt(
 
   // 2. Check if wheel is mounting any Raised Red-White Concrete Curb ("chắn tường đỏ trắng" / vỉa hè bài thi)
   const curbOffsetDist = 0.22;
-  const curbHalfWidth = 0.22;
+  const curbHalfWidth = 0.28;
   for (const sLine of BLUEPRINT_SOLID_LINES) {
     if (!sLine.hasRedWhiteCurb) continue;
     const nx = sLine.curbNormalX ?? 0;
@@ -2082,7 +2082,7 @@ export function sampleBlueprintGroundAt(
   }
 
   // 4. Check if inside any Paved Exercise Recess or its Entrance/Exit Corner Cutout (Bài 4/5 Hạng B & C, Bài 6 necks, Bài 7 T-garages, Bài 10 Parallel Bays)
-  const recessEntryMargin = 0.36;
+  const recessEntryMargin = 0.24;
   for (const rec of BLUEPRINT_PAVED_RECESSES) {
     if (
       x >= rec.minX - recessEntryMargin &&
@@ -2100,7 +2100,7 @@ export function sampleBlueprintGroundAt(
   }
 
   // 5. Check if on any Island or its Red-White Concrete Curb Lip (vỉa hè có bậc leo vỉa vật lý 12cm tại mép bó vỉa đỏ-trắng)
-  const curbLip = 0.12;
+  const curbLip = 0.25;
   for (const isl of BLUEPRINT_GRASS_ISLANDS) {
     if (
       x >= isl.minX - curbLip &&
@@ -2113,7 +2113,7 @@ export function sampleBlueprintGroundAt(
       const dTop = z - (isl.minZ - curbLip);
       const dBot = isl.maxZ + curbLip - z;
       const minEdgeDist = Math.min(dLeft, dRight, dTop, dBot);
-      const curbZoneWidth = 0.32;
+      const curbZoneWidth = 0.38;
       let nx = 0;
       let nz = 0;
       if (minEdgeDist < curbZoneWidth) {
@@ -2138,12 +2138,12 @@ export function sampleBlueprintGroundAt(
     }
   }
 
-  // 6. Outer Perimeter Concrete Curbs & Sidewalks (Z >= 52.78, Z <= -54.78, X <= -79.28, X >= 79.28)
+  // 6. Outer Perimeter Concrete Curbs & Sidewalks (South Z >= 52.68, North Z <= -54.68, West X <= -79.18, East X >= 79.18)
   const isOnRampSpan = z >= 45.0 && z <= 55.0 && x >= -14.25 && x <= 23.25;
   if (!isOnRampSpan) {
-    if (z >= 52.78) {
-      const d = z - 52.78;
-      const onCurb = d < 0.32;
+    if (z >= 52.68) {
+      const d = z - 52.68;
+      const onCurb = d < 0.42;
       return {
         heightY: onCurb ? 0.12 : 0.015,
         normalX: 0,
@@ -2151,9 +2151,9 @@ export function sampleBlueprintGroundAt(
         surface: 'OFF_TRACK',
       };
     }
-    if (z <= -54.78) {
-      const d = -54.78 - z;
-      const onCurb = d < 0.32;
+    if (z <= -54.68) {
+      const d = -54.68 - z;
+      const onCurb = d < 0.42;
       return {
         heightY: onCurb ? 0.12 : 0.015,
         normalX: 0,
@@ -2161,9 +2161,9 @@ export function sampleBlueprintGroundAt(
         surface: 'OFF_TRACK',
       };
     }
-    if (x <= -79.28) {
-      const d = -79.28 - x;
-      const onCurb = d < 0.32;
+    if (x <= -79.18) {
+      const d = -79.18 - x;
+      const onCurb = d < 0.42;
       return {
         heightY: onCurb ? 0.12 : 0.015,
         normalX: onCurb ? 0.28 : 0,
@@ -2171,9 +2171,9 @@ export function sampleBlueprintGroundAt(
         surface: 'OFF_TRACK',
       };
     }
-    if (x >= 79.28) {
-      const d = x - 79.28;
-      const onCurb = d < 0.32;
+    if (x >= 79.18) {
+      const d = x - 79.18;
+      const onCurb = d < 0.42;
       return {
         heightY: onCurb ? 0.12 : 0.015,
         normalX: onCurb ? -0.28 : 0,

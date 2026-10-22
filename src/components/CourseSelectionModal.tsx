@@ -6,7 +6,6 @@ import {
   Compass,
   Play,
   Award,
-  History,
   CheckCircle2,
   AlertCircle,
   Trash2,
@@ -14,7 +13,9 @@ import {
   Code2,
   RotateCcw,
   Map,
+  Lock,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import {
   DrivingExerciseDefinition,
   ExerciseMode,
@@ -67,6 +68,7 @@ interface CourseSelectionModalProps {
   onSelectVehicleProfile: (profile: VehicleProfileConfig) => void;
   onSelectRuleSet: (ruleSet: ScoringRuleSet) => void;
   onClearHistory: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
@@ -82,7 +84,9 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
   onSelectVehicleProfile,
   onSelectRuleSet,
   onClearHistory,
+  onOpenAuth,
 }) => {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<
     | 'exercises'
     | 'blueprint_2d'
@@ -90,7 +94,6 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
     | 'rules'
     | 'regulations'
     | 'json_editor'
-    | 'history'
   >('exercises');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<
     LicenseCategoryCode | 'ALL'
@@ -248,18 +251,6 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
               <Award className="w-3.5 h-3.5" />
               Luật Chấm Điểm
             </button>
-
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
-                activeTab === 'history'
-                  ? 'bg-sky-600 text-white'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              Lịch Sử ({practiceHistory.length})
-            </button>
           </div>
 
           {/* Quick Actions: Luyện tập tự do & Thi thử */}
@@ -307,29 +298,47 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                     ['ALL', 'B', 'C1', 'C'] as Array<
                       LicenseCategoryCode | 'ALL'
                     >
-                  ).map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        setSelectedCategoryFilter(cat);
-                        if (cat !== 'ALL') {
-                          const matchedVeh = SELECTABLE_VEHICLE_PROFILES.find(
-                            (v) => v.category === cat
-                          );
-                          if (matchedVeh) {
-                            onSelectVehicleProfile(matchedVeh);
+                  ).map((cat) => {
+                    const isTruck = cat === 'C1' || cat === 'C';
+                    const isLocked = !currentUser && isTruck;
+
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          if (isLocked) {
+                            onOpenAuth?.();
+                            return;
                           }
-                        }
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                        selectedCategoryFilter === cat
-                          ? 'bg-sky-600 text-white shadow'
-                          : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
-                      }`}
-                    >
-                      {cat === 'ALL' ? 'Tất cả' : `Hạng ${cat}`}
-                    </button>
-                  ))}
+                          setSelectedCategoryFilter(cat);
+                          if (cat !== 'ALL') {
+                            const matchedVeh = SELECTABLE_VEHICLE_PROFILES.find(
+                              (v) => v.category === cat
+                            );
+                            if (matchedVeh) {
+                              onSelectVehicleProfile(matchedVeh);
+                            }
+                          }
+                        }}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                          isLocked
+                            ? 'bg-slate-900/60 text-slate-400 border border-slate-800 hover:border-amber-500/50 hover:text-amber-300'
+                            : selectedCategoryFilter === cat
+                            ? 'bg-sky-600 text-white shadow'
+                            : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
+                        }`}
+                        title={isLocked ? `Xe tải Hạng ${cat} chỉ dành cho học viên có tài khoản` : undefined}
+                      >
+                        {isLocked && <Lock className="w-3 h-3 text-amber-400" />}
+                        <span>{cat === 'ALL' ? 'Tất cả' : `Hạng ${cat}`}</span>
+                        {isLocked && (
+                          <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Khóa
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -342,6 +351,10 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                       <button
                         key={ex.id}
                         onClick={() => setPreviewExerciseId(ex.id)}
+                        onDoubleClick={() => {
+                          onStartExercise(ex, 'SINGLE_EXERCISE');
+                          onClose();
+                        }}
                         className={`w-full text-left p-3 rounded-lg border transition-colors ${
                           isSelected
                             ? 'bg-sky-950/60 border-sky-500/70 text-white'
@@ -991,26 +1004,37 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {SELECTABLE_VEHICLE_PROFILES.map((veh) => {
                   const isSelected = veh.id === currentProfile.id;
+                  const isTruck = veh.category === 'C1' || veh.category === 'C';
+                  const isLocked = !currentUser && isTruck;
+
                   return (
                     <div
                       key={veh.id}
                       className={`p-4 rounded-xl border flex flex-col justify-between space-y-3.5 transition-colors ${
                         isSelected
                           ? 'bg-sky-950/50 border-sky-500'
+                          : isLocked
+                          ? 'bg-slate-950/70 border-slate-800'
                           : 'bg-slate-950 border-slate-800'
                       }`}
                     >
                       <div className="space-y-2">
                         <div className="flex items-center justify-between font-mono text-xs">
-                          <span className="font-bold text-sky-400">
+                          <span className={`font-bold flex items-center gap-1.5 ${isLocked ? 'text-amber-400' : 'text-sky-400'}`}>
+                            {isLocked && <Lock className="w-3.5 h-3.5" />}
                             HẠNG {veh.category} · {veh.driveType}
                           </span>
                           <span className="text-slate-400 tabular-nums">
                             {veh.massKg} kg
                           </span>
                         </div>
-                        <h4 className="text-sm font-bold text-white">
-                          {veh.nameVi}
+                        <h4 className="text-sm font-bold text-white flex items-center justify-between">
+                          <span>{veh.nameVi}</span>
+                          {isLocked && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              Khóa
+                            </span>
+                          )}
                         </h4>
                         <p className="text-[11px] text-slate-300 leading-relaxed">
                           {veh.descriptionVi}
@@ -1034,17 +1058,30 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
 
                       <button
                         onClick={() => {
+                          if (isLocked) {
+                            onOpenAuth?.();
+                            return;
+                          }
                           onSelectVehicleProfile(veh);
                         }}
-                        className={`w-full py-2 px-4 rounded-lg text-xs font-bold transition-colors ${
-                          isSelected
+                        className={`w-full py-2 px-4 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 ${
+                          isLocked
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                            : isSelected
                             ? 'bg-emerald-600 text-white'
                             : 'bg-sky-600 hover:bg-sky-500 text-white'
                         }`}
                       >
-                        {isSelected
-                          ? 'Đang Sử Dụng Phương Tiện Này'
-                          : `Chọn Lái Xe Hạng ${veh.category}`}
+                        {isLocked ? (
+                          <>
+                            <Lock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Khóa (Đăng nhập để lái xe tải)</span>
+                          </>
+                        ) : isSelected ? (
+                          'Đang Sử Dụng Phương Tiện Này'
+                        ) : (
+                          `Chọn Lái Xe Hạng ${veh.category}`
+                        )}
                       </button>
                     </div>
                   );
@@ -1385,93 +1422,7 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
             </div>
           )}
 
-          {activeTab === 'history' && (
-            <div className="h-full overflow-y-auto p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    Lịch Sử Luyện Tập & Kết Quả Thực Hành ({practiceHistory.length} lượt)
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Lưu trữ tự động trên trình duyệt để theo dõi tiến độ qua từng bài tập
-                  </p>
-                </div>
 
-                {practiceHistory.length > 0 && (
-                  <button
-                    onClick={onClearHistory}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-xs font-medium text-slate-300 hover:text-rose-300 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Xóa lịch sử
-                  </button>
-                )}
-              </div>
-
-              {practiceHistory.length === 0 ? (
-                <div className="p-12 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-2">
-                  <div className="text-sm font-semibold text-slate-300">
-                    Chưa có lượt hoàn thành bài tập nào được ghi nhận
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Hãy chọn một bài tập trong tab Bài Sát Hạch và điều khiển xe về tới Vạch Đích để lưu kết quả đầu tiên.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {practiceHistory.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 rounded-lg bg-slate-950 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          {item.passed ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                          ) : (
-                            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                          )}
-                          <span className="text-sm font-bold text-white">
-                            {item.exerciseTitleVi}
-                          </span>
-                          <span
-                            className={`text-xs font-mono font-bold ${
-                              item.passed ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {item.passed ? 'ĐẠT' : 'CHƯA ĐẠT'}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-400 font-mono tabular-nums">
-                          Xe: {item.vehicleNameVi} (Hạng {item.licenseCategory}) · Checkpoint:{' '}
-                          {item.completedCheckpoints}/{item.totalCheckpoints} · Thời gian:{' '}
-                          {item.elapsedSeconds}s · Lỗi vi phạm: {item.violations.length}
-                        </div>
-                        <p className="text-xs text-slate-300">
-                          {item.summaryNoteVi}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-4 shrink-0">
-                        <div className="text-right font-mono tabular-nums">
-                          <div className="text-[10px] text-slate-400">
-                            ĐIỂM SỐ (ĐẠT ≥ {item.passingScore})
-                          </div>
-                          <div
-                            className={`text-2xl font-extrabold ${
-                              item.passed ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {item.finalScore}/{item.initialScore}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

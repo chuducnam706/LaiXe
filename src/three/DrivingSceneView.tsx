@@ -54,6 +54,7 @@ interface DrivingSceneViewProps {
   isCssRotated90?: boolean;
   customGlbUpload?: { buffer: ArrayBuffer; fileName: string } | null;
   onVehicleAssetLoaded?: (metadata: VehicleAssetMetadata) => void;
+  onCollision?: (impulse: number, labelVi: string) => void;
   onTelemetryUpdate: (
     snapshot: VehicleTelemetryState,
     exerciseState: ActiveExerciseRuntimeState
@@ -206,6 +207,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
   isCssRotated90 = false,
   customGlbUpload,
   onVehicleAssetLoaded,
+  onCollision,
   onTelemetryUpdate,
 }) => {
   const canvasMountRef = useRef<HTMLDivElement | null>(null);
@@ -264,6 +266,13 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       );
     }
   }, [customGlbUpload]);
+
+  useEffect(() => {
+    if (!isTitleScreen && !isPaused) {
+      window.focus();
+      canvasMountRef.current?.focus({ preventScroll: true });
+    }
+  }, [isTitleScreen, isPaused]);
 
   useEffect(() => {
     const container = canvasMountRef.current;
@@ -2973,86 +2982,6 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     );
     carRigRef.current = carRig;
 
-    // 12B. Hard-Braking (phanh chân > 80%) 3D Tire Skid Marks & Smoke Particle System
-    const MAX_SKID_MARKS = 320;
-    const skidGeo = new THREE.PlaneGeometry(0.24, 0.48);
-    skidGeo.rotateX(-Math.PI / 2);
-    const skidMat = new THREE.MeshBasicMaterial({
-      color: 0x090d16,
-      transparent: true,
-      opacity: 0.72,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -3,
-    });
-    const skidMarkInstanced = new THREE.InstancedMesh(
-      skidGeo,
-      skidMat,
-      MAX_SKID_MARKS
-    );
-    skidMarkInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    skidMarkInstanced.frustumCulled = false;
-    const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (let i = 0; i < MAX_SKID_MARKS; i++) {
-      skidMarkInstanced.setMatrixAt(i, hiddenMatrix);
-    }
-    skidMarkInstanced.instanceMatrix.needsUpdate = true;
-    scene.add(skidMarkInstanced);
-    let nextSkidIndex = 0;
-    let skidEmitCooldownS = 0;
-
-    const MAX_BRAKE_SMOKE = 96;
-    const smokeGeo = new THREE.DodecahedronGeometry(0.22, 1);
-    const smokeMat = new THREE.MeshLambertMaterial({
-      color: 0xe2e8f0,
-      transparent: true,
-      opacity: 0.52,
-      depthWrite: false,
-    });
-    const brakeSmokeInstanced = new THREE.InstancedMesh(
-      smokeGeo,
-      smokeMat,
-      MAX_BRAKE_SMOKE
-    );
-    brakeSmokeInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    brakeSmokeInstanced.frustumCulled = false;
-    for (let i = 0; i < MAX_BRAKE_SMOKE; i++) {
-      brakeSmokeInstanced.setMatrixAt(i, hiddenMatrix);
-    }
-    brakeSmokeInstanced.instanceMatrix.needsUpdate = true;
-    scene.add(brakeSmokeInstanced);
-
-    interface BrakeSmokeParticle {
-      active: boolean;
-      x: number;
-      y: number;
-      z: number;
-      vx: number;
-      vy: number;
-      vz: number;
-      age: number;
-      maxAge: number;
-      baseScale: number;
-    }
-    const smokeParticles: BrakeSmokeParticle[] = Array.from(
-      { length: MAX_BRAKE_SMOKE },
-      () => ({
-        active: false,
-        x: 0,
-        y: -10,
-        z: 0,
-        vx: 0,
-        vy: 0,
-        vz: 0,
-        age: 0,
-        maxAge: 0.65,
-        baseScale: 0.5,
-      })
-    );
-    let nextSmokeIndex = 0;
-    let smokeEmitCooldownS = 0;
-    const fxDummy = new THREE.Object3D();
-
     renderer.compile(scene, camera);
 
     // 13. Keyboard & Interactive Orbit Mouse Handling
@@ -3279,25 +3208,26 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         e.preventDefault();
       }
 
-      // When pressing Throttle (W / ArrowUp), check if engine is running, gear is engaged, and handbrake/foot-brake are released
+      // When pressing Throttle (W / ArrowUp): Tự động nổ máy, tự động hạ phanh tay, tự động vào số D/1 nếu đang ở P/N
       if (keyCode === kb.throttle || keyCode === 'ArrowUp') {
-        if (!phys.isEngineRunning) {
-          phys.stallReasonVi =
-            'Chưa nổ máy! Nhấn Phím F (hoặc nút START) để đề nổ động cơ.';
-        } else if (phys.currentGear === 0) {
-          phys.stallReasonVi =
-            phys.transmissionMode === 'MANUAL'
-              ? 'Đang ở Số N (Số Mo)! Nhấn Phím E để vào Số 1 (hoặc Q vào số R) trước khi đi.'
-              : 'Đang ở Số P! Nhấn Phím E để vào Số D (hoặc Q vào số R) trước khi đi.';
-        } else if (phys.handbrakeActive) {
-          phys.stallReasonVi =
-            'Phanh tay đang KHÓA! Nhấn Phím Space (hoặc cần Phanh Tay) để HẠ phanh tay thì xe mới đi được.';
-        } else if (heldKeys.has(kb.brake) || heldKeys.has('ArrowDown')) {
-          phys.stallReasonVi =
-            'Đang đạp phanh chân (Phím S)! Nhả phanh chân để xe di chuyển.';
-        } else {
-          phys.stallReasonVi = null;
+        if (!phys.isEngineRunning || phys.isStalled) {
+          phys.isEngineRunning = true;
+          phys.isStalled = false;
+          phys.engineRpm = Math.max(phys.engineRpm, phys.profile.idleRpm);
         }
+        if (phys.handbrakeActive) {
+          phys.handbrakeActive = false;
+        }
+        if (phys.currentGear === 0) {
+          if (phys.transmissionMode === 'AUTOMATIC') {
+            phys.atSelectorPosition = 'D';
+            phys.currentGear = 1;
+          } else {
+            phys.currentGear = 1;
+          }
+        }
+        phys.stallReasonVi = null;
+
         // If exercise had previously failed due to sitting idle, restart it cleanly
         if (
           exEngine.status === 'FAILED' &&
@@ -3478,16 +3408,37 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       }
     };
 
+    const handleCanvasPointerFocus = () => {
+      window.focus();
+      canvasMountRef.current?.focus({ preventScroll: true });
+      if (
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement !== canvasMountRef.current
+      ) {
+        document.activeElement.blur();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      heldKeys.clear();
+      imeHoldUntilMs.clear();
+    };
+
     window.addEventListener('keydown', handleKeyDown, true);
     window.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleWindowBlur);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    renderer.domElement.addEventListener('pointerdown', handleCanvasPointerFocus);
     renderer.domElement.addEventListener('mousedown', (e) => {
-      canvasMountRef.current?.focus({ preventScroll: true });
+      handleCanvasPointerFocus();
       handleMouseDown(e);
     });
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-    renderer.domElement.addEventListener('touchstart', handleTouchStart, {
+    renderer.domElement.addEventListener('touchstart', (e) => {
+      handleCanvasPointerFocus();
+      handleTouchStart(e);
+    }, {
       passive: true,
     });
     renderer.domElement.addEventListener('touchmove', handleTouchMove, {
@@ -3527,8 +3478,9 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     physicsRef.current.onStallCallback = () => {
       soundRef.current.playStallShudder();
     };
-    physicsRef.current.onCollisionCallback = (impulse) => {
+    physicsRef.current.onCollisionCallback = (impulse, labelVi) => {
       soundRef.current.playCollisionImpact(impulse);
+      onCollision?.(impulse, labelVi);
     };
     physicsRef.current.onBlinkerTickCallback = (isHigh) => {
       soundRef.current.playBlinkerTick(isHigh);
@@ -3572,7 +3524,29 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           kbThrottle,
           touch ? touch.throttle : 0
         );
-        // Require engine running, gear engaged (!== 0), handbrake released (!handbrakeActive), and foot brake released before throttle can move the car!
+        // Khi người lái nhấn ga: tự động đề nổ máy nếu đang tắt, hạ phanh tay nếu đang khóa, và vào số tiến 1/D nếu đang ở N/P
+        if (rawThrottleHeld > 0.05) {
+          if (!phys.isEngineRunning || phys.isStalled) {
+            phys.isEngineRunning = true;
+            phys.isStalled = false;
+            phys.stallReasonVi = null;
+            phys.engineRpm = Math.max(phys.engineRpm, phys.profile.idleRpm);
+          }
+          if (phys.handbrakeActive) {
+            phys.handbrakeActive = false;
+            phys.stallReasonVi = null;
+          }
+          if (phys.currentGear === 0) {
+            if (phys.transmissionMode === 'AUTOMATIC') {
+              phys.atSelectorPosition = 'D';
+              phys.currentGear = 1;
+            } else {
+              phys.currentGear = 1;
+            }
+            phys.stallReasonVi = null;
+          }
+        }
+        // Require foot brake released before throttle can move the car!
         const canApplyDriveThrottle =
           phys.isEngineRunning &&
           phys.currentGear !== 0 &&
@@ -3630,12 +3604,15 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         // Advance physics by exact frame duration in 2 balanced substeps to eliminate 1-vs-3 substep frame jitter
         const subSteps = 2;
         const stepDt = rawDt / subSteps;
-        for (let s = 0; s < subSteps; s++) {
-          phys.stepFixedUpdate(stepDt);
+        try {
+          for (let s = 0; s < subSteps; s++) {
+            phys.stepFixedUpdate(stepDt);
+          }
+          // Step Course & Exercise Evaluation Engine
+          exEngine.stepUpdate(rawDt, phys);
+        } catch (err) {
+          console.error('[DrivingSceneView] Physics/Exercise engine error:', err);
         }
-
-        // Step Course & Exercise Evaluation Engine
-        exEngine.stepUpdate(rawDt, phys);
       }
 
       // Sync 3D Traffic Light Bulbs & LED Countdown Timer Display at Central Intersection (Bài 5)
@@ -3741,92 +3718,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         }
       }
 
-      // Hard-Braking Visual Effects: Tire Skid Marks + Volumetric Smoke Puffs when foot brake > 80%
-      const vehicleSpeedMs = Math.hypot(phys.velocity.x, phys.velocity.z);
-      const isHardBraking =
-        phys.rawInput.brake > 0.8 && vehicleSpeedMs > 1.0;
-      skidEmitCooldownS = Math.max(0, skidEmitCooldownS - rawDt);
-      smokeEmitCooldownS = Math.max(0, smokeEmitCooldownS - rawDt);
 
-      if (isHardBraking && skidEmitCooldownS <= 0) {
-        skidEmitCooldownS = 0.028;
-        for (let wIdx = 0; wIdx < 4; wIdx++) {
-          if (!phys.wheelGrounded[wIdx]) continue;
-          const wWorld = carRig.wheelAssemblies[wIdx].rootKnuckleGroup.position;
-          const gSample = phys.sampleGroundAt(wWorld.x, wWorld.z);
-          fxDummy.position.set(wWorld.x, gSample.heightM + 0.032, wWorld.z);
-          fxDummy.rotation.set(phys.pitchRad, phys.yawRad, phys.rollRad, 'YXZ');
-          fxDummy.scale.set(
-            phys.profile.category === 'B' ? 1.0 : 1.35,
-            1.0,
-            Math.min(1.8, 0.75 + vehicleSpeedMs * 0.14)
-          );
-          fxDummy.updateMatrix();
-          skidMarkInstanced.setMatrixAt(nextSkidIndex, fxDummy.matrix);
-          nextSkidIndex = (nextSkidIndex + 1) % MAX_SKID_MARKS;
-        }
-        skidMarkInstanced.instanceMatrix.needsUpdate = true;
-      }
-
-      if (isHardBraking && smokeEmitCooldownS <= 0) {
-        smokeEmitCooldownS = 0.035;
-        for (let wIdx = 0; wIdx < 4; wIdx++) {
-          if (!phys.wheelGrounded[wIdx]) continue;
-          const wWorld = carRig.wheelAssemblies[wIdx].rootKnuckleGroup.position;
-          const gSample = phys.sampleGroundAt(wWorld.x, wWorld.z);
-          const p = smokeParticles[nextSmokeIndex];
-          nextSmokeIndex = (nextSmokeIndex + 1) % MAX_BRAKE_SMOKE;
-          const sideSign = wIdx % 2 === 0 ? -1 : 1;
-          p.active = true;
-          p.x = wWorld.x + (Math.random() - 0.5) * 0.16;
-          p.y = gSample.heightM + 0.12;
-          p.z = wWorld.z + (Math.random() - 0.5) * 0.16;
-          p.vx =
-            Math.cos(phys.yawRad) * sideSign * (0.45 + Math.random() * 0.55) +
-            (Math.random() - 0.5) * 0.4;
-          p.vy = 0.65 + Math.random() * 0.55;
-          p.vz =
-            -Math.sin(phys.yawRad) * sideSign * (0.45 + Math.random() * 0.55) +
-            (Math.random() - 0.5) * 0.4;
-          p.age = 0;
-          p.maxAge = 0.52 + Math.random() * 0.28;
-          p.baseScale = 0.42 + Math.random() * 0.35;
-        }
-      }
-
-      let anySmokeUpdated = false;
-      for (let i = 0; i < MAX_BRAKE_SMOKE; i++) {
-        const p = smokeParticles[i];
-        if (!p.active) continue;
-        anySmokeUpdated = true;
-        p.age += rawDt;
-        if (p.age >= p.maxAge) {
-          p.active = false;
-          brakeSmokeInstanced.setMatrixAt(i, hiddenMatrix);
-          continue;
-        }
-        p.x += p.vx * rawDt;
-        p.y += p.vy * rawDt;
-        p.z += p.vz * rawDt;
-        p.vy *= 0.96;
-        const lifeNorm = p.age / p.maxAge;
-        const puffScale =
-          p.baseScale *
-          (1.0 + lifeNorm * 1.9) *
-          Math.max(0.05, 1.0 - lifeNorm * lifeNorm);
-        fxDummy.position.set(p.x, p.y, p.z);
-        fxDummy.rotation.set(
-          p.age * 2.1,
-          p.age * 1.7 + i,
-          p.age * 1.3
-        );
-        fxDummy.scale.set(puffScale, puffScale * 0.78, puffScale);
-        fxDummy.updateMatrix();
-        brakeSmokeInstanced.setMatrixAt(i, fxDummy.matrix);
-      }
-      if (anySmokeUpdated) {
-        brakeSmokeInstanced.instanceMatrix.needsUpdate = true;
-      }
 
       // Sync Moveable Traffic Cones
       for (let i = 0; i < phys.trafficCones.length; i++) {
@@ -4377,7 +4269,9 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       resizeObserver.disconnect();
       window.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('keyup', handleKeyUp, true);
+      window.removeEventListener('blur', handleWindowBlur);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      renderer.domElement.removeEventListener('pointerdown', handleCanvasPointerFocus);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);

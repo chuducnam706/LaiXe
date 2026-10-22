@@ -17,12 +17,14 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultTab?: 'login' | 'register';
+  onOpenPolicy?: (tab?: 'privacy' | 'terms') => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   defaultTab = 'login',
+  onOpenPolicy,
 }) => {
   const { login, register, loginWithGoogle, guestName } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>(defaultTab);
@@ -40,7 +42,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const mapFirebaseError = (errCode: string): string => {
+  const mapFirebaseError = (errCode: string, errMessage?: string): string => {
     switch (errCode) {
       case 'auth/email-already-in-use':
         return 'Email này đã được đăng ký tài khoản khác!';
@@ -49,13 +51,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       case 'auth/weak-password':
         return 'Mật khẩu quá ngắn, vui lòng nhập ít nhất 6 ký tự!';
       case 'auth/wrong-password':
+        return 'Mật khẩu không chính xác, vui lòng thử lại!';
       case 'auth/user-not-found':
+        return errMessage || 'Không tìm thấy tài khoản với email này. Vui lòng chuyển sang tab Đăng ký!';
       case 'auth/invalid-credential':
         return 'Email hoặc mật khẩu không chính xác!';
       case 'auth/popup-closed-by-user':
         return 'Cửa sổ đăng nhập Google đã bị đóng.';
+      case 'auth/operation-not-allowed':
+      case 'auth/configuration-not-found':
+        return (
+          errMessage ||
+          'Chưa kích hoạt dịch vụ xác thực trên Cloud. Bạn vui lòng sử dụng tab Đăng Ký bằng Email/Mật khẩu bên trên!'
+        );
+      case 'auth/network-request-failed':
+        return 'Lỗi mạng hoặc ngoại tuyến, vui lòng kiểm tra kết nối!';
       default:
-        return 'Đã xảy ra lỗi, vui lòng thử lại sau!';
+        return errMessage || 'Đã xảy ra lỗi, vui lòng thử lại sau!';
     }
   };
 
@@ -76,7 +88,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }, 700);
     } catch (err: any) {
       console.error(err);
-      setError(mapFirebaseError(err?.code || ''));
+      setError(mapFirebaseError(err?.code || '', err?.message));
     } finally {
       setLoading(false);
     }
@@ -113,7 +125,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }, 700);
     } catch (err: any) {
       console.error(err);
-      setError(mapFirebaseError(err?.code || ''));
+      setError(mapFirebaseError(err?.code || '', err?.message));
     } finally {
       setLoading(false);
     }
@@ -130,7 +142,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }, 700);
     } catch (err: any) {
       console.error(err);
-      setError(mapFirebaseError(err?.code || ''));
+      setError(mapFirebaseError(err?.code || '', err?.message));
     } finally {
       setLoading(false);
     }
@@ -158,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {tab === 'login' ? 'Đăng Nhập Học Viên' : 'Đăng Ký Tài Khoản Mới'}
               </h2>
               <p className="text-xs text-slate-400">
-                Lưu trữ lịch sử sát hạch & tiến độ sa hình 3D
+                Mở khóa toàn bộ Xe Tải Hạng C1, C & Xe Tự Động (AT)
               </p>
             </div>
           </div>
@@ -217,15 +229,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {tab === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Email hoặc Tên tài khoản
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-slate-300">
+                    Email hoặc Tên tài khoản
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    Admin: <span className="text-sky-400 font-mono">admin / admin</span>
+                  </span>
+                </div>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                   <input
                     type="text"
                     required
-                    placeholder="hocvien@example.com hoặc admin"
+                    placeholder="Email học viên hoặc admin"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
@@ -398,7 +415,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             Đăng nhập nhanh với Google
           </button>
 
-          <div className="mt-4 pt-3 border-t border-slate-800 text-center">
+          <div className="mt-4 pt-3 border-t border-slate-800 text-center space-y-2">
             <button
               type="button"
               onClick={onClose}
@@ -406,6 +423,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             >
               Chơi tự do với tên <span className="font-bold text-sky-400">{guestName}</span> (Không lưu điểm) →
             </button>
+            <p className="text-[10px] text-slate-500">
+              Bằng việc tiếp tục, bạn đồng ý với{' '}
+              <button
+                type="button"
+                onClick={() => onOpenPolicy?.('terms')}
+                className="text-slate-400 hover:text-sky-300 underline cursor-pointer"
+              >
+                Điều khoản
+              </button>{' '}
+              &{' '}
+              <button
+                type="button"
+                onClick={() => onOpenPolicy?.('privacy')}
+                className="text-slate-400 hover:text-sky-300 underline cursor-pointer"
+              >
+                Chính sách bảo mật
+              </button>
+            </p>
           </div>
         </div>
       </div>

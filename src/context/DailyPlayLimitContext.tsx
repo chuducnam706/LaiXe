@@ -8,6 +8,7 @@ interface DailyPlayLimitContextType {
   guestTrialMinutes: number;
   playsUsed: number;
   playsRemaining: number;
+  isUnlimited: boolean;
   canPlay: boolean;
   consumePlay: () => boolean;
   timeUntilMidnightVi: string;
@@ -28,7 +29,7 @@ function getLocalDateKey(): string {
 }
 
 export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, isAdmin, isVip } = useAuth();
+  const { currentUser, isAdmin, isVip, enableVipFeatures } = useAuth();
   const [dailyLimit, setDailyLimit] = useState<number>(5);
   const [guestTrialMinutes, setGuestTrialMinutes] = useState<number>(3);
   const [playsUsed, setPlaysUsed] = useState<number>(0);
@@ -120,7 +121,7 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     // Admin (Role 0) and VIP users have unlimited plays
-    if (isAdmin || isVip) {
+    if (isAdmin || isVip || enableVipFeatures) {
       return true;
     }
 
@@ -146,11 +147,17 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     return true;
-  }, [playsUsed, dailyLimit, currentUser, todayKey, isAdmin, isVip]);
+  }, [playsUsed, dailyLimit, currentUser, todayKey, isAdmin, isVip, enableVipFeatures]);
 
-  const isUnlimited = isAdmin || isVip;
+  const isUnlimited = isAdmin || isVip || enableVipFeatures;
   const playsRemaining = isUnlimited ? dailyLimit : Math.max(0, dailyLimit - playsUsed);
   const canPlay = isUnlimited || playsRemaining > 0;
+
+  useEffect(() => {
+    if (isUnlimited && isOutOfPlaysModalOpen) {
+      setIsOutOfPlaysModalOpen(false);
+    }
+  }, [isUnlimited, isOutOfPlaysModalOpen]);
 
   return (
     <DailyPlayLimitContext.Provider
@@ -159,6 +166,7 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
         guestTrialMinutes,
         playsUsed,
         playsRemaining,
+        isUnlimited,
         canPlay,
         consumePlay,
         timeUntilMidnightVi,

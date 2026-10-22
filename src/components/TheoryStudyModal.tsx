@@ -18,6 +18,7 @@ import {
   Check,
   Filter,
 } from 'lucide-react';
+import { AdBanner } from './AdBanner';
 
 export interface TheoryAnswer {
   id: number;
@@ -806,6 +807,11 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
           </h2>
         </div>
 
+        {/* Vị trí 2: Header Top Ad Banner */}
+        <div className="hidden lg:flex flex-1 justify-center max-w-[440px] mx-2">
+          <AdBanner format="header_top" closable />
+        </div>
+
         {/* Mode Switcher Tabs */}
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800">
@@ -1138,6 +1144,15 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Banner Quảng Cáo Bottom */}
+                <div className="pt-2 flex justify-center">
+                  <AdBanner
+                    format="horizontal_leaderboard"
+                    slotId="theory_exam_hub_bottom_banner"
+                    className="w-full !max-w-none"
+                  />
                 </div>
               </div>
             ) : (

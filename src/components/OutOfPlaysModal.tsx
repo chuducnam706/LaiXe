@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { X, Clock, AlertOctagon, BookOpen, Crown, ArrowRight } from 'lucide-react';
 import { useDailyPlayLimit } from '../context/DailyPlayLimitContext';
+import { useAuth } from '../context/AuthContext';
 import { RedeemVipModal } from './RedeemVipModal';
+import { AdBanner } from './AdBanner';
 
 interface OutOfPlaysModalProps {
   isOpen: boolean;
@@ -14,10 +16,11 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
   onClose,
   onOpenTheory,
 }) => {
-  const { dailyLimit, playsUsed, timeUntilMidnightVi } = useDailyPlayLimit();
+  const { dailyLimit, playsUsed, timeUntilMidnightVi, isUnlimited } = useDailyPlayLimit();
+  const { enableVipFeatures } = useAuth();
   const [isRedeemOpen, setIsRedeemOpen] = useState(false);
 
-  if (!isOpen) return null;
+  if (!isOpen || isUnlimited) return null;
 
   return (
     <>
@@ -65,14 +68,16 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
             </div>
 
             {/* Nút Kích hoạt VIP */}
-            <button
-              onClick={() => setIsRedeemOpen(true)}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Crown className="w-4 h-4 text-slate-950" />
-              <span>Nhập Mã VIP Để Thi Tiếp Không Giới Hạn</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            {enableVipFeatures && (
+              <button
+                onClick={() => setIsRedeemOpen(true)}
+                className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-extrabold rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Crown className="w-4 h-4 text-slate-950" />
+                <span>Nhập Mã VIP Để Thi Tiếp Không Giới Hạn</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             <div className="p-3.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-slate-300 flex items-start gap-2.5">
               <BookOpen className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
@@ -99,6 +104,15 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
               >
                 Đóng
               </button>
+            </div>
+
+            {/* Banner Quảng Cáo Bottom */}
+            <div className="pt-2 border-t border-slate-800/80 flex justify-center">
+              <AdBanner
+                format="horizontal_leaderboard"
+                slotId="out_of_plays_bottom_banner"
+                className="w-full !max-w-none"
+              />
             </div>
           </div>
         </div>

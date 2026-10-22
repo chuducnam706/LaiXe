@@ -32,10 +32,10 @@ export const OFFICIAL_TT108_2026_SCORING_RULE_SET: ScoringRuleSet = {
       code: 'OBSTACLE_OR_CONE_HIT',
       titleVi: 'Lái xe lên vỉa hè hoặc gây tai nạn mất an toàn',
       explanationVi:
-        'Lái xe lên vỉa hè hoặc va chạm gây tai nạn mất an toàn trong sân sát hạch — Học viên bị trượt trực tiếp.',
+        'Lái xe lên vỉa hè hoặc va chạm gây tai nạn mất an toàn trong sân sát hạch — Học viên bị trượt trực tiếp, trừ hết điểm.',
       correctiveFeedbackVi:
         'Quan sát gương chiếu hậu hai bên và mở rộng góc cua theo chiều dài cơ sở của hạng xe.',
-      pointsDeducted: 25,
+      pointsDeducted: 100,
       isImmediateDisqualification: true,
       cooldownSeconds: 2.5,
       regulatorySourceVi: 'Quy trình sát hạch lái xe trong hình 2026 (Lái xe mất an toàn -> Trượt trực tiếp)',
@@ -58,10 +58,10 @@ export const OFFICIAL_TT108_2026_SCORING_RULE_SET: ScoringRuleSet = {
       code: 'MISSED_CHECKPOINT',
       titleVi: 'Đi sai hình hoặc bỏ qua bài sát hạch theo trình tự',
       explanationVi:
-        'Thí sinh điều khiển xe đi không đúng trình tự các bài sát hạch liên hoàn quy định — bị truất quyền sát hạch.',
+        'Thí sinh điều khiển xe đi không đúng trình tự hoặc bỏ qua bài sát hạch theo quy định — Bị truất quyền sát hạch, trừ hết điểm.',
       correctiveFeedbackVi:
         'Thực hiện tuần tự từng bài sát hạch (Bài 1 → Bài 11) theo đúng mũi tên dẫn hướng trên mặt đường.',
-      pointsDeducted: 25,
+      pointsDeducted: 100,
       isImmediateDisqualification: true,
       cooldownSeconds: 4.0,
       regulatorySourceVi: 'TT 12/2025 & TT 108/2026/TT-BCA (Đi sai hình -> Truất quyền sát hạch)',
@@ -877,9 +877,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     id: 'ex_07_vertical_parking',
     number: 7,
     code: 'BAI_07',
-    titleVi: 'Bài 7: Đỗ xe — Ghép xe dọc vào nơi đỗ (⑦)',
+    titleVi: 'Bài 7: Ghép xe dọc vào nơi đỗ (Lùi chuồng)',
     subtitleVi:
-      'Đi từ Tây sang Đông trên đường phía Bắc (Z = -50.6m), RẼ PHẢI xuống đường dẫn nhà xe (Hạng B tại X=-57.5m · Hạng C tại X=-30.5m), tiến qua cửa chuồng ⑦ bên vách Đông để mở góc, cài Số Lùi (R — Phím Q) lùi vào chuồng chạm vạch vàng, sau đó tiến ra RẼ PHẢI lên đường Bắc và đi xuống ĐÈN ĐỎ Ngã tư 5.',
+      'Đưa xe vào vị trí đỗ và tiến ra khỏi chuồng trong thời gian 2 phút.',
     applicableCategories: ['C', 'C1', 'B'],
     isOfficialLayoutVerified: true,
     officialRegulationRefVi:
@@ -1425,9 +1425,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       {
         id: 'cp_full_07_parking',
         orderIndex: 11,
-        nameVi: '⑦ Bài 7: Đỗ xe — Lùi vào chuồng 7 rồi tiến ra RẼ PHẢI đi tới Đèn đỏ',
+        nameVi: '⑦ Bài 7: Ghép xe dọc vào nơi đỗ (Lùi chuồng)',
         instructionVi:
-          '[BÀI 7/11] Cài Số R (Phím Q), lùi vào Ô Chuồng ⑦ bên vách Đông chạm vạch vàng (nhận Bíp), sau đó tiến ra RẼ PHẢI lên đường Bắc và đi xuống ĐÈN ĐỎ Ngã tư 5!',
+          '[BÀI 7/11] Đưa xe vào vị trí đỗ và tiến ra khỏi chuồng trong thời gian 2 phút. Cài số R (Phím Q) lùi vào chuồng nhận tín hiệu Bíp rồi tiến ra!',
         position: { x: -20.2, y: 0, z: -26.0 },
         radiusM: 3.2,
         boxSizeM: { width: 6.5, length: 3.6 },

@@ -388,23 +388,27 @@ export function resolveContextualViolationVoice2026(
       break;
 
     case 'MISSED_CHECKPOINT':
-      spokenViolationVi = 'Xe không nhận bài ghép xe.';
-      clipUrl = '/audio/voice/loi_khong_nhan_bai_ghep_xe.mp3';
+      if (activeStationNumber === 7 || activeStationNumber === 10) {
+        spokenViolationVi = 'Xe không nhận bài ghép xe.';
+        clipUrl = '/audio/voice/loi_khong_nhan_bai_ghep_xe.mp3';
+      } else if (activeStationNumber === 4) {
+        spokenViolationVi =
+          'Bánh xe đi ra ngoài hàng đinh. Học viên bị trượt. Mời đưa xe về bãi.';
+        clipUrl = '/audio/voice/truot_ra_ngoai_hang_dinh.mp3';
+      } else {
+        spokenViolationVi =
+          'Bỏ bài sát hạch theo quy định. Học viên bị trượt. Mời đưa xe về bãi.';
+        clipUrl = '/audio/voice/thi_truot.mp3';
+      }
       break;
   }
-
-  const clampedScore = Math.max(0, Math.min(100, Math.round(_remainingScoreAfter)));
-  const scoreClipUrl =
-    clampedScore >= 65 && clampedScore <= 100
-      ? `/audio/voice/diem_con_${clampedScore}.mp3`
-      : '/audio/voice/diem_con_0.mp3';
 
   return {
     spokenViolationVi,
     clipUrl,
-    scoreSuffixVi: `Điểm còn lại: ${numberToVietnameseWords(clampedScore)} điểm.`,
-    scoreClipUrl,
-    fullSpokenVi: `${spokenViolationVi} Điểm còn lại: ${numberToVietnameseWords(clampedScore)} điểm.`,
+    scoreSuffixVi: '',
+    scoreClipUrl: null,
+    fullSpokenVi: spokenViolationVi,
   };
 }
 
@@ -515,7 +519,7 @@ export const INSTRUCTOR_CATALOG_2026: InstructorCatalogItem[] = [
   {
     id: 'cmd_bai_7',
     groupVi: '2. Thông báo chuyển bài thi',
-    labelVi: 'Bài 7: Ghép xe dọc',
+    labelVi: 'Bài 7: Ghép xe dọc vào nơi đỗ (Lùi chuồng)',
     keywords: ['bài bảy', 'bài 7', 'ghép xe dọc', 'lùi chuồng dọc'],
     spokenDialogueVi: 'Bài thi tiếp theo: Ghép xe dọc vào nơi đỗ.',
     pointsDeducted: 0,

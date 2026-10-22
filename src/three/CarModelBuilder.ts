@@ -594,7 +594,7 @@ export function buildRealisticTrainingCar(
   const headlightLensMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: 0xfffbeb,
-    emissiveIntensity: 1.8,
+    emissiveIntensity: 0.0,
     roughness: 0.1,
     metalness: 0.1,
   });
@@ -775,7 +775,7 @@ export function buildRealisticTrainingCar(
   // Dynamic Headlight SpotLights & Brake PointLight
   const headlightSpotL = new THREE.SpotLight(
     0xfffbeb,
-    3.5,
+    0,
     32,
     Math.PI / 5.5,
     0.45,
@@ -787,7 +787,7 @@ export function buildRealisticTrainingCar(
 
   const headlightSpotR = new THREE.SpotLight(
     0xfffbeb,
-    3.5,
+    0,
     32,
     Math.PI / 5.5,
     0.45,
@@ -2178,7 +2178,7 @@ export function syncCarVisualsPerFrame(
 
   // 3. Headlight Beam Mode (OFF / LOW / HIGH)
   if (state.headlightMode === 'OFF') {
-    rig.headlightLensMat.emissiveIntensity = 0.15;
+    rig.headlightLensMat.emissiveIntensity = 0.0;
     rig.headlightSpotL.intensity = 0;
     rig.headlightSpotR.intensity = 0;
   } else if (state.headlightMode === 'LOW_BEAM') {
@@ -2201,9 +2201,9 @@ export function syncCarVisualsPerFrame(
 
   // 4. Brake Lights & Tail Lamps
   const isBraking = state.brakeInput > 0.05;
-  const tailRunningLight = state.headlightMode !== 'OFF' ? 0.65 : 0.2;
+  const tailRunningLight = state.headlightMode !== 'OFF' ? 0.65 : 0.0;
   rig.brakeLightMat.emissiveIntensity = isBraking ? 3.2 : tailRunningLight;
-  rig.brakeGlowLight.intensity = isBraking ? 2.4 : 0.25;
+  rig.brakeGlowLight.intensity = isBraking ? 2.4 : (state.headlightMode !== 'OFF' ? 0.25 : 0.0);
 
   // 5. Reverse White Lamps
   rig.reverseLightMat.emissiveIntensity = state.currentGear === -1 ? 2.6 : 0.0;

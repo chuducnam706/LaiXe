@@ -2,31 +2,35 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   LogIn,
   LogOut,
-  History,
   ShieldCheck,
   ChevronDown,
   Crown,
   Sparkles,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { RedeemVipModal } from './RedeemVipModal';
 
 interface UserAccountButtonProps {
   onOpenAuth: () => void;
-  onOpenHistory: () => void;
+  onOpenHistory?: () => void;
   onOpenRoleModal?: () => void;
+  onOpenInspector?: () => void;
+  compact?: boolean;
 }
 
 export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
   onOpenAuth,
-  onOpenHistory,
   onOpenRoleModal,
+  onOpenInspector,
+  compact = false,
 }) => {
   const {
     currentUser,
     userProfile,
     userRole,
     isAdmin,
+    enableVipFeatures,
     isVip,
     vipRemainingText,
     guestName,
@@ -55,16 +59,22 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
       <div className="relative pointer-events-auto" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-700/80 shadow-md backdrop-blur-sm transition-all cursor-pointer"
+          className={`flex items-center gap-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-700/80 shadow-md backdrop-blur-sm transition-all cursor-pointer ${
+            compact ? 'px-2 py-1.5' : 'px-2.5 py-1.5'
+          }`}
           title="Tài khoản khách (Không lưu kết quả)"
         >
-          <div className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-[10px] font-bold">
+          <div className="w-4 h-4 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-[9px] font-bold">
             U
           </div>
-          <span className="font-semibold text-slate-200">{guestName}</span>
-          <span className="px-1.5 py-0.2 bg-slate-800 text-slate-400 text-[10px] font-medium rounded border border-slate-700">
-            Khách
+          <span className="font-semibold text-slate-200">
+            {compact ? 'Khách' : guestName}
           </span>
+          {!compact && (
+            <span className="px-1.5 py-0.2 bg-slate-800 text-slate-400 text-[10px] font-medium rounded border border-slate-700">
+              Khách
+            </span>
+          )}
           <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
         </button>
 
@@ -91,7 +101,7 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-500 rounded-lg transition-colors cursor-pointer shadow-md"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                Đăng nhập (Admin: admin / admin)
+                Đăng nhập
               </button>
             </div>
           </div>
@@ -132,10 +142,13 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
       <div className="relative pointer-events-auto" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white text-xs font-medium border border-slate-700/80 shadow-md backdrop-blur-sm transition-all cursor-pointer"
+          className={`flex items-center rounded-lg bg-slate-900/90 hover:bg-slate-800 text-white text-xs font-medium border border-slate-700/80 shadow-md backdrop-blur-sm transition-all cursor-pointer ${
+            compact ? 'gap-1.5 px-2 py-1.5' : 'gap-2 px-3 py-1.5'
+          }`}
+          title={`${name} (${role === 0 ? 'Admin' : isVip ? 'VIP' : 'Học viên'})`}
         >
           <div
-            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+            className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold border ${
               role === 0
                 ? 'bg-rose-500/20 border-rose-400/50 text-rose-300'
                 : isVip
@@ -145,8 +158,26 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
           >
             {name.charAt(0).toUpperCase()}
           </div>
-          <span className="max-w-[100px] truncate text-slate-200 font-semibold">{name}</span>
-          {renderRoleBadge()}
+          {compact ? (
+            role === 0 ? (
+              <span className="text-rose-300 font-extrabold flex items-center gap-0.5">
+                <Crown className="w-3 h-3 text-rose-400" />
+                Admin
+              </span>
+            ) : isVip ? (
+              <span className="text-amber-300 font-bold flex items-center gap-0.5">
+                <Crown className="w-3 h-3 text-amber-400" />
+                VIP
+              </span>
+            ) : (
+              <span className="max-w-[70px] truncate text-slate-200 font-semibold">{name}</span>
+            )
+          ) : (
+            <>
+              <span className="max-w-[100px] truncate text-slate-200 font-semibold">{name}</span>
+              {renderRoleBadge()}
+            </>
+          )}
           <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
         </button>
 
@@ -168,7 +199,7 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
 
             <div className="p-1 space-y-0.5">
               {/* Nút kích hoạt hoặc gia hạn VIP */}
-              {!isAdmin && (
+              {enableVipFeatures && !isAdmin && (
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
@@ -186,39 +217,50 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
                 </button>
               )}
 
-              {isAdmin && onOpenRoleModal && (
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    onOpenRoleModal();
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-rose-300 hover:text-white hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-rose-400" />
-                    Quản Trị Admin
-                  </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                    Role 0
-                  </span>
-                </button>
-              )}
+              {/* Khi là Admin: Mở Full Chức Năng Quản Trị & Điều Khiển */}
+              {isAdmin && (
+                <div className="space-y-1 pb-1 mb-1 border-b border-slate-800">
+                  <div className="px-3 pt-1 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                    Full Quyền Admin
+                  </div>
 
-              <button
-                onClick={() => {
-                  setDropdownOpen(false);
-                  onOpenHistory();
-                }}
-                className="w-full flex items-center justify-between px-3 py-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-lg transition-colors cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <History className="w-4 h-4 text-sky-400" />
-                  Lịch sử sát hạch
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
-                  {examHistory.length}
-                </span>
-              </button>
+                  {onOpenRoleModal && (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onOpenRoleModal();
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-rose-300 hover:text-white hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-rose-400" />
+                        Quản Trị Admin & Mã VIP
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        Role 0
+                      </span>
+                    </button>
+                  )}
+
+                  {onOpenInspector && (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onOpenInspector();
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-sky-300 hover:text-white hover:bg-sky-500/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-sky-400" />
+                        Bảng Kỹ Thuật (F2)
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                        Info
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               <button
                 onClick={() => {
