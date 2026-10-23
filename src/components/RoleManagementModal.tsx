@@ -22,8 +22,9 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
   onClose,
 }) => {
   const {
+    isAdmin,
     changeAdminPassword,
-    getAdminPassword,
+    verifyAdminPassword,
     generateVipCode,
   } = useAuth();
 
@@ -40,7 +41,8 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
   const [genLoading, setGenLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  if (!isOpen) return null;
+  // BẢO MẬT: Nếu không phải Admin thì tuyệt đối không hiển thị modal
+  if (!isOpen || !isAdmin) return null;
 
   const handleGenerateVip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,12 +76,12 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleSavePassword = (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
 
-    const storedPass = getAdminPassword();
-    if (currentPass !== storedPass) {
+    const isMatch = await verifyAdminPassword(currentPass);
+    if (!isMatch) {
       setMessage({
         text: 'Mật khẩu hiện tại không đúng (mặc định: admin)!',
         type: 'error',
@@ -95,10 +97,10 @@ export const RoleManagementModal: React.FC<RoleManagementModalProps> = ({
       return;
     }
 
-    const success = changeAdminPassword(newPass.trim());
+    const success = await changeAdminPassword(newPass.trim());
     if (success) {
       setMessage({
-        text: `Đổi mật khẩu Admin thành công! Mật khẩu mới là "${newPass.trim()}".`,
+        text: `Đổi mật khẩu Admin thành công! Mật khẩu mới đã được băm SHA-256 an toàn.`,
         type: 'success',
       });
       setCurrentPass('');

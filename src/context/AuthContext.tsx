@@ -28,6 +28,29 @@ import { PracticeAttemptResult } from '../types/course';
 
 export type UserRole = 0 | 1; // 0: Admin, 1: User
 
+// Danh sách tài khoản quản trị viên tối cao được phép nắm Role 0 (Admin)
+export const ADMIN_EMAILS = ['phucnam995@gmail.com', 'admin@laixe.vn'];
+
+/**
+ * Hàm băm mật khẩu chuẩn SHA-256 có Salt (Bảo vệ thông tin người dùng tối đa)
+ */
+export const hashPassword = async (password: string): Promise<string> => {
+  if (typeof window === 'undefined' || !window.crypto?.subtle) {
+    let hash = 0;
+    for (let i = 0; i < password.length; i++) {
+      hash = (hash << 5) - hash + password.charCodeAt(i);
+      hash |= 0;
+    }
+    return 'h_' + Math.abs(hash).toString(16);
+  }
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password + '::laixe_salt_auth_2026');
+  const buffer = await window.crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -41,12 +64,13 @@ export interface UserProfile {
 export interface StoredLocalUser {
   uid: string;
   email: string;
-  pass: string;
+  passHash: string;
   displayName: string;
   licenseClass: string;
   role: UserRole;
   createdAt: string;
   vipExpiresAt?: string;
+  pass?: string; // Hỗ trợ tương thích ngược tài khoản cũ
 }
 
 const LOCAL_USERS_KEY = 'local_registered_users_db';
@@ -60,15 +84,28 @@ export const getStoredLocalUsers = (): StoredLocalUser[] => {
   }
 };
 
-export const saveStoredLocalUser = (user: StoredLocalUser) => {
+export const saveStoredLocalUser = async (
+  user: Omit<StoredLocalUser, 'passHash'> & { pass?: string; passHash?: string }
+) => {
   const list = getStoredLocalUsers();
+  const passHash = user.passHash || (user.pass ? await hashPassword(user.pass) : '');
+  const sanitizedUser: StoredLocalUser = {
+    uid: user.uid,
+    email: user.email,
+    passHash,
+    displayName: user.displayName,
+    licenseClass: user.licenseClass,
+    role: user.role,
+    createdAt: user.createdAt,
+    vipExpiresAt: user.vipExpiresAt,
+  };
   const idx = list.findIndex(
     (u) => u.email.toLowerCase() === user.email.toLowerCase() || u.uid === user.uid
   );
   if (idx >= 0) {
-    list[idx] = { ...list[idx], ...user };
+    list[idx] = { ...list[idx], ...sanitizedUser };
   } else {
-    list.push(user);
+    list.push(sanitizedUser);
   }
   localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(list));
 };
@@ -99,8 +136,9 @@ interface AuthContextType {
   refreshHistory: () => Promise<void>;
   retentionHours: number;
   updateUserRole: (uid: string, newRole: UserRole) => Promise<void>;
-  changeAdminPassword: (newPass: string) => boolean;
+  changeAdminPassword: (newPass: string) => Promise<boolean>;
   getAdminPassword: () => string;
+  verifyAdminPassword: (pass: string) => Promise<boolean>;
   loginAsPresetRole: (role: UserRole) => void;
   generateVipCode: (days: number) => Promise<string>;
   redeemVipCode: (code: string) => Promise<{ success: boolean; message: string; days?: number }>;
@@ -191,13 +229,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loadUserProfile = async (uid: string, email: string, defaultName: string) => {
-    const cachedRole = localStorage.getItem(`user_role_${uid}`);
+    const cleanEmail = email.toLowerCase().trim();
+    const isAdminEmail = ADMIN_EMAILS.includes(cleanEmail);
     const localVipExp = localStorage.getItem(`vip_expires_${uid}`);
     const vipExpiresAt = localVipExp && new Date(localVipExp).getTime() > Date.now() ? localVipExp : undefined;
-    const initialRole: UserRole =
-      cachedRole !== null
-        ? (Number(cachedRole) === 0 ? 0 : 1)
-        : (email.toLowerCase().includes('admin') ? 0 : 1);
+
+    // BẢO MẬT: Tài khoản CHỈ được nhận Role 0 (Admin) nếu nằm trong danh sách ADMIN_EMAILS
+    const initialRole: UserRole = isAdminEmail ? 0 : 1;
 
     // 1. Phục vụ ngay lập tức từ Local để ĐĂNG NHẬP SIÊU TỐC (0ms)
     const initialProfile: UserProfile = {
@@ -218,12 +256,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (userSnap.exists()) {
         const data = userSnap.data();
-        const role: UserRole =
-          cachedRole !== null
-            ? (Number(cachedRole) === 0 ? 0 : 1)
-            : data.role !== undefined
-            ? (Number(data.role) === 0 ? 0 : 1)
-            : initialRole;
+        // Tuyệt đối không cho phép tài khoản lạ leo thang đặc quyền Admin
+        const role: UserRole = isAdminEmail && Number(data.role) === 0 ? 0 : (isAdminEmail ? 0 : 1);
 
         let serverVipExpiresAt = data.vipExpiresAt || localVipExp || undefined;
         if (serverVipExpiresAt && new Date(serverVipExpiresAt).getTime() <= Date.now()) {
@@ -311,7 +345,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, pass: string, displayName: string, licenseClass: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = displayName.trim() || cleanEmail.split('@')[0];
-    const role: UserRole = cleanEmail.includes('admin') ? 0 : 1;
+
+    // BẢO MẬT: Chặn đăng ký mạo danh các email trong danh sách quản trị
+    if (ADMIN_EMAILS.includes(cleanEmail)) {
+      const err: any = new Error('Email này thuộc danh sách quản trị hệ thống, không thể đăng ký mới!');
+      err.code = 'auth/email-already-in-use';
+      throw err;
+    }
+    const role: UserRole = 1; // Luôn khởi tạo là User thông thường
 
     // 1. Kiểm tra tài khoản trong Local DB trước
     const localUsers = getStoredLocalUsers();
@@ -347,16 +388,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (fallbackToLocal || !cred) {
       const localUid = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const passHash = await hashPassword(pass);
       const newLocalUser: StoredLocalUser = {
         uid: localUid,
         email: cleanEmail,
-        pass,
+        passHash,
         displayName: cleanName,
         licenseClass: licenseClass || 'B2',
-        role,
+        role: 1,
         createdAt: new Date().toISOString(),
       };
-      saveStoredLocalUser(newLocalUser);
+      await saveStoredLocalUser(newLocalUser);
 
       const fakeUser = {
         uid: localUid,
@@ -371,7 +413,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: cleanEmail,
         displayName: cleanName,
         licenseClass: licenseClass || 'B2',
-        role,
+        role: 1,
         createdAt: newLocalUser.createdAt,
       };
 
@@ -393,7 +435,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: cred.user.email || cleanEmail,
       displayName: cleanName,
       licenseClass: licenseClass || 'B2',
-      role,
+      role: 1,
       createdAt: new Date().toISOString(),
     };
 
@@ -404,16 +446,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (identifier: string, pass: string) => {
     const cleanId = identifier.trim().toLowerCase();
-    const storedAdminPass = localStorage.getItem('system_admin_password') || 'admin';
+    const storedAdminHash = localStorage.getItem('system_admin_password_hash');
+    const inputHash = await hashPassword(pass);
+    const isMasterAdminId = cleanId === 'admin' || cleanId === 'admin@laixe.vn' || cleanId === 'phucnam995@gmail.com';
+    const isDefaultAdminPass = !storedAdminHash && pass === 'admin';
+    const isAdminMatch = isMasterAdminId && (storedAdminHash ? storedAdminHash === inputHash : isDefaultAdminPass);
 
-    // 1. Admin login check: tài khoản admin, mật khẩu admin (hoặc mật khẩu admin đã đổi)
-    if (
-      (cleanId === 'admin' || cleanId === 'admin@laixe.vn' || cleanId === 'admin@gmail.com') &&
-      pass === storedAdminPass
-    ) {
+    // 1. Admin login check: tài khoản admin, mật khẩu admin đã băm bảo mật
+    if (isAdminMatch) {
+      if (!storedAdminHash) {
+        localStorage.setItem('system_admin_password_hash', inputHash);
+        localStorage.removeItem('system_admin_password');
+      }
       const adminUser = {
         uid: 'admin_master_001',
-        email: 'admin@laixe.vn',
+        email: cleanId === 'phucnam995@gmail.com' ? 'phucnam995@gmail.com' : 'admin@laixe.vn',
         displayName: 'Quản Trị Viên (Admin)',
         emailVerified: true,
         isAnonymous: false,
@@ -421,7 +468,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const adminProfile: UserProfile = {
         uid: 'admin_master_001',
-        email: 'admin@laixe.vn',
+        email: cleanId === 'phucnam995@gmail.com' ? 'phucnam995@gmail.com' : 'admin@laixe.vn',
         displayName: 'Quản Trị Viên (Admin)',
         licenseClass: 'C',
         role: 0,
@@ -438,7 +485,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // 2. Kiểm tra tài khoản đã đăng ký trong Local DB
+    // 2. Kiểm tra tài khoản đã đăng ký trong Local DB với mật khẩu băm
     const localUsers = getStoredLocalUsers();
     const matchedLocal = localUsers.find(
       (u) =>
@@ -448,11 +495,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     if (matchedLocal) {
-      if (matchedLocal.pass !== pass) {
+      const isLegacyMatch = matchedLocal.pass && matchedLocal.pass === pass;
+      const isHashMatch = matchedLocal.passHash && matchedLocal.passHash === inputHash;
+
+      if (!isHashMatch && !isLegacyMatch) {
         const err: any = new Error('Mật khẩu không chính xác!');
         err.code = 'auth/wrong-password';
         throw err;
       }
+
+      // Tự động nâng cấp tài khoản cũ lên mật khẩu băm SHA-256
+      if (isLegacyMatch && !matchedLocal.passHash) {
+        matchedLocal.passHash = inputHash;
+        delete matchedLocal.pass;
+        localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(localUsers));
+      }
+
       const fakeUser = {
         uid: matchedLocal.uid,
         email: matchedLocal.email,
@@ -543,6 +601,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserRole = async (uid: string, newRole: UserRole) => {
+    if (!isAdmin) {
+      console.warn('[Security] Unauthorized attempt to update user role');
+      return;
+    }
     localStorage.setItem(`user_role_${uid}`, String(newRole));
 
     // Cập nhật cả trong Local DB nếu tài khoản cục bộ
@@ -550,7 +612,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const matched = localUsers.find((u) => u.uid === uid);
     if (matched) {
       matched.role = newRole;
-      saveStoredLocalUser(matched);
+      await saveStoredLocalUser(matched);
     }
 
     if (currentUser?.uid === uid && userProfile) {
@@ -569,22 +631,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDoc(doc(db, 'users', uid), { role: newRole }, { merge: true }).catch(() => {});
   };
 
-  const changeAdminPassword = (newPass: string): boolean => {
-    if (!newPass || newPass.trim().length === 0) return false;
-    localStorage.setItem('system_admin_password', newPass.trim());
+  const changeAdminPassword = async (newPass: string): Promise<boolean> => {
+    if (!isAdmin || !newPass || newPass.trim().length === 0) return false;
+    const hash = await hashPassword(newPass.trim());
+    localStorage.setItem('system_admin_password_hash', hash);
+    localStorage.removeItem('system_admin_password');
     return true;
   };
 
   const getAdminPassword = (): string => {
-    return localStorage.getItem('system_admin_password') || 'admin';
+    return '••••••••';
+  };
+
+  const verifyAdminPassword = async (pass: string): Promise<boolean> => {
+    const storedHash = localStorage.getItem('system_admin_password_hash');
+    const inputHash = await hashPassword(pass);
+    if (!storedHash) {
+      return pass === 'admin';
+    }
+    return storedHash === inputHash;
   };
 
   const loginAsPresetRole = (role: UserRole) => {
-    const roleTitles: Record<UserRole, { uid: string; email: string; name: string; license: string }> = {
-      0: { uid: 'admin_master_001', email: 'admin@laixe.vn', name: 'Quản Trị Viên (Admin)', license: 'C' },
-      1: { uid: 'user_demo_001', email: 'hocvien@laixe.vn', name: 'Người Dùng Luyện Tập (User)', license: 'B2' },
-    };
-    const info = roleTitles[role];
+    // Chặn hoàn toàn nguy cơ leo thang Admin thông qua preset role
+    if (role === 0) {
+      console.warn('[Security] Preset Admin login is disabled for security');
+      return;
+    }
+    const info = { uid: 'user_demo_001', email: 'hocvien@laixe.vn', name: 'Người Dùng Luyện Tập (User)', license: 'B2' };
     const user = {
       uid: info.uid,
       email: info.email,
@@ -598,7 +672,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: info.email,
       displayName: info.name,
       licenseClass: info.license,
-      role,
+      role: 1,
       createdAt: '2026-01-01T00:00:00.000Z',
     };
 
@@ -647,6 +721,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const generateVipCode = async (days: number): Promise<string> => {
+    // BẢO MẬT: Chỉ tài khoản Admin chính thức mới được tạo mã VIP
+    if (!isAdmin) {
+      throw new Error('Chỉ Quản Trị Viên mới có quyền tạo mã VIP!');
+    }
     const validDays = Math.max(1, Math.floor(days));
     const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
     let rand = '';
@@ -920,6 +998,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateUserRole,
         changeAdminPassword,
         getAdminPassword,
+        verifyAdminPassword,
         loginAsPresetRole,
         generateVipCode,
         redeemVipCode,
