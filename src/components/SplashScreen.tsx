@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Play,
-  Sparkles,
   Volume2,
   ShieldCheck,
   Car,
@@ -9,6 +8,7 @@ import {
   ChevronRight,
   Smartphone,
   Compass,
+  Clock,
 } from 'lucide-react';
 import { SoundEngine } from '../audio/SoundEngine';
 
@@ -19,10 +19,10 @@ interface SplashScreenProps {
 }
 
 const LOADING_STAGES = [
-  { progress: 18, text: 'Khởi động động cơ vật lý bánh xe & hộp số...' },
-  { progress: 42, text: 'Nạp bản đồ 11 bài thi sa hình theo quy chuẩn...' },
-  { progress: 68, text: 'Kích hoạt cảm biến vạch chip & hệ thống chấm điểm...' },
-  { progress: 88, text: 'Đồng bộ âm thanh mô phỏng & giọng nói sát hạch...' },
+  { progress: 20, text: 'Khởi động động cơ vật lý bánh xe & hộp số...' },
+  { progress: 45, text: 'Nạp bản đồ 11 bài thi sa hình theo quy chuẩn...' },
+  { progress: 70, text: 'Kích hoạt cảm biến vạch chip & hệ thống chấm điểm...' },
+  { progress: 90, text: 'Đồng bộ âm thanh mô phỏng & giọng nói sát hạch...' },
   { progress: 100, text: 'Hệ thống hoàn tất! Sẵn sàng xuất phát.' },
 ];
 
@@ -31,55 +31,75 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   soundRef,
   isAssetLoaded = true,
 }) => {
-  const [progress, setProgress] = useState<number>(10);
+  const [progress, setProgress] = useState<number>(15);
   const [isReady, setIsReady] = useState<boolean>(false);
   const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
-
-  // Smooth realistic loading simulation
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(timer);
-          setIsReady(true);
-          return 100;
-        }
-        // Accelerate when assets are already loaded
-        const step = Math.floor(Math.random() * 14) + 8;
-        const next = Math.min(prev + step, 100);
-        if (next >= 100) {
-          setIsReady(true);
-        }
-        return next;
-      });
-    }, 180);
-
-    return () => clearInterval(timer);
-  }, [isAssetLoaded]);
-
-  const currentStageText =
-    LOADING_STAGES.find((s) => progress <= s.progress)?.text ||
-    'Sẵn sàng xuất phát!';
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(8);
+  const hasExitedRef = useRef<boolean>(false);
 
   const handleStart = () => {
-    if (isFadingOut) return;
+    if (hasExitedRef.current) return;
+    hasExitedRef.current = true;
+
     try {
       if (soundRef?.current) {
         soundRef.current.init();
         soundRef.current.playShiftClick();
       }
     } catch {
-      // Ignore audio unlock restrictions
+      // Ignore browser audio restrictions
     }
+
     setIsFadingOut(true);
     setTimeout(() => {
       onComplete();
-    }, 600);
+    }, 500);
   };
+
+  // 1. Realistic loading progress filling to 100% over ~4 seconds
+  useEffect(() => {
+    const progressTimer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(progressTimer);
+          setIsReady(true);
+          return 100;
+        }
+        const step = Math.floor(Math.random() * 12) + 8;
+        const next = Math.min(prev + step, 100);
+        if (next >= 100) {
+          setIsReady(true);
+        }
+        return next;
+      });
+    }, 220);
+
+    return () => clearInterval(progressTimer);
+  }, [isAssetLoaded]);
+
+  // 2. Strict 8-second auto-transition: automatically enters after 8 seconds without stalling!
+  useEffect(() => {
+    const countdownTimer = setInterval(() => {
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownTimer);
+          handleStart();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownTimer);
+  }, []);
+
+  const currentStageText =
+    LOADING_STAGES.find((s) => progress <= s.progress)?.text ||
+    'Sẵn sàng xuất phát!';
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col justify-between p-4 sm:p-8 bg-slate-950 text-white select-none transition-all duration-700 ${
+      className={`fixed inset-0 z-50 flex flex-col justify-between p-4 sm:p-8 bg-slate-950 text-white select-none transition-all duration-500 ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
@@ -111,29 +131,34 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           </span>
         </div>
 
+        {/* Skip Button with 8s Countdown Badge */}
         <button
           onClick={handleStart}
-          className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 transition-all cursor-pointer backdrop-blur-sm"
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all cursor-pointer backdrop-blur-sm"
         >
-          Bỏ Qua
+          <span>Vào Ngay</span>
+          <span className="flex items-center gap-1 font-mono text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+            <Clock className="w-3 h-3" />
+            {secondsRemaining}s
+          </span>
         </button>
       </div>
 
       {/* Center Branding Hero */}
       <div className="relative z-10 flex flex-col items-center text-center my-auto px-4 max-w-2xl mx-auto">
         {/* Animated Glow Logo Ring */}
-        <div className="relative mb-6">
+        <div className="relative mb-5 sm:mb-6">
           <div className="absolute -inset-3 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-3xl blur-xl opacity-35 animate-pulse" />
-          <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-slate-900/90 border-2 border-emerald-500/50 shadow-2xl flex items-center justify-center p-4">
+          <div className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-3xl bg-slate-900/90 border-2 border-emerald-500/50 shadow-2xl flex items-center justify-center p-4">
             <div className="relative flex items-center justify-center">
-              <Car className="w-12 h-12 sm:w-14 sm:h-14 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.6)]" />
-              <Gauge className="absolute -bottom-1 -right-1 w-6 h-6 text-cyan-300" />
+              <Car className="w-10 h-10 sm:w-14 sm:h-14 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.6)]" />
+              <Gauge className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 text-cyan-300" />
             </div>
           </div>
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 drop-shadow-sm mb-2">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400 drop-shadow-sm mb-1.5">
           SA HÌNH 3D
         </h1>
 
@@ -142,7 +167,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </p>
 
         {/* Highlight Feature Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-6 sm:mb-8">
           <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-950/60 border border-emerald-800/40 text-emerald-300">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             11 Bài Thi Chuẩn
@@ -162,7 +187,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           {!isReady ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between text-xs font-medium text-slate-400 px-1">
-                <span className="truncate max-w-[280px] text-emerald-300/90 animate-pulse">
+                <span className="truncate max-w-[260px] sm:max-w-[300px] text-emerald-300/90 animate-pulse">
                   {currentStageText}
                 </span>
                 <span className="font-mono font-bold text-emerald-400">{progress}%</span>
@@ -175,6 +200,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   style={{ width: `${progress}%` }}
                 />
               </div>
+
+              <div className="flex items-center justify-center gap-1 text-[11px] text-slate-400 mt-1">
+                <span>Tự động vào sa hình sau</span>
+                <span className="font-mono font-bold text-emerald-400">{secondsRemaining}s</span>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300">
@@ -184,13 +214,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                 className="group relative flex items-center justify-center gap-3 w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:via-teal-400 hover:to-cyan-400 text-slate-950 font-black text-sm sm:text-base tracking-wide shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
               >
                 <Play className="w-5 h-5 fill-slate-950 transition-transform group-hover:scale-110" />
-                <span>CHẠM ĐỂ XUẤT PHÁT</span>
+                <span>CHẠM ĐỂ XUẤT PHÁT ({secondsRemaining}s)</span>
                 <ChevronRight className="w-4 h-4 opacity-75 group-hover:translate-x-1 transition-transform" />
               </button>
 
               <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
                 <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                Chạm để kích hoạt đầy đủ âm thanh & giọng nói hiệu lệnh
+                Tự động chuyển vào sa hình khi hết thời gian đếm ngược
               </p>
             </div>
           )}
@@ -201,7 +231,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2 w-full max-w-4xl mx-auto pt-4 border-t border-slate-900 text-slate-500 text-[11px]">
         <div className="flex items-center gap-2">
           <Smartphone className="w-3.5 h-3.5 text-slate-400" />
-          <span>Hỗ trợ Máy tính (WASD / Mũi tên) & Di động (Cảm ứng / Xoay ngang)</span>
+          <span>Hỗ trợ Máy tính (WASD / Mũi tên) & Di động (Cảm ứng xoay ngang)</span>
         </div>
         <div className="flex items-center gap-3">
           <span>v2.4.0 (WebGL 2.0)</span>

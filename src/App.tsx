@@ -213,7 +213,7 @@ export default function App() {
     buffer: ArrayBuffer;
     fileName: string;
   } | null>(null);
-  const [, setVehicleAssetMeta] = useState<VehicleAssetMetadata>({
+  const [vehicleAssetMeta, setVehicleAssetMeta] = useState<VehicleAssetMetadata>({
     assetName: 'Khronos CarConcept 3D Passenger Vehicle (sedan_car_concept.glb)',
     sourceUrl: DEFAULT_GLB_MODEL_PATH,
     licenseName: 'CC-BY-4.0 (Creative Commons Attribution 4.0 International)',

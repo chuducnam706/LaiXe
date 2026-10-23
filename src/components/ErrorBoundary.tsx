@@ -20,11 +20,27 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
+  private autoReloadTimer: NodeJS.Timeout | null = null;
+
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error in UI:', error, errorInfo);
+    if (!this.autoReloadTimer) {
+      this.autoReloadTimer = setTimeout(() => {
+        window.location.reload();
+      }, 4000);
+    }
+  }
+
+  public componentWillUnmount() {
+    if (this.autoReloadTimer) {
+      clearTimeout(this.autoReloadTimer);
+    }
   }
 
   private handleReload = () => {
+    if (this.autoReloadTimer) {
+      clearTimeout(this.autoReloadTimer);
+    }
     window.location.reload();
   };
 
