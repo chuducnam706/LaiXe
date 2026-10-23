@@ -98,6 +98,7 @@ import { GuestTrialExpiredModal } from './components/GuestTrialExpiredModal';
 import { RoleManagementModal } from './components/RoleManagementModal';
 import { PolicyModal } from './components/PolicyModal';
 import { AdBanner } from './components/AdBanner';
+import { SplashScreen } from './components/SplashScreen';
 import { triggerAdBreak } from './utils/ads';
 
 export default function App() {
@@ -150,6 +151,7 @@ export default function App() {
     viewportSize.h > viewportSize.w;
 
   // Shell & UI states
+  const [showSplashScreen, setShowSplashScreen] = useState<boolean>(true);
   const [isTitleScreen, setIsTitleScreen] = useState<boolean>(true);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(false);
@@ -2439,6 +2441,15 @@ export default function App() {
         isOpen={isRoleModalOpen}
         onClose={() => setIsRoleModalOpen(false)}
       />
+
+      {/* 0. Professional Native-App Style Splash & Resource Loading Screen */}
+      {showSplashScreen && (
+        <SplashScreen
+          soundRef={soundRef}
+          isAssetLoaded={Boolean(vehicleAssetMeta)}
+          onComplete={() => setShowSplashScreen(false)}
+        />
+      )}
     </div>
   );
 }

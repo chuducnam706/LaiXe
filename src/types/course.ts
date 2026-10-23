@@ -178,6 +178,7 @@ export interface ActiveExerciseRuntimeState {
   hillStopBeepIssued: boolean;
   hillSecondsRemaining: number | null;
   startBeepIssued?: boolean;
+  hasPassedStartLine?: boolean;
 }
 
 export interface PracticeAttemptResult {

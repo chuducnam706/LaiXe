@@ -41,7 +41,7 @@ const _UnusedAdBanner: React.FC<AdBannerProps> = ({
       if (
         typeof window !== 'undefined' &&
         window.adsbygoogle &&
-        GOOGLE_ADSENSE_CLIENT_ID !== 'ca-pub-PUBLISHER_ID'
+        (GOOGLE_ADSENSE_CLIENT_ID as string) !== 'ca-pub-PUBLISHER_ID'
       ) {
         window.adsbygoogle.push({});
         _setAdLoaded(true);
@@ -79,7 +79,7 @@ const _UnusedAdBanner: React.FC<AdBannerProps> = ({
         </div>
 
         {/* Real AdSense container if active */}
-        {GOOGLE_ADSENSE_CLIENT_ID !== 'ca-pub-PUBLISHER_ID' ? (
+        {(GOOGLE_ADSENSE_CLIENT_ID as string) !== 'ca-pub-PUBLISHER_ID' ? (
           <ins
             ref={insRef}
             className="adsbygoogle"
@@ -106,7 +106,7 @@ const _UnusedAdBanner: React.FC<AdBannerProps> = ({
           </div>
         )}
 
-        {GOOGLE_ADSENSE_CLIENT_ID === 'ca-pub-PUBLISHER_ID' && (
+        {(GOOGLE_ADSENSE_CLIENT_ID as string) === 'ca-pub-PUBLISHER_ID' && (
           <div className="text-[9px] text-slate-500 text-center font-mono pt-1 border-t border-slate-800/60">
             Chế độ chạy thử nghiệm
           </div>
