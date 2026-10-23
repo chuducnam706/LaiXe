@@ -6,9 +6,7 @@ import {
   Car,
   Gauge,
   ChevronRight,
-  Smartphone,
   Compass,
-  Clock,
 } from 'lucide-react';
 import { SoundEngine } from '../audio/SoundEngine';
 
@@ -99,7 +97,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col justify-between p-4 sm:p-8 bg-slate-950 text-white select-none transition-all duration-500 ${
+      onClick={handleStart}
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-950 text-white select-none transition-all duration-500 cursor-pointer ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
@@ -119,33 +118,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         />
       </div>
 
-      {/* Top Header Bar */}
-      <div className="relative z-10 flex items-center justify-between w-full max-w-4xl mx-auto">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-emerald-500/30 backdrop-blur-md shadow-lg shadow-emerald-950/20">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </span>
-          <span className="text-[11px] font-bold tracking-wider text-emerald-300 uppercase">
-            Chuẩn Sát Hạch 2026 • TT 108/2026
-          </span>
-        </div>
-
-        {/* Skip Button with 8s Countdown Badge */}
-        <button
-          onClick={handleStart}
-          className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all cursor-pointer backdrop-blur-sm"
-        >
-          <span>Vào Ngay</span>
-          <span className="flex items-center gap-1 font-mono text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
-            <Clock className="w-3 h-3" />
-            {secondsRemaining}s
-          </span>
-        </button>
-      </div>
-
       {/* Center Branding Hero */}
-      <div className="relative z-10 flex flex-col items-center text-center my-auto px-4 max-w-2xl mx-auto">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-10 flex flex-col items-center text-center px-4 max-w-2xl mx-auto cursor-default"
+      >
         {/* Animated Glow Logo Ring */}
         <div className="relative mb-5 sm:mb-6">
           <div className="absolute -inset-3 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-3xl blur-xl opacity-35 animate-pulse" />
@@ -224,19 +201,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               </p>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Bottom Footer Info */}
-      <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-2 w-full max-w-4xl mx-auto pt-4 border-t border-slate-900 text-slate-500 text-[11px]">
-        <div className="flex items-center gap-2">
-          <Smartphone className="w-3.5 h-3.5 text-slate-400" />
-          <span>Hỗ trợ Máy tính (WASD / Mũi tên) & Di động (Cảm ứng xoay ngang)</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span>v2.4.0 (WebGL 2.0)</span>
-          <span>•</span>
-          <span>sahinh3d.id.vn</span>
         </div>
       </div>
     </div>
