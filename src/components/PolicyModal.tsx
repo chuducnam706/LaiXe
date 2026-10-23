@@ -99,7 +99,14 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <h3 className="text-sm font-bold text-white">3. Quyền xóa dữ liệu (Data Deletion)</h3>
+                <h3 className="text-sm font-bold text-white">3. Quảng cáo Google AdSense & Cookie</h3>
+                <p className="text-slate-400">
+                  Trang web hợp tác với Google AdSense để hiển thị quảng cáo. Google và các đối tác bên thứ ba sử dụng cookie để phục vụ quảng cáo dựa trên các lượt truy cập trang web trước đây. Học viên có thể tắt quảng cáo cá nhân hóa tại <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" className="text-sky-300 underline">Cài đặt quảng cáo Google</a>.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-sm font-bold text-white">4. Quyền xóa dữ liệu (Data Deletion)</h3>
                 <p className="text-slate-400">
                   Học viên có toàn quyền yêu cầu xóa vĩnh viễn tài khoản và toàn bộ lịch sử thi bằng cách gửi email về: <span className="text-sky-300 font-mono">phucnam995@gmail.com</span>. Dữ liệu sẽ được xóa hoàn toàn trong vòng 48 giờ làm việc.
                 </p>

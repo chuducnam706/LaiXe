@@ -10,114 +10,67 @@ declare global {
 }
 
 export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-4568419367261236';
-export const MONETAG_ZONE_ID = '12099072';
-export const MONETAG_SCRIPT_URL = 'https://nap5k.com/tag.min.js';
-
-let adDismissObserver: MutationObserver | null = null;
 
 /**
- * Tự động chỉnh vị trí (không che nút Chọn Bài) và tự động tắt banner thông báo sau 6 giây
+ * Xóa bỏ triệt để mọi dấu vết của Monetag và các mạng quảng cáo bên thứ ba
  */
-export const setupAdAutoDismiss = () => {
-  if (typeof window === 'undefined' || adDismissObserver) return;
+export const purgeThirdPartyAds = () => {
+  if (typeof window === 'undefined') return;
 
-  adDismissObserver = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node instanceof HTMLElement) {
-          // Nhận diện banner quảng cáo In-Page Push của Monetag
-          const text = node.innerText || '';
-          const hasAdBadge =
-            text.includes('Ad\n') ||
-            text.includes('Download paused') ||
-            text.includes('Finish setup') ||
-            node.querySelector('[class*="close"], svg, button');
+  // 1. Gỡ bỏ tất cả các thẻ script liên quan đến Monetag / nap5k
+  const scripts = document.querySelectorAll(
+    'script[src*="nap5k"], script[src*="monetag"], script[id*="monetag"], script[data-zone]'
+  );
+  scripts.forEach((s) => {
+    try {
+      s.remove();
+      console.log('[AdPurge] 🧹 Đã gỡ bỏ script bên thứ ba:', (s as HTMLScriptElement).src || s.id);
+    } catch {}
+  });
 
-          const isFixedOrAbsolute =
-            window.getComputedStyle(node).position === 'fixed' ||
-            window.getComputedStyle(node).position === 'absolute';
+  // 2. Tìm và xóa sạch mọi phần tử popup / push banner mà script trước đó đã tiêm vào DOM
+  const suspiciousNodes = document.querySelectorAll('div, iframe, aside, section');
+  suspiciousNodes.forEach((node) => {
+    const el = node as HTMLElement;
+    const text = el.innerText || '';
+    const hasSpamText =
+      text.includes('Missed call') ||
+      text.includes('bonus of') ||
+      text.includes('Download paused') ||
+      text.includes('Finish setup') ||
+      text.includes('nap5k');
 
-          if (isFixedOrAbsolute && (hasAdBadge || node.id?.includes('monetag'))) {
-            // 1. Tự động dịch chuyển xuống dưới thanh Menu để không che nút "Chọn Bài"
-            try {
-              const currentTop = parseInt(window.getComputedStyle(node).top, 10);
-              if (!isNaN(currentTop) && currentTop < 65) {
-                node.style.setProperty('top', '70px', 'important');
-              }
-            } catch {
-              // ignore
-            }
+    const hasSpamId =
+      el.id?.includes('monetag') ||
+      el.id?.includes('nap5k') ||
+      el.getAttribute('data-zone') ||
+      el.className?.toString().includes('monetag');
 
-            // 2. Tự động ẩn đi sau 6 giây
-            setTimeout(() => {
-              if (document.body.contains(node)) {
-                const closeBtn = node.querySelector<HTMLElement>(
-                  'button, [class*="close"], [aria-label*="close"], [title*="close"], svg'
-                );
-                if (closeBtn && typeof closeBtn.click === 'function') {
-                  closeBtn.click();
-                } else {
-                  node.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                  node.style.opacity = '0';
-                  node.style.transform = 'translateY(-20px)';
-                  setTimeout(() => {
-                    try {
-                      node.remove();
-                    } catch {}
-                  }, 650);
-                }
-              }
-            }, 6000);
-          }
-        }
-      }
+    if (hasSpamText || hasSpamId) {
+      try {
+        el.remove();
+        console.log('[AdPurge] 🧹 Đã xóa phần tử quảng cáo lạ:', el);
+      } catch {}
     }
   });
 
-  try {
-    adDismissObserver.observe(document.body, { childList: true, subtree: true });
-  } catch (e) {
-    console.warn('[AdAutoDismiss] Error observing body:', e);
+  // 3. Hủy bỏ mọi Service Worker lạ (nếu script quảng cáo từng cố đăng ký)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const reg of registrations) {
+        if (reg.scope && !reg.scope.includes(window.location.origin)) {
+          reg.unregister();
+        }
+      }
+    }).catch(() => {});
   }
 };
 
 /**
- * Đồng bộ trạng thái bật/tắt quảng cáo Monetag dựa theo Firebase Remote Config (enable_ads)
+ * Hàm tương thích ngược: Luôn dọn sạch quảng cáo bên thứ ba
  */
-export const syncMonetagAds = (enabled: boolean) => {
-  if (typeof window === 'undefined') return;
-
-  const scriptId = 'monetag-multitag-script';
-  const existingScript = document.getElementById(scriptId);
-
-  if (!enabled) {
-    console.log('[Monetag] 🔴 Đã tắt quảng cáo theo cấu hình Firebase Remote Config (enable_ads = 0/false)');
-    // Gỡ bỏ thẻ script nếu đang có
-    if (existingScript) {
-      existingScript.remove();
-    }
-    // Dọn dẹp observer nếu có
-    if (adDismissObserver) {
-      adDismissObserver.disconnect();
-      adDismissObserver = null;
-    }
-    return;
-  }
-
-  // Nếu được bật (enabled === true):
-  if (!existingScript) {
-    console.log('[Monetag] 🟢 Đang kích hoạt quảng cáo Monetag (enable_ads = 1/true)');
-    const script = document.createElement('script');
-    script.id = scriptId;
-    script.src = MONETAG_SCRIPT_URL;
-    script.dataset.zone = MONETAG_ZONE_ID;
-    script.async = true;
-    script.dataset.cfasync = 'false';
-    document.head.appendChild(script);
-
-    // Kích hoạt tính năng tự động ẩn thông báo sau 6 giây & không che nút Chọn Bài
-    setupAdAutoDismiss();
-  }
+export const syncMonetagAds = (_enabled?: boolean) => {
+  purgeThirdPartyAds();
 };
 
 export const isAdsGloballyEnabled = (): boolean => {

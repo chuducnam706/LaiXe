@@ -18,7 +18,13 @@ interface AdBannerProps {
   closable?: boolean;
 }
 
-export const AdBanner: React.FC<AdBannerProps> = ({
+export const AdBanner: React.FC<AdBannerProps> = () => {
+  // Toàn bộ banner đã được tắt hoàn toàn để đợi cấu hình chính thức từ Google AdSense
+  return null;
+};
+
+// Lưu trữ logic cũ bên dưới để tái sử dụng sau khi tài khoản Google AdSense được duyệt
+const _UnusedAdBanner: React.FC<AdBannerProps> = ({
   format,
   slotId = 'test_slot_01',
   className = '',
@@ -26,13 +32,11 @@ export const AdBanner: React.FC<AdBannerProps> = ({
 }) => {
   const { enableAds, isVip, isAdmin } = useAuth();
   const [isDismissed, setIsDismissed] = useState(false);
-  const [adLoaded, setAdLoaded] = useState(false);
+  const [_adLoaded, _setAdLoaded] = useState(false);
   const insRef = useRef<HTMLModElement>(null);
 
   useEffect(() => {
-    // Tài khoản VIP hoặc quản trị viên không load quảng cáo
     if (!enableAds || isVip || isAdmin) return;
-    // Try to push to adsbygoogle if available and not a placeholder
     try {
       if (
         typeof window !== 'undefined' &&
@@ -40,17 +44,13 @@ export const AdBanner: React.FC<AdBannerProps> = ({
         GOOGLE_ADSENSE_CLIENT_ID !== 'ca-pub-PUBLISHER_ID'
       ) {
         window.adsbygoogle.push({});
-        setAdLoaded(true);
+        _setAdLoaded(true);
       }
     } catch (e) {
       console.log('[AdSense] Load error or placeholder mode:', e);
     }
   }, [enableAds, isVip, isAdmin]);
 
-  // Không hiển thị quảng cáo nếu:
-  // 1. Firebase enable_ads = 0
-  // 2. Tài khoản VIP (isVip === true) hoặc Admin
-  // 3. Người dùng ấn nút tắt quảng cáo (isDismissed)
   if (!enableAds || isVip || isAdmin || isDismissed) return null;
 
   // Format 1: MREC 300x250

@@ -23,7 +23,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { auth, db, fetchHistoryRetentionHours, fetchEnableVipFeatures, fetchEnableAds } from '../firebase';
-import { syncMonetagAds } from '../utils/ads';
+import { purgeThirdPartyAds } from '../utils/ads';
 import { PracticeAttemptResult } from '../types/course';
 
 export type UserRole = 0 | 1; // 0: Admin, 1: User
@@ -875,11 +875,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('sys_user_is_vip', String(isVip || isAdmin));
   }, [isVip, isAdmin]);
 
-  // Đồng bộ quảng cáo Monetag dựa trên Firebase Remote Config (enable_ads) và quyền VIP
+  // Dọn dẹp sạch sẽ toàn bộ quảng cáo bên thứ ba (Monetag) khi tải trang
   useEffect(() => {
-    const shouldShowAds = enableAds && !isVip && !isAdmin;
-    syncMonetagAds(shouldShowAds);
-  }, [enableAds, isVip, isAdmin]);
+    purgeThirdPartyAds();
+    const t1 = setTimeout(purgeThirdPartyAds, 1000);
+    const t2 = setTimeout(purgeThirdPartyAds, 2500);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
 
   const effectiveName = currentUser
     ? (userProfile?.displayName || currentUser.email?.split('@')[0] || 'Học viên')
