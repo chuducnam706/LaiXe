@@ -12,6 +12,8 @@ declare global {
 export const MONETAG_TAG_ID = '74be4e801b9bab2f8c586c0280b06538';
 export const MONETAG_ZONE_ID = '12128986';
 export const MONETAG_SCRIPT_URL = 'https://nap5k.com/tag.min.js';
+export const ADSTERRA_468x60_KEY = 'e301a642cc988e5efdd1deaddbeaa339';
+export const ADSTERRA_468x60_SCRIPT = 'https://bauval.org/22/e301a642cc988e5efdd1deaddbeaa339';
 export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-4568419367261236';
 
 /**

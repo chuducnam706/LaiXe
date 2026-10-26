@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, ExternalLink, Sparkles } from 'lucide-react';
-import { MONETAG_TAG_ID } from '../utils/ads';
+import { MONETAG_TAG_ID, ADSTERRA_468x60_KEY, ADSTERRA_468x60_SCRIPT } from '../utils/ads';
 import { useAuth } from '../context/AuthContext';
 
 export type AdBannerFormat =
@@ -85,38 +85,31 @@ export const AdBanner: React.FC<AdBannerProps> = ({
     );
   }
 
-  // Format 2: Header Top Banner (468x60 hoặc 320x50 - Home Screen & 600 Questions Modal)
+  // Format 2: Header Top Banner (468x60 - Adsterra Banner trực tiếp vào khung)
   if (format === 'header_top') {
     return (
       <div
-        className={`relative h-[48px] sm:h-[54px] max-w-[468px] w-full rounded-xl overflow-hidden border border-slate-800 bg-slate-950/85 shadow-lg backdrop-blur-md flex items-center justify-between px-3 select-none transition-all hover:border-slate-700 ${className}`}
+        className={`relative w-full max-w-[480px] h-[64px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950/95 shadow-lg backdrop-blur-md flex items-center justify-center p-0.5 select-none transition-all hover:border-slate-700 ${className}`}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-            Ads
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-200 truncate">
-              Mẹo Thi Đỗ 11 Bài Sa Hình 100 Điểm
-            </p>
-            <p className="text-[10px] text-slate-400 truncate">
-              Tổng hợp điểm căn dốc đề-pa, hàng đinh, chuồng dọc chuẩn Thông tư mới.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 pl-2">
-          <div className="hidden md:flex px-2 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold border border-sky-500/30 cursor-pointer">
-            Xem Ngay
-          </div>
-          {closable && (
-            <button
-              onClick={() => setIsDismissed(true)}
-              className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
+        {closable && (
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="absolute top-1 right-1 z-20 p-0.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Đóng quảng cáo"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        <div className="w-[468px] h-[60px] max-w-full overflow-hidden flex items-center justify-center">
+          <iframe
+            title="Adsterra 468x60"
+            width={468}
+            height={60}
+            scrolling="no"
+            frameBorder="0"
+            className="w-[468px] h-[60px] border-0 overflow-hidden"
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;background:transparent;display:flex;align-items:center;justify-content:center;}</style></head><body><script type="text/javascript">atOptions = {'key' : '${ADSTERRA_468x60_KEY}','format' : 'iframe','height' : 60,'width' : 468,'params' : {}};</script><script type="text/javascript" src="${ADSTERRA_468x60_SCRIPT}"></script></body></html>`}
+          />
         </div>
       </div>
     );
@@ -126,36 +119,27 @@ export const AdBanner: React.FC<AdBannerProps> = ({
   if (format === 'horizontal_leaderboard') {
     return (
       <div
-        className={`relative w-full max-w-[728px] h-[52px] sm:h-[60px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950/90 shadow-xl backdrop-blur-md flex items-center justify-between px-3 sm:px-4 select-none transition-all hover:border-slate-700 ${className}`}
+        className={`relative w-full max-w-[728px] h-[66px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950/90 shadow-xl backdrop-blur-md flex items-center justify-center p-0.5 select-none transition-all hover:border-slate-700 ${className}`}
       >
-        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-          <span className="text-[9px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-            Quảng Cáo
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-slate-100 truncate">
-              Khóa Học Bổ Túc Sa Hình B2 & C — Cam Kết Đỗ 100%
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-400 truncate hidden sm:block">
-              Thầy dạy 1-1, luyện dốc đề-pa, chuồng dọc ngang thực tế, mẹo căn điểm sa hình.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 pl-2">
-          <div className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold flex items-center gap-1 shadow-md shadow-sky-500/20 transition-all cursor-pointer">
-            <span>Đăng Ký Ngay</span>
-            <ExternalLink className="w-3 h-3" />
-          </div>
-          {closable && (
-            <button
-              onClick={() => setIsDismissed(true)}
-              className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Đóng quảng cáo"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+        {closable && (
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="absolute top-1 right-1 z-20 p-0.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Đóng quảng cáo"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <div className="w-[468px] h-[60px] max-w-full overflow-hidden flex items-center justify-center">
+          <iframe
+            title="Adsterra Leaderboard 468x60"
+            width={468}
+            height={60}
+            scrolling="no"
+            frameBorder="0"
+            className="w-[468px] h-[60px] border-0 overflow-hidden"
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;background:transparent;display:flex;align-items:center;justify-content:center;}</style></head><body><script type="text/javascript">atOptions = {'key' : '${ADSTERRA_468x60_KEY}','format' : 'iframe','height' : 60,'width' : 468,'params' : {}};</script><script type="text/javascript" src="${ADSTERRA_468x60_SCRIPT}"></script></body></html>`}
+          />
         </div>
       </div>
     );
