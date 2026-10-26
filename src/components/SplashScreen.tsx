@@ -208,25 +208,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         </div>
       </div>
 
-      {/* 2 Banner Quảng Cáo Ở Đáy Màn Hình Splash */}
+      {/* Banner Quảng Cáo Adsterra Ở Đáy Màn Hình Splash */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-20 w-full max-w-4xl mx-auto pt-3 border-t border-slate-900/70 flex flex-col sm:flex-row items-center justify-center gap-2.5 shrink-0 cursor-default"
+        className="relative z-20 w-full max-w-4xl mx-auto pt-2 border-t border-slate-900/70 flex items-center justify-center shrink-0 cursor-default"
       >
-        <div className="w-full sm:w-1/2">
-          <AdBanner
-            format="compact_strip"
-            slotId="splash_bottom_banner_1"
-            closable
-          />
-        </div>
-        <div className="w-full sm:w-1/2">
-          <AdBanner
-            format="compact_strip"
-            slotId="splash_bottom_banner_2"
-            closable
-          />
-        </div>
+        <AdBanner
+          format="header_top"
+          slotId="splash_bottom_banner"
+          closable
+        />
       </div>
     </div>
   );

@@ -145,40 +145,31 @@ export const AdBanner: React.FC<AdBannerProps> = ({
     );
   }
 
-  // Format 5: Compact Strip (Xen kẽ ở giữa khối màu đỏ và màu xanh trong bảng thông báo)
+  // Format 5: Compact Strip (Banner Adsterra 468x60)
   if (format === 'compact_strip') {
     return (
       <div
-        className={`relative w-full h-[46px] rounded-xl overflow-hidden border border-amber-500/30 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 shadow-md flex items-center justify-between px-3 select-none transition-all hover:border-amber-500/50 ${className}`}
+        className={`relative w-full max-w-[480px] h-[64px] mx-auto rounded-xl overflow-hidden border border-slate-800 bg-slate-950/95 shadow-md flex items-center justify-center p-0.5 select-none transition-all hover:border-slate-700 ${className}`}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40 shrink-0">
-            Tài trợ
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-slate-200 truncate">
-              Mẹo Căn Điểm Chuẩn Xác 100 Điểm Sa Hình
-            </p>
-            <p className="text-[10px] text-slate-400 truncate hidden sm:block">
-              Bí quyết căn dốc cầu, lọt vệt bánh xe hàng đinh, lùi chuồng dọc ngang an toàn.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0 pl-2">
-          <div className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-bold border border-amber-500/40 flex items-center gap-1 cursor-pointer">
-            <span>Xem Mẹo</span>
-            <ExternalLink className="w-3 h-3" />
-          </div>
-          {closable && (
-            <button
-              onClick={() => setIsDismissed(true)}
-              className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Ẩn"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          )}
+        {closable && (
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="absolute top-1 right-1 z-20 p-0.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Ẩn"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+        <div className="w-[468px] h-[60px] max-w-full overflow-hidden flex items-center justify-center">
+          <iframe
+            title="Adsterra Strip 468x60"
+            width={468}
+            height={60}
+            scrolling="no"
+            frameBorder="0"
+            className="w-[468px] h-[60px] border-0 overflow-hidden"
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;background:transparent;display:flex;align-items:center;justify-content:center;}</style></head><body><script type="text/javascript">atOptions = {'key' : '${ADSTERRA_468x60_KEY}','format' : 'iframe','height' : 60,'width' : 468,'params' : {}};</script><script type="text/javascript" src="${ADSTERRA_468x60_SCRIPT}"></script></body></html>`}
+          />
         </div>
       </div>
     );
