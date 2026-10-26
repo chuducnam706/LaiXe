@@ -221,38 +221,32 @@ export const AdBanner: React.FC<AdBannerProps> = ({
     );
   }
 
-  // Format 3: Mini Floating Banner in Simulation (320x50 - In-Game Driving Screen)
+  // Format 3: Mini Floating Banner in Simulation (In-Game Driving Screen)
   return (
     <div
-      className={`pointer-events-auto relative w-[280px] sm:w-[320px] h-[46px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950/90 shadow-xl backdrop-blur-md flex items-center justify-between px-2.5 select-none transition-all ${className}`}
+      className={`pointer-events-auto relative w-[320px] h-[54px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950/95 shadow-xl backdrop-blur-md flex items-center justify-center p-0.5 select-none transition-all hover:border-slate-700 ${className}`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-          Ad
-        </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-slate-200 truncate">
-            Ôn Luyện Sát Hạch Lái Xe 2026
-          </p>
-          <p className="text-[9px] text-slate-400 truncate">
-            Trọn bộ 600 câu hỏi lý thuyết & mô phỏng
-          </p>
+      {closable && (
+        <button
+          onClick={() => setIsDismissed(true)}
+          className="absolute top-1 right-1 z-20 p-0.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+          title="Ẩn"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
+      <div className="w-[320px] h-[48px] overflow-hidden flex items-center justify-center">
+        <div className="w-[468px] h-[60px] origin-center scale-[0.68] shrink-0">
+          <iframe
+            title="Adsterra In-Game Banner"
+            width={468}
+            height={60}
+            scrolling="no"
+            frameBorder="0"
+            className="w-[468px] h-[60px] border-0 overflow-hidden"
+            srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;background:transparent;display:flex;align-items:center;justify-content:center;}</style></head><body><script type="text/javascript">atOptions = {'key' : '${ADSTERRA_468x60_KEY}','format' : 'iframe','height' : 60,'width' : 468,'params' : {}};</script><script type="text/javascript" src="${ADSTERRA_468x60_SCRIPT}"></script></body></html>`}
+          />
         </div>
-      </div>
-
-      <div className="flex items-center gap-1.5 shrink-0 pl-1.5">
-        <div className="px-2 py-0.5 rounded bg-sky-600/30 text-sky-300 text-[10px] font-bold border border-sky-500/30 cursor-pointer">
-          Xem
-        </div>
-        {closable && (
-          <button
-            onClick={() => setIsDismissed(true)}
-            className="p-1 rounded text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Ẩn"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        )}
       </div>
     </div>
   );
