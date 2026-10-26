@@ -10,17 +10,27 @@ declare global {
 }
 
 export const MONETAG_TAG_ID = '74be4e801b9bab2f8c586c0280b06538';
+export const MONETAG_ZONE_ID = '12128986';
+export const MONETAG_SCRIPT_URL = 'https://nap5k.com/tag.min.js';
 export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-4568419367261236';
 
 /**
- * Hàm tương thích ngược: Đã cho phép Monetag hoạt động bình thường
+ * Hàm tương thích ngược: Dọn dẹp ads nếu tài khoản là VIP/Admin
  */
 export const purgeThirdPartyAds = () => {
-  // Đã gỡ bỏ logic chặn Monetag để tích hợp quảng cáo Monetag
+  if (typeof window === 'undefined') return;
+  const isVip = localStorage.getItem('sys_user_is_vip') === 'true';
+  if (!isVip) return;
+
+  try {
+    document.querySelectorAll('[id*="monetag"], [data-zone="12128986"]').forEach((el) => {
+      el.remove();
+    });
+  } catch {}
 };
 
 export const syncMonetagAds = (_enabled?: boolean) => {
-  // Cho phép Monetag hoạt động
+  // Cho phép Monetag hoạt động theo Zone 12128986
 };
 
 export const isAdsGloballyEnabled = (): boolean => {
