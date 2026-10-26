@@ -53,21 +53,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       case 'auth/wrong-password':
         return 'Mật khẩu không chính xác, vui lòng thử lại!';
       case 'auth/user-not-found':
-        return errMessage || 'Không tìm thấy tài khoản với email này. Vui lòng chuyển sang tab Đăng ký!';
+        return 'Không tìm thấy tài khoản với email này. Vui lòng chuyển sang tab Đăng ký!';
       case 'auth/invalid-credential':
         return 'Email hoặc mật khẩu không chính xác!';
       case 'auth/popup-closed-by-user':
         return 'Cửa sổ đăng nhập Google đã bị đóng.';
+      case 'auth/too-many-requests':
+        // BẢO MẬT: Hiển thị thông báo rate limit thân thiện (errMessage chứa thông tin thời gian chờ)
+        return errMessage || 'Bạn đã nhập sai quá nhiều lần. Vui lòng chờ vài phút trước khi thử lại.';
       case 'auth/operation-not-allowed':
       case 'auth/configuration-not-found':
-        return (
-          errMessage ||
-          'Chưa kích hoạt dịch vụ xác thực trên Cloud. Bạn vui lòng sử dụng tab Đăng Ký bằng Email/Mật khẩu bên trên!'
-        );
+        return 'Chưa kích hoạt dịch vụ xác thực trên Cloud. Bạn vui lòng sử dụng tab Đăng Ký bằng Email/Mật khẩu bên trên!';
       case 'auth/network-request-failed':
         return 'Lỗi mạng hoặc ngoại tuyến, vui lòng kiểm tra kết nối!';
       default:
-        return errMessage || 'Đã xảy ra lỗi, vui lòng thử lại sau!';
+        // BẢO MẬT: KHÔNG trả về errMessage thô để tránh lộ thông tin nội bộ hệ thống
+        return 'Đã xảy ra lỗi trong quá trình xử lý. Vui lòng thử lại sau!';
     }
   };
 
@@ -87,7 +88,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }, 700);
     } catch (err: any) {
-      console.error(err);
       setError(mapFirebaseError(err?.code || '', err?.message));
     } finally {
       setLoading(false);
@@ -124,7 +124,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }, 700);
     } catch (err: any) {
-      console.error(err);
       setError(mapFirebaseError(err?.code || '', err?.message));
     } finally {
       setLoading(false);
@@ -141,7 +140,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       }, 700);
     } catch (err: any) {
-      console.error(err);
       setError(mapFirebaseError(err?.code || '', err?.message));
     } finally {
       setLoading(false);

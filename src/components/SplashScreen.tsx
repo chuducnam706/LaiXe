@@ -9,6 +9,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { SoundEngine } from '../audio/SoundEngine';
+import { AdBanner } from './AdBanner';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -98,7 +99,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   return (
     <div
       onClick={handleStart}
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-950 text-white select-none transition-all duration-500 cursor-pointer ${
+      className={`fixed inset-0 z-50 flex flex-col justify-between p-4 sm:p-6 bg-slate-950 text-white select-none transition-all duration-500 cursor-pointer overflow-y-auto ${
         isFadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >
@@ -118,10 +119,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         />
       </div>
 
+      {/* Top spacer for clean vertical balance */}
+      <div className="w-full h-1 shrink-0 pointer-events-none" />
+
       {/* Center Branding Hero */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-10 flex flex-col items-center text-center px-4 max-w-2xl mx-auto cursor-default"
+        className="relative z-10 flex flex-col items-center text-center my-auto px-4 max-w-2xl mx-auto cursor-default shrink-0"
       >
         {/* Animated Glow Logo Ring */}
         <div className="relative mb-5 sm:mb-6">
@@ -201,6 +205,27 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               </p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 2 Banner Quảng Cáo Ở Đáy Màn Hình Splash */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative z-20 w-full max-w-4xl mx-auto pt-3 border-t border-slate-900/70 flex flex-col sm:flex-row items-center justify-center gap-2.5 shrink-0 cursor-default"
+      >
+        <div className="w-full sm:w-1/2">
+          <AdBanner
+            format="compact_strip"
+            slotId="splash_bottom_banner_1"
+            closable
+          />
+        </div>
+        <div className="w-full sm:w-1/2">
+          <AdBanner
+            format="compact_strip"
+            slotId="splash_bottom_banner_2"
+            closable
+          />
         </div>
       </div>
     </div>

@@ -36,6 +36,7 @@ import {
 } from '../data/courseDefinitions';
 import {
   BLUEPRINT_CONTINUOUS_ROUTE_POINTS,
+  BLUEPRINT_CONTINUOUS_ROUTE_SECTIONS,
   BLUEPRINT_DIAGONAL_HATCH_ZONES,
   BLUEPRINT_GRASS_ISLANDS,
   BLUEPRINT_PARKING_SIGN_BOXES,
@@ -550,15 +551,18 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                       </g>
                     ))}
 
-                    {/* Continuous 1..10 Route Guide Line */}
-                    <polyline
-                      points={BLUEPRINT_CONTINUOUS_ROUTE_POINTS.map((pt) => `${pt.x},${pt.z}`).join(' ')}
-                      fill="none"
-                      stroke="#38bdf8"
-                      strokeWidth="0.55"
-                      strokeDasharray="1.6 1.2"
-                      opacity="0.85"
-                    />
+                    {/* Continuous Route Guide Lines (excludes Bài 6 S-Curve) */}
+                    {BLUEPRINT_CONTINUOUS_ROUTE_SECTIONS.map((sec, idx) => (
+                      <polyline
+                        key={idx}
+                        points={sec.map((pt) => `${pt.x},${pt.z}`).join(' ')}
+                        fill="none"
+                        stroke="#38bdf8"
+                        strokeWidth="0.55"
+                        strokeDasharray="1.6 1.2"
+                        opacity="0.85"
+                      />
+                    ))}
 
                     {/* Solid Boundary Curbs & Pneumatic Sensor Lines (Vạch kẻ cứng cảm biến & bó vỉa đỏ-trắng) */}
                     {BLUEPRINT_SOLID_LINES.map((sLine) => (
@@ -576,7 +580,13 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                               : '#f8fafc'
                         }
                         strokeWidth={sLine.colorHex === 0xfacc15 ? '0.6' : '0.48'}
-                        strokeDasharray={sLine.hasRedWhiteCurb ? '1.1 0.9' : undefined}
+                        strokeDasharray={
+                          sLine.hasRedWhiteCurb
+                            ? '1.1 0.9'
+                            : sLine.kind === 'DASHED_LINE'
+                              ? '1.5 1.2'
+                              : undefined
+                        }
                       />
                     ))}
 
@@ -601,19 +611,33 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                     ))}
 
                     {/* Diagonal White Hatch Zones (////) */}
-                    {BLUEPRINT_DIAGONAL_HATCH_ZONES.map((hz) => (
-                      <rect
-                        key={hz.id}
-                        x={hz.minX}
-                        y={hz.minZ}
-                        width={hz.maxX - hz.minX}
-                        height={hz.maxZ - hz.minZ}
-                        fill="#94a3b8"
-                        fillOpacity="0.45"
-                        stroke="#f8fafc"
-                        strokeWidth="0.3"
-                      />
-                    ))}
+                    {BLUEPRINT_DIAGONAL_HATCH_ZONES.map((hz) => {
+                      if (hz.id === 'hatch_north_t_junction_triangle') {
+                        return (
+                          <polygon
+                            key={hz.id}
+                            points="-6.5,-48.0 -8.5,-55.15 -4.5,-55.15"
+                            fill="#334155"
+                            fillOpacity="0.75"
+                            stroke="#f8fafc"
+                            strokeWidth="0.25"
+                          />
+                        );
+                      }
+                      return (
+                        <rect
+                          key={hz.id}
+                          x={hz.minX}
+                          y={hz.minZ}
+                          width={hz.maxX - hz.minX}
+                          height={hz.maxZ - hz.minZ}
+                          fill="#94a3b8"
+                          fillOpacity="0.45"
+                          stroke="#f8fafc"
+                          strokeWidth="0.3"
+                        />
+                      );
+                    })}
 
                     {/* Bài 4 Wheel Track Strips & Lane Labels (Đúng sơ đồ 2D: Hạng C ở trên Z=13.5m · Hạng B ở dưới Z=23.5m) */}
                     <rect x="41.8" y="11.55" width="12.0" height="0.65" fill="#cbd5e1" stroke="#facc15" strokeWidth="0.22" />

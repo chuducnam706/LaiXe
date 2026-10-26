@@ -205,40 +205,26 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
                     setDropdownOpen(false);
                     setIsRedeemOpen(true);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-amber-300 hover:text-white hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-amber-300 hover:text-white hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-amber-400" />
-                    {isVip ? 'Gia Hạn Mã VIP' : 'Kích Hoạt Mã VIP'}
-                  </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    VIP Pass
-                  </span>
+                  <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>{isVip ? 'Gia hạn VIP' : 'Nhập mã VIP'}</span>
                 </button>
               )}
 
-              {/* Khi là Admin: Mở Full Chức Năng Quản Trị & Điều Khiển */}
+              {/* Khi là Admin */}
               {isAdmin && (
-                <div className="space-y-1 pb-1 mb-1 border-b border-slate-800">
-                  <div className="px-3 pt-1 text-[10px] font-bold text-rose-400 uppercase tracking-wider">
-                    Full Quyền Admin
-                  </div>
-
+                <div className="space-y-0.5 pb-1 mb-1 border-b border-slate-800">
                   {onOpenRoleModal && (
                     <button
                       onClick={() => {
                         setDropdownOpen(false);
                         onOpenRoleModal();
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-rose-300 hover:text-white hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-300 hover:text-white hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                     >
-                      <span className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-rose-400" />
-                        Quản Trị Admin & Mã VIP
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                        Role 0
-                      </span>
+                      <ShieldCheck className="w-4 h-4 text-rose-400 shrink-0" />
+                      <span>Quản trị VIP</span>
                     </button>
                   )}
 
@@ -248,15 +234,10 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
                         setDropdownOpen(false);
                         onOpenInspector();
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs text-sky-300 hover:text-white hover:bg-sky-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-sky-300 hover:text-white hover:bg-sky-500/10 rounded-lg transition-colors cursor-pointer"
                     >
-                      <span className="flex items-center gap-2">
-                        <SlidersHorizontal className="w-4 h-4 text-sky-400" />
-                        Bảng Kỹ Thuật (F2)
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                        Info
-                      </span>
+                      <SlidersHorizontal className="w-4 h-4 text-sky-400 shrink-0" />
+                      <span>Kỹ thuật (F2)</span>
                     </button>
                   )}
                 </div>
@@ -267,10 +248,10 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
                   setDropdownOpen(false);
                   logout();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 rounded-lg transition-colors mt-0.5 cursor-pointer"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-300 hover:text-rose-200 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
               >
-                <LogOut className="w-4 h-4 text-rose-400" />
-                Đăng xuất
+                <LogOut className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Đăng xuất</span>
               </button>
             </div>
           </div>

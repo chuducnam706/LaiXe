@@ -210,8 +210,8 @@ export class ExerciseRuntimeEngine {
         if (cp.id === 'cp_ex4_nail_exit') {
           return {
             ...cp,
-            position: { x: 2.5, y: 0, z: targetExitZ },
-            boxSizeM: { width: 5.5, length: isCatB ? 3.85 : 4.95 },
+            position: { x: isCatB ? 3.5 : 2.5, y: 0, z: targetExitZ },
+            boxSizeM: { width: 6.5, length: isCatB ? 3.85 : 4.95 },
           };
         }
         return cp;
@@ -234,7 +234,7 @@ export class ExerciseRuntimeEngine {
       resolvedExercise.startPosition = {
         x: alleyX - 7.5,
         y: 0.72,
-        z: -50.65,
+        z: -49.04,
       };
       resolvedExercise.startYawRad = -Math.PI / 2;
       resolvedExercise.checkpoints = resolvedExercise.checkpoints.map((cp) => {
@@ -1577,8 +1577,8 @@ export class ExerciseRuntimeEngine {
       insideCp = frontX >= -56.0 && Math.abs(carZ - 50.0) <= 5.2;
     } else if (isBai11FinishCp) {
       // Bài 11 (Vạch Kết Thúc tại X = -76.5m, Z = +36.0m, hướng Nam +Z):
-      // Chỉ kiểm tra xi-nhan phải đúng khoảnh khắc cản trước chạm/vượt qua vạch trắng Kết thúc (frontZ >= +36.0m)!
-      insideCp = frontZ >= 36.0 && Math.abs(carX - -76.5) <= 5.2;
+      // Đi qua hẳn vạch mới tính là kết thúc bài (rearZ >= +36.0m / cả 4 bánh xe đã lăn qua vạch)!
+      insideCp = rearZ >= 36.0 && rearZ <= 48.0 && Math.abs(carX - -76.5) <= 5.2;
     } else if (isBai2PedStopCp) {
       // Valid stop zone strictly BEFORE the white stop line at X = -29.0m:
       // Front bumper must be between X = -32.20m and X = -29.12m (inside the yellow-to-white stop box)
@@ -1608,21 +1608,21 @@ export class ExerciseRuntimeEngine {
           wheelWorldX.every((wx) => wx >= -53.35 && wx <= -47.45) &&
           wheelWorldZ.every((wz) => wz >= -27.25 && wz <= -24.75);
         const rearLeftTouchingYellowB =
-          wheelWorldX[2] >= -48.65 && wheelWorldX[2] <= -47.55;
+          wheelWorldX[2] >= -49.50 && wheelWorldX[2] <= -47.55;
         const rearRightTouchingYellowB =
-          wheelWorldX[3] >= -48.65 && wheelWorldX[3] <= -47.55;
+          wheelWorldX[3] >= -49.50 && wheelWorldX[3] <= -47.55;
         insideCp =
           all4WheelsInBayB &&
           rearLeftTouchingYellowB &&
           rearRightTouchingYellowB;
       } else {
         const all4WheelsInBayC =
-          wheelWorldX.every((wx) => wx >= -25.35 && wx <= -15.95) &&
+          wheelWorldX.every((wx) => wx >= -25.35 && wheelWorldX[1] <= -15.95) &&
           wheelWorldZ.every((wz) => wz >= -27.50 && wz <= -24.50);
         const rearLeftTouchingYellowC =
-          wheelWorldX[2] >= -17.65 && wheelWorldX[2] <= -16.05;
+          wheelWorldX[2] >= -18.80 && wheelWorldX[2] <= -16.05;
         const rearRightTouchingYellowC =
-          wheelWorldX[3] >= -17.65 && wheelWorldX[3] <= -16.05;
+          wheelWorldX[3] >= -18.80 && wheelWorldX[3] <= -16.05;
         insideCp =
           all4WheelsInBayC &&
           rearLeftTouchingYellowC &&
@@ -1630,19 +1630,29 @@ export class ExerciseRuntimeEngine {
       }
     } else if (isBai10ParallelBayCp) {
       // Bài 10 (Ghép xe ngang vào nơi đỗ — 2 ô đỗ song song bên phải đường ngang trước Ngã tư 5:
-      // Ô 1 Tây: X in [-58.0..-51.5], Z in [5.0..7.9] · Ô 2 Đông: X in [-38.0..-30.0], Z in [5.0..8.1]):
+      // Chuẩn sát hạch & ảnh thực tế: 2 bánh bên ngoài (FL wIdx=0 & RL wIdx=2) BẮT BUỘC PHẢI ĐÈ LÊN VẠCH VÀNG NÉT ĐỨT cửa chuồng (Z = 5.0m) mới tính đậu!
+      const twoLeftWheelsOnDashed =
+        Math.abs(wheelWorldZ[0] - 5.0) <= 0.35 &&
+        Math.abs(wheelWorldZ[2] - 5.0) <= 0.35;
+      const twoRightWheelsOnDashed =
+        Math.abs(wheelWorldZ[1] - 5.0) <= 0.35 &&
+        Math.abs(wheelWorldZ[3] - 5.0) <= 0.35;
+      const twoWheelsOnDashedLine =
+        twoLeftWheelsOnDashed || twoRightWheelsOnDashed;
+      const parallelOrientation =
+        Math.abs(wheelWorldZ[0] - wheelWorldZ[2]) <= 0.35;
+
       const inBay1 =
-        wheelWorldX.every((wx) => wx >= -58.35 && wx <= -51.15) &&
-        wheelWorldZ.every((wz) => wz >= 4.75 && wz <= 8.15) &&
-        (wheelWorldX[2] <= -55.2 ||
-          wheelWorldX[3] <= -55.2 ||
-          wheelWorldZ.filter((wz) => wz >= 6.35 && wz <= 8.15).length >= 2);
+        wheelWorldX.every((wx) => wx >= -58.85 && wx <= -51.25) &&
+        twoWheelsOnDashedLine &&
+        parallelOrientation &&
+        wheelWorldZ.filter((wz) => wz >= 5.28 && wz <= 7.18).length >= 2;
+
       const inBay2 =
-        wheelWorldX.every((wx) => wx >= -38.35 && wx <= -29.65) &&
-        wheelWorldZ.every((wz) => wz >= 4.75 && wz <= 8.35) &&
-        (wheelWorldX[2] <= -35.0 ||
-          wheelWorldX[3] <= -35.0 ||
-          wheelWorldZ.filter((wz) => wz >= 6.45 && wz <= 8.35).length >= 2);
+        wheelWorldX.every((wx) => wx >= -37.95 && wx <= -29.75) &&
+        twoWheelsOnDashedLine &&
+        parallelOrientation &&
+        wheelWorldZ.filter((wz) => wz >= 5.28 && wz <= 8.08).length >= 2;
 
       insideCp = inBay1 || inBay2;
     } else if (isBai4NailEntryCp) {

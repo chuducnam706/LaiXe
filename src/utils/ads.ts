@@ -9,76 +9,31 @@ declare global {
   }
 }
 
+export const MONETAG_TAG_ID = '74be4e801b9bab2f8c586c0280b06538';
 export const GOOGLE_ADSENSE_CLIENT_ID = 'ca-pub-4568419367261236';
 
 /**
- * Xóa bỏ triệt để mọi dấu vết của Monetag và các mạng quảng cáo bên thứ ba
+ * Hàm tương thích ngược: Đã cho phép Monetag hoạt động bình thường
  */
 export const purgeThirdPartyAds = () => {
-  if (typeof window === 'undefined') return;
-
-  // 1. Gỡ bỏ tất cả các thẻ script liên quan đến Monetag / nap5k
-  const scripts = document.querySelectorAll(
-    'script[src*="nap5k"], script[src*="monetag"], script[id*="monetag"], script[data-zone]'
-  );
-  scripts.forEach((s) => {
-    try {
-      s.remove();
-      console.log('[AdPurge] 🧹 Đã gỡ bỏ script bên thứ ba:', (s as HTMLScriptElement).src || s.id);
-    } catch {}
-  });
-
-  // 2. Tìm và xóa sạch mọi phần tử popup / push banner mà script trước đó đã tiêm vào DOM
-  const suspiciousNodes = document.querySelectorAll('div, iframe, aside, section');
-  suspiciousNodes.forEach((node) => {
-    const el = node as HTMLElement;
-    const text = el.innerText || '';
-    const hasSpamText =
-      text.includes('Missed call') ||
-      text.includes('bonus of') ||
-      text.includes('Download paused') ||
-      text.includes('Finish setup') ||
-      text.includes('nap5k');
-
-    const hasSpamId =
-      el.id?.includes('monetag') ||
-      el.id?.includes('nap5k') ||
-      el.getAttribute('data-zone') ||
-      el.className?.toString().includes('monetag');
-
-    if (hasSpamText || hasSpamId) {
-      try {
-        el.remove();
-        console.log('[AdPurge] 🧹 Đã xóa phần tử quảng cáo lạ:', el);
-      } catch {}
-    }
-  });
-
-  // 3. Hủy bỏ mọi Service Worker lạ (nếu script quảng cáo từng cố đăng ký)
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      for (const reg of registrations) {
-        if (reg.scope && !reg.scope.includes(window.location.origin)) {
-          reg.unregister();
-        }
-      }
-    }).catch(() => {});
-  }
+  // Đã gỡ bỏ logic chặn Monetag để tích hợp quảng cáo Monetag
 };
 
-/**
- * Hàm tương thích ngược: Luôn dọn sạch quảng cáo bên thứ ba
- */
 export const syncMonetagAds = (_enabled?: boolean) => {
-  purgeThirdPartyAds();
+  // Cho phép Monetag hoạt động
 };
 
 export const isAdsGloballyEnabled = (): boolean => {
   if (typeof window === 'undefined') return true;
-  const cached = localStorage.getItem('sys_enable_ads');
-  if (cached === 'false') return false;
   const isVip = localStorage.getItem('sys_user_is_vip') === 'true';
   if (isVip) return false;
+  const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.');
+  if (isLocalhost) return true;
+  const cached = localStorage.getItem('sys_enable_ads');
+  if (cached === 'false') return false;
   return true;
 };
 

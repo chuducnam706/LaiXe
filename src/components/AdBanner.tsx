@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, ExternalLink, Sparkles } from 'lucide-react';
-import { GOOGLE_ADSENSE_CLIENT_ID } from '../utils/ads';
+import { MONETAG_TAG_ID } from '../utils/ads';
 import { useAuth } from '../context/AuthContext';
 
 export type AdBannerFormat =
@@ -18,37 +18,20 @@ interface AdBannerProps {
   closable?: boolean;
 }
 
-export const AdBanner: React.FC<AdBannerProps> = () => {
-  // Toàn bộ banner đã được tắt hoàn toàn để đợi cấu hình chính thức từ Google AdSense
-  return null;
-};
-
-// Lưu trữ logic cũ bên dưới để tái sử dụng sau khi tài khoản Google AdSense được duyệt
-const _UnusedAdBanner: React.FC<AdBannerProps> = ({
+export const AdBanner: React.FC<AdBannerProps> = ({
   format,
-  slotId = 'test_slot_01',
+  slotId = 'monetag_slot_01',
   className = '',
   closable = false,
 }) => {
   const { enableAds, isVip, isAdmin } = useAuth();
   const [isDismissed, setIsDismissed] = useState(false);
   const [_adLoaded, _setAdLoaded] = useState(false);
-  const insRef = useRef<HTMLModElement>(null);
+  const bannerContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!enableAds || isVip || isAdmin) return;
-    try {
-      if (
-        typeof window !== 'undefined' &&
-        window.adsbygoogle &&
-        (GOOGLE_ADSENSE_CLIENT_ID as string) !== 'ca-pub-PUBLISHER_ID'
-      ) {
-        window.adsbygoogle.push({});
-        _setAdLoaded(true);
-      }
-    } catch (e) {
-      console.log('[AdSense] Load error or placeholder mode:', e);
-    }
+    // Sẵn sàng nạp Monetag Banner khi script hoạt động
   }, [enableAds, isVip, isAdmin]);
 
   if (!enableAds || isVip || isAdmin || isDismissed) return null;
@@ -65,52 +48,39 @@ const _UnusedAdBanner: React.FC<AdBannerProps> = ({
             <span className="text-[10px] font-bold tracking-wider uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
               Quảng cáo
             </span>
-            <span className="text-[10px] text-slate-400 font-mono">Google Ads · 300x250</span>
+            <span className="text-[10px] text-slate-400 font-mono">Monetag · 300x250</span>
           </div>
           {closable && (
             <button
               onClick={() => setIsDismissed(true)}
               className="p-1 rounded-md text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Đóng quảng cáo thử nghiệm"
+              title="Đóng quảng cáo"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Real AdSense container if active */}
-        {(GOOGLE_ADSENSE_CLIENT_ID as string) !== 'ca-pub-PUBLISHER_ID' ? (
-          <ins
-            ref={insRef}
-            className="adsbygoogle"
-            style={{ display: 'inline-block', width: '300px', height: '250px' }}
-            data-ad-client={GOOGLE_ADSENSE_CLIENT_ID}
-            data-ad-slot={slotId}
-          />
-        ) : (
-          /* Realistic Test Ad Creative */
-          <div className="flex-1 flex flex-col items-center justify-center text-center my-2 px-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/20 to-blue-600/20 border border-sky-500/40 flex items-center justify-center text-sky-400 mb-2">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h4 className="text-sm font-bold text-white line-clamp-1">
-              Khóa Học Bổ Túc Sa Hình B2 & C
-            </h4>
-            <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
-              Thầy dạy 1 kèm 1, cam kết đỗ 100%. Luyện dốc cầu, lùi chuồng dọc ngang thực tế.
-            </p>
-            <div className="mt-3 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold flex items-center gap-1 shadow-md shadow-sky-500/20 transition-all cursor-pointer">
-              <span>Đăng Ký Học Ngay</span>
-              <ExternalLink className="w-3 h-3" />
-            </div>
+        {/* Realistic Monetag Creative Container */}
+        <div ref={bannerContainerRef} id={`monetag_${slotId}`} className="flex-1 flex flex-col items-center justify-center text-center my-2 px-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/20 to-blue-600/20 border border-sky-500/40 flex items-center justify-center text-sky-400 mb-2">
+            <Sparkles className="w-5 h-5" />
           </div>
-        )}
+          <h4 className="text-sm font-bold text-white line-clamp-1">
+            Khóa Học Bổ Túc Sa Hình B2 & C
+          </h4>
+          <p className="text-[11px] text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+            Thầy dạy 1 kèm 1, cam kết đỗ 100%. Luyện dốc cầu, lùi chuồng dọc ngang thực tế.
+          </p>
+          <div className="mt-3 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs font-bold flex items-center gap-1 shadow-md shadow-sky-500/20 transition-all cursor-pointer">
+            <span>Đăng Ký Học Ngay</span>
+            <ExternalLink className="w-3 h-3" />
+          </div>
+        </div>
 
-        {(GOOGLE_ADSENSE_CLIENT_ID as string) === 'ca-pub-PUBLISHER_ID' && (
-          <div className="text-[9px] text-slate-500 text-center font-mono pt-1 border-t border-slate-800/60">
-            Chế độ chạy thử nghiệm
-          </div>
-        )}
+        <div className="text-[9px] text-slate-500 text-center font-mono pt-1 border-t border-slate-800/60">
+          Monetag Banner Active
+        </div>
       </div>
     );
   }
@@ -269,7 +239,7 @@ const _UnusedAdBanner: React.FC<AdBannerProps> = ({
             <ExternalLink className="w-3 h-3" />
           </div>
           <div className="text-[8px] text-slate-500 text-center font-mono">
-            Google Ads · 160x600
+            Monetag · 160x600
           </div>
         </div>
       </div>

@@ -49,26 +49,40 @@ Dữ liệu chỉ được sử dụng cho các mục đích hợp pháp sau:
 
 ---
 
-## 5. Dịch vụ bên thứ ba & Bảo mật thông tin
-- **Hạ tầng đám mây**: Ứng dụng sử dụng dịch vụ đám mây Google Firebase (Firebase Authentication & Cloud Firestore). Google tuân thủ các tiêu chuẩn bảo mật quốc tế cao cấp như ISO/IEC 27001, SOC 1, SOC 2, SOC 3.
-- **Mã hóa dữ liệu**: Mọi luồng dữ liệu truyền tải giữa thiết bị của bạn và máy chủ đều được mã hóa bằng giao thức HTTPS/TLS an toàn.
-- **Không chia sẻ cho bên thứ ba**: Chúng tôi tuyệt đối không bán, cho thuê, trao đổi hay tiết lộ dữ liệu cá nhân của học viên cho bất kỳ bên thứ ba nào vì mục đích tiếp thị hoặc quảng cáo.
+## 5. Quảng cáo của bên thứ ba & Cookie (Google AdSense)
+- Ứng dụng tích hợp dịch vụ hiển thị quảng cáo **Google AdSense** để duy trì hệ thống máy chủ phục vụ học viên miễn phí.
+- Google, với tư cách là nhà cung cấp bên thứ ba, sử dụng các cookie (bao gồm cookie DART) để hiển thị quảng cáo cho người dùng dựa trên các lần truy cập vào ứng dụng này hoặc các trang web khác trên Internet.
+- **Quyền từ chối quảng cáo cá nhân hóa**: Người dùng có thể tắt việc sử dụng cookie DART và cá nhân hóa quảng cáo bằng cách truy cập [Cài đặt quảng cáo của Google](https://adssettings.google.com).
 
 ---
 
-## 6. Quyền của người dùng & Xóa dữ liệu (Data Deletion)
+## 6. Thời hạn lưu trữ & Tự động dọn rác (Data Retention & Auto-purge)
+- **Lịch sử thi sa hình (`exam_records`)**: Áp dụng cơ chế tự động dọn rác định kỳ (mặc định sau 3 giờ) nhằm tối ưu hóa quyền riêng tư của học viên và tránh lưu trữ dữ liệu dư thừa.
+- **Hồ sơ tài khoản**: Được lưu trữ bảo mật cho đến khi người dùng chủ động yêu cầu xóa tài khoản.
+
+---
+
+## 7. Dịch vụ bên thứ ba & Bảo mật thông tin
+- **Hạ tầng đám mây**: Ứng dụng sử dụng dịch vụ đám mây Google Firebase (Firebase Authentication & Cloud Firestore). Google tuân thủ các tiêu chuẩn bảo mật quốc tế cao cấp như ISO/IEC 27001, SOC 1, SOC 2, SOC 3.
+- **Mã hóa dữ liệu**: Mọi luồng dữ liệu truyền tải giữa thiết bị của bạn và máy chủ đều được mã hóa bằng giao thức HTTPS/TLS an toàn kết hợp chính sách HSTS và Security Headers.
+- **Mật khẩu an toàn**: Mật khẩu lưu trữ cục bộ được băm bằng thuật toán PBKDF2 với 100.000 vòng lặp và muối ngẫu nhiên (salt).
+- **Không bán dữ liệu**: Chúng tôi tuyệt đối không bán, cho thuê, trao đổi hay tiết lộ dữ liệu cá nhân của học viên cho bất kỳ bên thứ ba nào vì mục đích tiếp thị.
+
+---
+
+## 8. Quyền của người dùng & Xóa dữ liệu (Data Deletion)
 Học viên có toàn quyền kiểm soát dữ liệu cá nhân của mình:
 - **Xem và chỉnh sửa**: Bạn có thể xem kết quả sát hạch bất cứ lúc nào trong ứng dụng.
 - **Yêu cầu xóa tài khoản và dữ liệu**: Bạn có quyền yêu cầu xóa vĩnh viễn tài khoản và toàn bộ lịch sử sát hạch đã lưu trên hệ thống. Để yêu cầu xóa dữ liệu, vui lòng gửi email về địa chỉ hỗ trợ của chúng tôi với tiêu đề `[Yêu cầu xóa tài khoản]`. Dữ liệu của bạn sẽ được xóa vĩnh viễn khỏi cơ sở dữ liệu trong vòng 48 giờ làm việc.
 
 ---
 
-## 7. Thay đổi chính sách
+## 9. Thay đổi chính sách
 Chúng tôi có thể cập nhật chính sách quyền riêng tư này khi có sự thay đổi về tính năng hoặc quy định pháp luật. Mọi thay đổi sẽ được công bố trực tiếp trong ứng dụng và trên tài liệu công khai này.
 
 ---
 
-## 8. Thông tin liên hệ
+## 10. Thông tin liên hệ
 Mọi câu hỏi, góp ý hoặc yêu cầu hỗ trợ liên quan đến Chính sách Quyền riêng tư, vui lòng liên hệ:
 - **Đơn vị phát triển:** Ban Quản Trị Hệ Thống Mô Phỏng Lái Xe Sa Hình 3D
 - **Email hỗ trợ:** `phucnam995@gmail.com`

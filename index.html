@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- BẢO MẬT: Chặn MIME sniffing, bảo vệ referrer (CSP upgrade-insecure-requests đã bỏ để cho phép truy cập LAN) -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,18 +22,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-    <!-- Google AdSense for Games / H5 Games Ads API -->
-    <script async
-      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4568419367261236"
-      crossorigin="anonymous">
-    </script>
-
-    <script>
-      window.adsbygoogle = window.adsbygoogle || [];
-      var adBreak = adConfig = function(o) {
-        adsbygoogle.push(o);
-      };
-    </script>
+    <!-- Monetag Verification -->
+    <meta name="monetag" content="74be4e801b9bab2f8c586c0280b06538" />
   </head>
   <body>
     <div id="root"></div>

@@ -717,10 +717,10 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 3,
         nameVi: 'Thoát Đường Hẹp Vuông Góc Chữ Z Ra Trục Giữa',
         instructionVi:
-          'Đánh lái qua 2 góc vuông chữ Z tiến ra cửa thoát (X = +2.5m) để hoàn thành Bài 4!',
-        position: { x: 2.5, y: 0, z: 36.0 },
-        radiusM: 4.2,
-        boxSizeM: { width: 5.5, length: 4.5 },
+          'Đánh lái qua 2 góc vuông chữ Z tiến ra cửa thoát (vạch vàng nét đứt X = +3.5m) để hoàn thành Bài 4!',
+        position: { x: 3.5, y: 0, z: 36.0 },
+        radiusM: 4.5,
+        boxSizeM: { width: 6.5, length: 4.5 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
         isFinishLine: true,
@@ -811,7 +811,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     officialRegulationRefVi:
       'Bài sát hạch số 6: Đường vòng quanh co (chữ S) — QCVN 40:2012/BGTVT (Bqc = 2.2b, RN = Rqv + 1.2m, Rtr = RN - Bqc).',
     dimensionNoteVi:
-      'Đúng chuẩn QCVN 40:2012/BGTVT: Vào từ đầu trên phía Bắc (Z = -49.2m tại chữ B / C) đi xuống cửa ra phía Nam (Z = -2.0m): Nhánh Hạng B (X = +14.0m, rộng 3.85m = 2.2b) & Nhánh Hạng C (X = +36.0m, rộng 4.95m = 2.2b).',
+      'Đúng chuẩn QCVN 40:2012/BGTVT: Vào từ đầu trên phía Bắc (Z = -47.0m tại chữ B / C) đi xuống cửa ra phía Nam (Z = -2.0m): Nhánh Hạng B (X = +14.0m, rộng 3.85m = 2.2b) & Nhánh Hạng C (X = +36.0m, rộng 4.95m = 2.2b).',
     instructionsVi: [
       '1. Từ đường phía Bắc (Z = -52.0m) rẽ phải (hướng Nam +Z) tiến vào Cổng Đầu Vào ⑥ Chữ S tại chữ B / C (Z = -45.5m, chọn đúng nhánh Hạng B X=14m hoặc Hạng C X=36m).',
       '2. Áp dụng nguyên tắc "Tiến bám lưng, lùi bám bụng" lượn qua cung cong trên sang phải rồi qua tâm chữ S (Z = -25.5m) xuống cung cong dưới.',
@@ -887,7 +887,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     dimensionNoteVi:
       'Đúng chuẩn QCVN 40:2012/BGTVT: Đường dẫn Hạng B (X = -62.0m..-53.0m, Ô chuồng 7 Hạng B bên Đông X = -53.0m..-47.5m, Z = -26.0m, rộng 2.4m × sâu 5.5m); Đường dẫn Hạng C (X = -36.0m..-25.0m, Ô chuồng 7 Hạng C bên Đông X = -25.0m..-16.0m, Z = -26.0m, rộng 2.9m × sâu 9.0m).',
     instructionsVi: [
-      '1. Đi từ Tây sang Đông trên đường phía Bắc (Z = -50.6m), RẼ PHẢI đi xuống đường dẫn nhà xe (Hạng B: X = -57.5m · Hạng C: X = -30.5m) qua cửa Ô Chuồng ⑦ (Z = -26.0m) để mở góc lùi.',
+      '1. Đi từ Tây sang Đông trên đường phía Bắc (Z = -49.04m), RẼ PHẢI đi xuống đường dẫn nhà xe (Hạng B: X = -57.5m · Hạng C: X = -30.5m) qua cửa Ô Chuồng ⑦ (Z = -26.0m) để mở góc lùi.',
       '2. Cài Số Lùi (R — nhấn Phím Q), đánh lái lùi vào Ô Chuồng ⑦ bên vách Đông sao cho 2 bánh sau chạm vạch vàng để cảm biến nhận tiếng Bíp.',
       '3. Vào Số 1 (Phím E), tiến ra khỏi cửa chuồng RẼ PHẢI lên đường Bắc, rẽ phải vào trục dọc trung tâm (X = -8.25m) đi thẳng xuống ĐÈN ĐỎ Ngã tư 5.',
     ],
@@ -895,7 +895,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Lùi xe vào Ô Ghép Dọc ⑦ cho 2 bánh sau chạm vạch vàng nhận bài, sau đó tiến ra khỏi cửa chuồng rẽ phải đi về hướng đèn đỏ Ngã tư 5.',
     failureConditionVi: 'Đè vạch cảm biến giới hạn trong chuồng, vào nhầm chuồng hạng khác hoặc quá 120 giây (-5đ).',
     timeLimitSeconds: 120,
-    startPosition: { x: -38.5, y: 0.72, z: -50.65 },
+    startPosition: { x: -38.5, y: 0.72, z: -49.04 },
     startYawRad: -Math.PI / 2, // Facing East (+X) in right-hand lane of North Road before turning RIGHT (South +Z) into Bài 7 alley (matching Image 3)
     checkpoints: [
       {
@@ -912,9 +912,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       {
         id: 'cp_ex7_bay_stop',
         orderIndex: 2,
-        nameVi: 'Lòng Chuồng Ghép Dọc ⑦ (2 Bánh Sau Chạm Vạch Vàng)',
+        nameVi: 'Lòng Chuồng Ghép Dọc ⑦ (2 Bánh Sau Đè Lên Vạch Vàng Nét Liền)',
         instructionVi:
-          'Cài Số Lùi (R — Phím Q), lùi xe vào Ô Đỗ Dọc ⑦ bên vách Đông sao cho 2 BÁNH SAU CHẠM VẠCH VÀNG để nhận bài ngay!',
+          'Cài Số Lùi (R — Phím Q), lùi xe vào Ô Đỗ Dọc ⑦ bên vách Đông sao cho 2 BÁNH SAU ĐÈ LÊN VẠCH VÀNG NÉT LIỀN để nhận bài ngay!',
         position: { x: -20.5, y: 0, z: -26.0 },
         radiusM: 3.2,
         boxSizeM: { width: 9.0, length: 2.9 },
@@ -1031,7 +1031,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Sang Số 2 và tăng tốc qua khu vực ⑨, sau đó giảm tốc về Số 1 đi qua vạch kết thúc tại X = -15.0m.',
     failureConditionVi: 'Không sang Số 2 hoặc quá thời gian 120 giây.',
     timeLimitSeconds: 120,
-    startPosition: { x: 68.0, y: 0.72, z: -53.35 },
+    startPosition: { x: 68.0, y: 0.72, z: -57.00 },
     startYawRad: Math.PI / 2, // Facing West (-X) in right-hand lane
     checkpoints: [
       {
@@ -1039,10 +1039,10 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 1,
         nameVi: '⑨ Vạch Bắt Đầu Tăng Số Tăng Tốc',
         instructionVi:
-          'Đi qua Vạch ⑨ (X = +58.0m, Z = -52.0m), sau đó nhấn Phím E SANG SỐ 2 và đạp ga tăng tốc!',
-        position: { x: 58.0, y: 0, z: -52.0 },
-        radiusM: 4.2,
-        boxSizeM: { width: 4.5, length: 9.8 },
+          'Đi qua Vạch ⑨ (X = +58.0m, Z = -57.00m), sau đó nhấn Phím E SANG SỐ 2 và đạp ga tăng tốc!',
+        position: { x: 58.0, y: 0, z: -57.00 },
+        radiusM: 4.5,
+        boxSizeM: { width: 4.8, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
       },
@@ -1051,10 +1051,10 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 2,
         nameVi: '9. Tăng tốc — Kiểm Tra Số 2 & Tốc Độ > 20 km/h',
         instructionVi:
-          'Đảm bảo đã lên Số 2 (Phím E) và tốc độ > 20 km/h khi qua mốc 9. Tăng tốc (X = +22.0m, Z = -52.0m)',
-        position: { x: 22.0, y: 0, z: -52.0 },
-        radiusM: 4.2,
-        boxSizeM: { width: 4.5, length: 9.8 },
+          'Đảm bảo đã lên Số 2 (Phím E) và tốc độ > 20 km/h khi qua mốc 9. Tăng tốc (X = +22.0m, Z = -57.00m)',
+        position: { x: 22.0, y: 0, z: -57.00 },
+        radiusM: 4.5,
+        boxSizeM: { width: 4.8, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
         requiredGear: 2,
@@ -1065,10 +1065,10 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 3,
         nameVi: '⑨ Kết Thúc Giảm Số Giảm Tốc (< 20 km/h & Số 1)',
         instructionVi:
-          'Rà phanh giảm tốc dưới 20 km/h, nhấn Q về Số 1 đi qua Vạch ⑨ Kết Thúc (X = -15.0m, Z = -52.0m)!',
-        position: { x: -15.0, y: 0, z: -52.0 },
-        radiusM: 4.2,
-        boxSizeM: { width: 4.8, length: 9.8 },
+          'Rà phanh giảm tốc dưới 20 km/h, nhấn Q về Số 1 đi qua Vạch ⑨ Kết Thúc (X = -15.0m, Z = -57.00m)!',
+        position: { x: -15.0, y: 0, z: -57.00 },
+        radiusM: 5.0,
+        boxSizeM: { width: 5.8, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
         exemptFromCourseSpeedLimit: true,
@@ -1081,7 +1081,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         nameVi: 'Đường thẳng Tăng tốc, tăng số phía Bắc',
         minX: -82.0,
         maxX: 82.0,
-        minZ: -59.5,
+        minZ: -61.5,
         maxZ: -44.5,
       },
     ],
@@ -1109,7 +1109,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     failureConditionVi:
       'Không dừng xe hoặc không bật/tắt đèn cảnh báo nguy hiểm đúng thời điểm (-10 điểm).',
     timeLimitSeconds: 120,
-    startPosition: { x: -77.85, y: 0.72, z: -38.0 },
+    startPosition: { x: -79.0, y: 0.72, z: -38.0 },
     startYawRad: Math.PI, // Facing South (+Z) along West Upper Road toward Hazard Zone D2
     checkpoints: [
       {
@@ -1118,7 +1118,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         nameVi: 'Điểm Kích Hoạt Tình Huống Nguy Hiểm (Còi Hú Báo Động)',
         instructionVi:
           'Tiến xe dọc đường bao phía Tây hướng Nam (+Z): Khi nghe CÒI HÚ BÁO ĐỘNG, đạp phanh DỪNG HẲN XE & nhấn Phím V BẬT ĐÈN KHẨN CẤP!',
-        position: { x: -76.5, y: 0, z: -24.0 },
+        position: { x: -77.25, y: 0, z: -24.0 },
         radiusM: 4.5,
         boxSizeM: { width: 7.2, length: 8.0 },
         requiresFullStop: false,
@@ -1129,8 +1129,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 2,
         nameVi: 'Hoàn Thành Tình Huống Nguy Hiểm',
         instructionVi:
-          'Nhấn Phím V TẮT ĐÈN KHẨN CẤP, sau đó tiến xe qua điểm hoàn thành (X = -76.5m, Z = -10.0m)!',
-        position: { x: -76.5, y: 0, z: -10.0 },
+          'Nhấn Phím V TẮT ĐÈN KHẨN CẤP, sau đó tiến xe qua điểm hoàn thành (X = -77.25m, Z = -10.0m)!',
+        position: { x: -77.25, y: 0, z: -10.0 },
         radiusM: 4.2,
         boxSizeM: { width: 6.4, length: 5.5 },
         requiresFullStop: false,
@@ -1164,11 +1164,11 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Đúng chuẩn QCVN 40: 2 ô Ghép xe ngang ⑩ nằm bên phải đường ngang trung tâm trước Ngã tư 5: Ô 1 Hạng B (X = -58.9m..-51.5m, Z = +5.0m..+7.2m, rộng 2.2m × dài 7.4m) & Ô 2 (X = -38.0m..-30.0m, Z = +5.0m..+8.1m).',
     instructionsVi: [
       '1. Điều khiển xe tiến hướng Đông (+X) trên làn phải đường ngang trung tâm (Z = +3.25m) qua ngang cửa Ô ⑩ tới điểm mở góc (X = -49.5m, Z = +3.25m).',
-      '2. Cài Số Lùi (R — nhấn Phím Q), đánh lái phải lùi xe song song vào gọn trong Ô Ghép Xe Ngang ⑩ (X = -58.9m..-51.5m, Z = +5.0m..+7.2m) sao cho 2 bánh chạm vạch vàng (Z >= +7.0m) nhận tiếng Bíp.',
+      '2. Cài Số Lùi (R — nhấn Phím Q), đánh lái phải lùi xe song song vào gọn trong Ô Ghép Xe Ngang ⑩ (X = -58.9m..-51.5m, Z = +5.0m..+7.2m) sao cho 2 bánh đè lên vạch vàng nét đứt ngoài cửa chuồng (Z = 5.0m) nhận tiếng Tuýt.',
       '3. Chuyển về Số 1 / D (nhấn Phím E), đánh lái trái tiến ra khỏi nơi đỗ đi thẳng về phía Đèn đỏ Ngã tư 5 (X = -22.0m, Z = +3.25m) để hoàn thành bài.',
     ],
     completionConditionVi:
-      'Lùi xe vào đúng Ô Ghép Xe Ngang ⑩ chạm vạch vàng không đè bó vỉa và tiến ra đi về hướng Ngã tư 5.',
+      'Lùi xe vào đúng Ô Ghép Xe Ngang ⑩ có 2 bánh đè lên vạch vàng nét đứt ngoài cửa chuồng nhận bài, không đè bó vỉa và tiến ra đi về hướng Ngã tư 5.',
     failureConditionVi:
       'Bỏ qua bài ghép ngang, đè vạch giới hạn liên tiếp hoặc điểm dưới 80/100.',
     timeLimitSeconds: 120,
@@ -1190,9 +1190,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       {
         id: 'cp_ex10_parallel_bay',
         orderIndex: 2,
-        nameVi: 'Lòng Ô Ghép Xe Ngang ⑩ (2 Bánh Chạm Vạch Vàng)',
+        nameVi: 'Lòng Ô Ghép Xe Ngang ⑩ (2 Bánh Đè Lên Vạch Vàng Nét Đứt)',
         instructionVi:
-          'Cài Số Lùi (R — Phím Q), đánh lái lùi song song vào Ô 10 bên phải sao cho 2 BÁNH CHẠM VẠCH VÀNG (Z = +7.05m) nhận bài ngay!',
+          'Cài Số Lùi (R — Phím Q), đánh lái lùi song song vào Ô 10 bên phải sao cho 2 BÁNH ĐÈ LÊN VẠCH VÀNG NÉT ĐỨT (Z = 5.0m) nhận bài ngay!',
         position: { x: -54.75, y: 0, z: 6.45 },
         radiusM: 2.8,
         boxSizeM: { width: 6.5, length: 3.0 },
@@ -1247,7 +1247,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       'Bật đèn xi-nhan Phải (Phím X) và đi qua Vạch ⑪ KẾT THÚC (X = -76.5m, Z = +36.0m) với điểm >= 80/100.',
     failureConditionVi: 'Không qua vạch kết thúc hoặc điểm dưới 80/100.',
     timeLimitSeconds: 120,
-    startPosition: { x: -77.85, y: 0.72, z: 21.0 },
+    startPosition: { x: -79.0, y: 0.72, z: 21.0 },
     startYawRad: Math.PI, // Facing South (+Z) in right-hand lane of West Perimeter Finish Track
     checkpoints: [
       {
@@ -1255,8 +1255,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 1,
         nameVi: '⑪ Vạch Kết Thúc',
         instructionVi:
-          'Bật xi-nhan Phải (Phím X) và điều khiển xe tiến qua Vạch ⑪ KẾT THÚC (X = -76.5m, Z = +36.0m) để hoàn thành bài thi!',
-        position: { x: -76.5, y: 0, z: 36.0 },
+          'Bật xi-nhan Phải (Phím X) và điều khiển xe tiến qua Vạch ⑪ KẾT THÚC (X = -77.25m, Z = +36.0m) để hoàn thành bài thi!',
+        position: { x: -77.25, y: 0, z: 36.0 },
         radiusM: 4.4,
         boxSizeM: { width: 9.2, length: 4.8 },
         requiresFullStop: false,
@@ -1268,8 +1268,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
     allowedCorridors: [
       {
         id: 'corridor_b10_finish_lane',
-        nameVi: 'Làn đường về đích Bài 11 Kết thúc (Đường Z=17m & Đường bao Tây X=-76.5m)',
-        minX: -81.0,
+        nameVi: 'Làn đường về đích Bài 11 Kết thúc (Đường Z=17m & Đường bao Tây X=-77.25m)',
+        minX: -83.0,
         maxX: -4.0,
         minZ: 12.0,
         maxZ: 53.0,
@@ -1427,7 +1427,7 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 11,
         nameVi: '⑦ Bài 7: Ghép xe dọc vào nơi đỗ (Lùi chuồng)',
         instructionVi:
-          '[BÀI 7/11] Đưa xe vào vị trí đỗ và tiến ra khỏi chuồng trong thời gian 2 phút. Cài số R (Phím Q) lùi vào chuồng nhận tín hiệu Bíp rồi tiến ra!',
+          '[BÀI 7/11] Đưa xe vào vị trí đỗ và tiến ra khỏi chuồng trong thời gian 2 phút. Cài số R (Phím Q) lùi vào chuồng cho 2 bánh sau đè lên vạch vàng nét liền nhận tín hiệu Tuýt rồi tiến ra!',
         position: { x: -20.2, y: 0, z: -26.0 },
         radiusM: 3.2,
         boxSizeM: { width: 6.5, length: 3.6 },
@@ -1452,10 +1452,10 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 13,
         nameVi: '⑨ Bài 9: Thay đổi số trên đường thẳng (9 -> 9.Tăng tốc)',
         instructionVi:
-          '[BÀI 9/11] Rẽ trái vào đường thẳng phía Bắc qua Vạch ⑨ Bắt Đầu (X = +58.0m, Z = -52.0m), sang Số 2 (Phím E) & tăng tốc > 20 km/h!',
-        position: { x: 58.0, y: 0, z: -52.0 },
+          '[BÀI 9/11] Rẽ trái vào đường thẳng phía Bắc qua Vạch ⑨ Bắt Đầu (X = +58.0m, Z = -57.00m), sang Số 2 (Phím E) & tăng tốc > 20 km/h!',
+        position: { x: 58.0, y: 0, z: -57.00 },
         radiusM: 4.4,
-        boxSizeM: { width: 5.0, length: 9.8 },
+        boxSizeM: { width: 4.8, length: 9.8 },
         requiresFullStop: false,
         requiredStopDurationS: 0,
         exemptFromCourseSpeedLimit: true,
@@ -1465,8 +1465,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 14,
         nameVi: '⑨ Bài 9: Kết thúc thay đổi số trên đường thẳng',
         instructionVi:
-          '[BÀI 9/11] Giảm tốc dưới 20 km/h, về Số 1 trước Vạch ⑨ Kết Thúc (X = -15.0m, Z = -52.0m) rồi đi hết đường Bắc rẽ trái xuống đường Tây',
-        position: { x: -15.0, y: 0, z: -52.0 },
+          '[BÀI 9/11] Giảm tốc dưới 20 km/h, về Số 1 trước Vạch ⑨ Kết Thúc (X = -15.0m, Z = -57.00m) rồi đi hết đường Bắc rẽ trái xuống đường Tây',
+        position: { x: -15.0, y: 0, z: -57.00 },
         radiusM: 4.4,
         boxSizeM: { width: 5.0, length: 9.8 },
         requiresFullStop: false,
@@ -1488,9 +1488,9 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
       {
         id: 'cp_full_10_parallel_bay',
         orderIndex: 16,
-        nameVi: '⑩ Bài 10: Ghép xe ngang vào nơi đỗ (2 Bánh Chạm Vạch Vàng)',
+        nameVi: '⑩ Bài 10: Ghép xe ngang vào nơi đỗ (2 Bánh Đè Lên Vạch Vàng Nét Đứt)',
         instructionVi:
-          '[BÀI 10/11] Cài Số R (Phím Q), đánh lái lùi song song vào Ô 10 Ghép Ngang bên phải sao cho 2 BÁNH CHẠM VẠCH VÀNG (Z = +7.05m) rồi tiến ra đi tới Ngã tư 5!',
+          '[BÀI 10/11] Cài Số R (Phím Q), đánh lái lùi song song vào Ô 10 Ghép Ngang bên phải sao cho 2 BÁNH ĐÈ LÊN VẠCH VÀNG NÉT ĐỨT (Z = 5.0m) ngoài cửa chuồng nhận bài, rồi tiến ra đi tới Ngã tư 5!',
         position: { x: -54.75, y: 0, z: 6.45 },
         radiusM: 2.8,
         boxSizeM: { width: 6.5, length: 3.0 },
@@ -1503,8 +1503,8 @@ export const DRIVING_EXERCISES_LIST: DrivingExerciseDefinition[] = [
         orderIndex: 17,
         nameVi: '⑪ Bài 11: Kết thúc',
         instructionVi:
-          '[BÀI 11/11] Từ Ngã tư 5 rẽ phải xuống đường về đích (Z = +17.0m) sang đường bao Tây, rẽ trái đi xuống Nam, bật xi-nhan Phải (Phím X) qua Vạch ⑪ KẾT THÚC (X = -76.5m, Z = +36.0m)!',
-        position: { x: -76.5, y: 0, z: 36.0 },
+          '[BÀI 11/11] Từ Ngã tư 5 rẽ phải xuống đường về đích (Z = +17.0m) sang đường bao Tây, rẽ trái đi xuống Nam, bật xi-nhan Phải (Phím X) qua Vạch ⑪ KẾT THÚC (X = -77.25m, Z = +36.0m)!',
+        position: { x: -77.25, y: 0, z: 36.0 },
         radiusM: 4.6,
         boxSizeM: { width: 9.2, length: 4.8 },
         requiresFullStop: false,

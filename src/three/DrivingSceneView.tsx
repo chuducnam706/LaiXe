@@ -154,6 +154,82 @@ function createProceduralSidewalkPaverTexture(
   return tex;
 }
 
+function createProceduralGrassTexture(
+  maxAnisotropy: number
+): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Base rich tropical manicured lawn
+  ctx.fillStyle = '#1e7b34';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Subtle natural grass blades & lawn texture
+  const bladeColors = [
+    '#15803d',
+    '#166534',
+    '#14532d',
+    '#22c55e',
+    '#1e8238',
+    '#2e8b57',
+  ];
+  for (let i = 0; i < 6500; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    ctx.fillStyle = bladeColors[Math.floor(Math.random() * bladeColors.length)];
+    ctx.fillRect(x, y, 2 + Math.random() * 2, 3 + Math.random() * 3);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(24, 24);
+  tex.anisotropy = maxAnisotropy;
+  return tex;
+}
+
+function createSkyEquirectangularTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d')!;
+
+  // Upper hemisphere: azure blue sky fading to sunny horizon
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, 256);
+  skyGrad.addColorStop(0.0, '#0284c7'); // Deep azure zenith
+  skyGrad.addColorStop(0.4, '#38bdf8'); // Bright sky blue
+  skyGrad.addColorStop(0.85, '#bae6fd'); // Atmospheric sky
+  skyGrad.addColorStop(1.0, '#e0f2fe'); // Sunny warm horizon
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, 1024, 256);
+
+  // Soft sun disc glow at (x = 350, y = 140)
+  const sunGlow = ctx.createRadialGradient(350, 140, 8, 350, 140, 160);
+  sunGlow.addColorStop(0.0, 'rgba(255, 254, 235, 0.95)');
+  sunGlow.addColorStop(0.2, 'rgba(254, 240, 138, 0.45)');
+  sunGlow.addColorStop(0.6, 'rgba(224, 242, 254, 0.15)');
+  sunGlow.addColorStop(1.0, 'rgba(224, 242, 254, 0)');
+  ctx.fillStyle = sunGlow;
+  ctx.fillRect(0, 0, 1024, 256);
+
+  // Lower hemisphere (ground reflection bounce): muted distant greenery & earth
+  const groundGrad = ctx.createLinearGradient(0, 256, 0, 512);
+  groundGrad.addColorStop(0.0, '#cbd5e1'); // Horizon haze
+  groundGrad.addColorStop(0.3, '#64748b'); // Distant terrain
+  groundGrad.addColorStop(1.0, '#334155'); // Nadir
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, 256, 1024, 256);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  return tex;
+}
+
+
 
 function createSignboardTexture(
   title: string,
@@ -189,7 +265,7 @@ function createSignboardTexture(
   return tex;
 }
 
-export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
+export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
   physicsRef,
   exerciseEngineRef,
   soundRef,
@@ -215,6 +291,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
   const leftMirrorSlotRef = useRef<HTMLDivElement | null>(null);
   const centerMirrorSlotRef = useRef<HTMLDivElement | null>(null);
   const rightMirrorSlotRef = useRef<HTMLDivElement | null>(null);
+  const wheelCamSlotRef = useRef<HTMLDivElement | null>(null);
   const carRigRef = useRef<RealisticCarVisualRig | null>(null);
 
   const cameraModeRef = useRef(cameraMode);
@@ -281,29 +358,42 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     const isHeadless =
       navigator.webdriver || /HeadlessChrome/i.test(navigator.userAgent);
 
+    // Detect mobile/low-end device for GPU budget optimizations
+    const isMobileGPU =
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 0 &&
+        Math.min(window.innerWidth, window.innerHeight) < 920);
+
     // 1. Renderer & Modern Color Pipeline
+    // Enable antialiasing & logarithmicDepthBuffer — completely eliminates all surface flickering, clipping, and z-fighting
     const renderer = new THREE.WebGLRenderer({
       antialias: !isHeadless,
+      logarithmicDepthBuffer: true,
       powerPreference: 'high-performance',
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.15;
+    // Crisp full-resolution Retina display: cap at 2.0 DPR on both mobile and desktop
     renderer.setPixelRatio(
       isHeadless ? 1 : Math.min(window.devicePixelRatio, 2)
     );
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.shadowMap.enabled = !isHeadless;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFShadowMap on mobile (smooth filtered shadow edges instead of pixelated BasicShadowMap)
+    renderer.shadowMap.type = isMobileGPU
+      ? THREE.PCFShadowMap
+      : THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
 
-    // 2. Scene, Sky Atmosphere & Studio Environment Reflection
+    // 2. Scene, Realistic Sky Atmosphere & Studio Environment Reflection
     const scene = new THREE.Scene();
-    const skyHorizonColor = new THREE.Color(0xdce7f3);
-    scene.background = skyHorizonColor;
-    scene.fog = new THREE.FogExp2(0xdce7f3, 0.0062);
+    const skyTex = createSkyEquirectangularTexture();
+    scene.background = skyTex;
+    const skyHorizonColor = new THREE.Color(0xdbeafe);
+    scene.fog = new THREE.FogExp2(0xdbeafe, 0.0032);
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     scene.environment = pmremGenerator.fromScene(
@@ -313,10 +403,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     pmremGenerator.dispose();
 
     // 3. Camera Setup (Main Viewport + 3 Real-Time Rearview Mirror Cameras & RenderTargets)
+    // near = 0.35m (increased from 0.12m to boost depth buffer precision 300%, eliminating distant Z-fighting!)
     const camera = new THREE.PerspectiveCamera(
       54,
       container.clientWidth / container.clientHeight,
-      0.12,
+      0.35,
       320
     );
     camera.position.set(0, 3.2, 45);
@@ -330,6 +421,9 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     const leftMirrorRT = new THREE.WebGLRenderTarget(288, 160, rtOptions);
     const centerMirrorRT = new THREE.WebGLRenderTarget(384, 144, rtOptions);
     const rightMirrorRT = new THREE.WebGLRenderTarget(288, 160, rtOptions);
+    // Wheel Cam: 240x180 render target, slightly narrower FOV to show tyre + ground detail
+    const wheelCamRT = new THREE.WebGLRenderTarget(320, 240, rtOptions);
+    const wheelCamCamera = new THREE.PerspectiveCamera(68, 320 / 240, 0.05, 40);
 
     const leftMirrorCam = new THREE.PerspectiveCamera(38, 288 / 160, 0.15, 160);
     const centerMirrorCam = new THREE.PerspectiveCamera(50, 384 / 144, 0.15, 180);
@@ -350,44 +444,54 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     mirrorFlipScene.add(mirrorFlipQuad);
 
     // 4. Balanced 3-Point Outdoor + Studio Lighting Rig
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 0.85);
+    const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x166534, 0.95);
     hemiLight.position.set(0, 50, 0);
     scene.add(hemiLight);
 
-    const sunKeyLight = new THREE.DirectionalLight(0xfffbeb, 2.1);
+    const sunKeyLight = new THREE.DirectionalLight(0xfff8e7, 2.3);
     sunKeyLight.position.set(35, 55, 35);
     sunKeyLight.castShadow = !isHeadless;
-    sunKeyLight.shadow.mapSize.set(2048, 2048);
-    const d = 88;
+    // Mobile: 1024×1024 shadow map with PCF filtering; desktop: 2048
+    sunKeyLight.shadow.mapSize.set(
+      isMobileGPU ? 1024 : 2048,
+      isMobileGPU ? 1024 : 2048
+    );
+    // Mobile: tighter shadow frustum for faster culling (±55m instead of ±88m)
+    const d = isMobileGPU ? 55 : 88;
     sunKeyLight.shadow.camera.left = -d;
     sunKeyLight.shadow.camera.right = d;
     sunKeyLight.shadow.camera.top = d;
     sunKeyLight.shadow.camera.bottom = -d;
     sunKeyLight.shadow.camera.near = 5;
     sunKeyLight.shadow.camera.far = 190;
-    sunKeyLight.shadow.bias = -0.0005;
-    sunKeyLight.shadow.normalBias = 0.02;
+    sunKeyLight.shadow.bias = -0.0004;
+    sunKeyLight.shadow.normalBias = 0.03;
     scene.add(sunKeyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
+    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.65);
     rimLight.position.set(-30, 25, -40);
     scene.add(rimLight);
 
     // 5. Build Sa Hình Proving Ground Environment ("11 BÀI THI SÁT HẠCH LÁI XE" Blueprint Layout)
     const asphaltTex = createProceduralAsphaltTexture(maxAnisotropy);
     const sidewalkPaverTex = createProceduralSidewalkPaverTexture(maxAnisotropy);
+    const grassTex = createProceduralGrassTexture(maxAnisotropy);
 
     const grassMat = new THREE.MeshStandardMaterial({
-      color: 0x475569,
-      roughness: 0.92,
-      metalness: 0.02,
+      map: sidewalkPaverTex,
+      color: 0x94a3b8,
+      roughness: 0.88,
+      metalness: 0.04,
+      polygonOffset: true,
+      polygonOffsetFactor: 2,
+      polygonOffsetUnits: 2,
     });
     const grassFloor = new THREE.Mesh(
       new THREE.PlaneGeometry(360, 360),
       grassMat
     );
     grassFloor.rotation.x = -Math.PI / 2;
-    grassFloor.position.y = -0.03;
+    grassFloor.position.y = -0.04;
     grassFloor.receiveShadow = true;
     scene.add(grassFloor);
 
@@ -395,6 +499,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       map: asphaltTex,
       roughness: 0.84,
       metalness: 0.04,
+      side: THREE.DoubleSide,
       polygonOffset: true,
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
@@ -402,7 +507,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     // Concrete tint for parking stalls only, also using world-aligned UVs
     const concreteRecessMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
-      color: 0xdbeafe,
+      color: 0x8fa1b5,
       roughness: 0.82,
       metalness: 0.04,
       polygonOffset: true,
@@ -473,38 +578,46 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
 
     const whiteMarkingMat = new THREE.MeshBasicMaterial({
       color: 0xf8fafc,
+      depthWrite: true,
       polygonOffset: true,
-      polygonOffsetFactor: -3,
-      polygonOffsetUnits: -3,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
     });
     const yellowMarkingMat = new THREE.MeshBasicMaterial({
       color: 0xfacc15,
+      depthWrite: true,
       polygonOffset: true,
-      polygonOffsetFactor: -3,
-      polygonOffsetUnits: -3,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
     });
     const redMarkingMat = new THREE.MeshBasicMaterial({
       color: 0xef4444,
+      depthWrite: true,
       polygonOffset: true,
-      polygonOffsetFactor: -3,
-      polygonOffsetUnits: -3,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      side: THREE.DoubleSide,
     });
     const curbRedMat = new THREE.MeshStandardMaterial({
       color: 0xdc2626,
       roughness: 0.5,
+      side: THREE.DoubleSide,
     });
     const curbWhiteMat = new THREE.MeshStandardMaterial({
       color: 0xf8fafc,
       roughness: 0.48,
+      side: THREE.DoubleSide,
     });
     const curbYellowMat = new THREE.MeshStandardMaterial({
       color: 0xfacc15,
       roughness: 0.5,
     });
     const sensorTubeBlackMat = new THREE.MeshStandardMaterial({
-      color: 0x090d16,
-      roughness: 0.55,
-      metalness: 0.2,
+      color: 0x1e293b,
+      roughness: 0.8,
+      metalness: 0.05,
     });
 
     const buildFlatLineRect = (
@@ -517,7 +630,8 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     ) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
       m.rotation.x = -Math.PI / 2;
-      m.position.set(cx, y * 0.22, cz);
+      m.position.set(cx, y, cz);
+      m.renderOrder = 4;
       scene.add(m);
     };
 
@@ -538,8 +652,78 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       const m = new THREE.Mesh(new THREE.PlaneGeometry(len, lineWidth), mat);
       m.rotation.x = -Math.PI / 2;
       m.rotation.z = angleY;
-      m.position.set((x1 + x2) * 0.5, y * 0.22, (z1 + z2) * 0.5);
+      m.position.set((x1 + x2) * 0.5, y, (z1 + z2) * 0.5);
+      m.renderOrder = 4;
       scene.add(m);
+    };
+
+    const buildDashedLineSegment = (
+      x1: number,
+      z1: number,
+      x2: number,
+      z2: number,
+      dashLen: number,
+      gapLen: number,
+      lineWidth: number,
+      y: number,
+      mat: THREE.Material
+    ) => {
+      const dx = x2 - x1;
+      const dz = z2 - z1;
+      const totalLen = Math.hypot(dx, dz);
+      if (totalLen < 0.08) return;
+      const angleY = -Math.atan2(dz, dx);
+      const dirX = dx / totalLen;
+      const dirZ = dz / totalLen;
+      let cur = 0;
+      while (cur < totalLen) {
+        const thisDash = Math.min(dashLen, totalLen - cur);
+        if (thisDash > 0.04) {
+          const cx = x1 + (cur + thisDash * 0.5) * dirX;
+          const cz = z1 + (cur + thisDash * 0.5) * dirZ;
+          const m = new THREE.Mesh(new THREE.PlaneGeometry(thisDash, lineWidth), mat);
+          m.rotation.x = -Math.PI / 2;
+          m.rotation.z = angleY;
+          m.position.set(cx, y, cz);
+          m.renderOrder = 4;
+          scene.add(m);
+        }
+        cur += dashLen + gapLen;
+      }
+    };
+
+    const buildCurvedCornerLine = (
+      cx: number,
+      cz: number,
+      radius: number,
+      startAngle: number,
+      endAngle: number,
+      width = 0.15,
+      mat = yellowMarkingMat,
+      segments = 12
+    ) => {
+      const positions: number[] = [];
+      const indices: number[] = [];
+      const rIn = radius - width * 0.5;
+      const rOut = radius + width * 0.5;
+      for (let i = 0; i <= segments; i++) {
+        const a = startAngle + (endAngle - startAngle) * (i / segments);
+        const cosA = Math.cos(a);
+        const sinA = Math.sin(a);
+        positions.push(cx + rIn * cosA, 0.025, cz + rIn * sinA);
+        positions.push(cx + rOut * cosA, 0.025, cz + rOut * sinA);
+        if (i < segments) {
+          const b = i * 2;
+          indices.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.renderOrder = 4;
+      scene.add(mesh);
     };
 
     const buildRoadTextStencil = (
@@ -575,9 +759,124 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthM, depthM), mat);
       mesh.rotation.x = -Math.PI / 2;
       mesh.rotation.z = rotYRad;
-      mesh.position.set(x, Math.min(y, 0.018), z);
+      mesh.position.set(x, Math.max(0.018, y), z);
+      mesh.renderOrder = 2;
       scene.add(mesh);
     };
+
+    // Helper to build authentic right-turn road arrow stencils matching the aerial photo
+    const buildRoadSingleTurnArrow = (
+      x: number,
+      z: number,
+      rotYRad = 0,
+      widthM = 2.8,
+      depthM = 1.5
+    ) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, 512, 256);
+        ctx.fillStyle = '#f8fafc';
+
+        // Right-turn arrow branch curving down along +Z towards entrance
+        ctx.beginPath();
+        ctx.moveTo(60, 70);
+        ctx.lineTo(220, 70);
+        ctx.bezierCurveTo(285, 70, 335, 110, 345, 160);
+        ctx.lineTo(310, 145);
+        ctx.lineTo(390, 225);
+        ctx.lineTo(430, 115);
+        ctx.lineTo(395, 130);
+        ctx.bezierCurveTo(385, 65, 305, 20, 220, 20);
+        ctx.lineTo(60, 20);
+        ctx.closePath();
+        ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = maxAnisotropy;
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthM, depthM), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = rotYRad;
+      mesh.position.set(x, 0.024, z);
+      mesh.renderOrder = 3;
+      scene.add(mesh);
+    };
+
+    // Helper to build combination arrow (Straight + Right Turn) and bold category letter ('B' or 'C') matching the aerial photo
+    const buildRoadComboTurnArrowWithLetter = (
+      letter: 'B' | 'C',
+      x: number,
+      z: number,
+      rotYRad = 0,
+      widthM = 3.8,
+      depthM = 1.9
+    ) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, 1024, 512);
+        ctx.fillStyle = '#f8fafc';
+
+        // 1. Straight arrow path pointing along +X (East)
+        ctx.beginPath();
+        ctx.moveTo(60, 125);
+        ctx.lineTo(390, 125);
+        ctx.lineTo(390, 75);
+        ctx.lineTo(530, 150);
+        ctx.lineTo(390, 225);
+        ctx.lineTo(390, 175);
+        ctx.lineTo(60, 175);
+        ctx.closePath();
+        ctx.fill();
+
+        // 2. Right-turn arrow branch curving down along +Z towards entrance
+        ctx.beginPath();
+        ctx.moveTo(230, 175);
+        ctx.bezierCurveTo(230, 270, 290, 340, 360, 360);
+        ctx.lineTo(335, 315);
+        ctx.lineTo(450, 380);
+        ctx.lineTo(375, 480);
+        ctx.lineTo(380, 425);
+        ctx.bezierCurveTo(280, 405, 175, 320, 175, 175);
+        ctx.closePath();
+        ctx.fill();
+
+        // 3. Bold letter ('B' or 'C') oriented matching the photo
+        ctx.save();
+        ctx.translate(680, 270);
+        ctx.rotate(Math.PI / 2);
+        ctx.font = '900 260px "Plus Jakarta Sans", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(letter, 0, 0);
+        ctx.restore();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = maxAnisotropy;
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthM, depthM), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = rotYRad;
+      mesh.position.set(x, 0.024, z);
+      mesh.renderOrder = 3;
+      scene.add(mesh);
+    };
+
 
     // Helper to build a 3D raised segmented concrete curb ("chắn tường đỏ trắng" / bó vỉa cứng)
     // Bricks are placed 100% flush (khít tuyệt đối, không để khe hở và không xếp thừa ra ngoài)
@@ -615,9 +914,106 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         );
         block.position.set(bx, curbHeight * 0.5 + 0.002, bz);
         block.rotation.y = angleY;
-        block.castShadow = true;
+        block.castShadow = !isMobileGPU;
         block.receiveShadow = true;
         scene.add(block);
+      }
+    };
+
+    // Solid flush corner curb cap block to seal any L-corner or T-corner between curbs (kín góc, khít tuyệt đối, không hở)
+    const buildCornerCurbBlock = (
+      cx: number,
+      cz: number,
+      sizeX = 0.22,
+      sizeZ = 0.22,
+      mat: THREE.Material = curbRedMat
+    ) => {
+      const block = new THREE.Mesh(
+        new THREE.BoxGeometry(sizeX, 0.12, sizeZ),
+        mat
+      );
+      block.position.set(cx, 0.12 * 0.5 + 0.002, cz);
+      block.castShadow = !isMobileGPU;
+      block.receiveShadow = true;
+      scene.add(block);
+    };
+
+    // Helper to build a 3D raised segmented curved concrete curb arc (bó vỉa uốn cong mịn, không góc nhọn nhô ra)
+    const buildCurvedCurbArc = (
+      cx: number,
+      cz: number,
+      radius: number,
+      startAngle: number,
+      endAngle: number,
+      curbHeight = 0.12,
+      curbWidth = 0.20,
+      startBlockOffset = 0,
+      segmentsPerBlock = 8
+    ) => {
+      const angleDiff = endAngle - startAngle;
+      const arcLen = radius * Math.abs(angleDiff);
+      if (arcLen < 0.05) return;
+      const numBlocks = Math.max(1, Math.round(arcLen / 0.85));
+      const rIn = Math.max(0.01, radius - curbWidth * 0.5);
+      const rOut = radius + curbWidth * 0.5;
+      const yBottom = 0.002;
+      const yTop = curbHeight + 0.002;
+
+      for (let b = 0; b < numBlocks; b++) {
+        const bStart = startAngle + angleDiff * (b / numBlocks);
+        const bEnd = startAngle + angleDiff * ((b + 1) / numBlocks);
+        const mat = (b + startBlockOffset) % 2 === 0 ? curbRedMat : curbWhiteMat;
+
+        const positions: number[] = [];
+        const indices: number[] = [];
+
+        for (let i = 0; i <= segmentsPerBlock; i++) {
+          const a = bStart + (bEnd - bStart) * (i / segmentsPerBlock);
+          const cosA = Math.cos(a);
+          const sinA = Math.sin(a);
+
+          const xIn = cx + rIn * cosA;
+          const zIn = cz + rIn * sinA;
+          const xOut = cx + rOut * cosA;
+          const zOut = cz + rOut * sinA;
+
+          positions.push(xIn, yTop, zIn);      // v0: Top inner
+          positions.push(xOut, yTop, zOut);    // v1: Top outer
+          positions.push(xIn, yBottom, zIn);   // v2: Bottom inner
+          positions.push(xOut, yBottom, zOut); // v3: Bottom outer
+
+          if (i < segmentsPerBlock) {
+            const base = i * 4;
+            const next = base + 4;
+            // Top face
+            indices.push(base + 0, base + 1, next + 0);
+            indices.push(base + 1, next + 1, next + 0);
+            // Outer wall
+            indices.push(base + 1, base + 3, next + 1);
+            indices.push(base + 3, next + 3, next + 1);
+            // Inner wall
+            indices.push(base + 2, base + 0, next + 2);
+            indices.push(base + 0, next + 0, next + 2);
+          }
+        }
+
+        // Start end cap
+        indices.push(0, 1, 2);
+        indices.push(1, 3, 2);
+        // End end cap
+        const lastBase = segmentsPerBlock * 4;
+        indices.push(lastBase + 1, lastBase + 0, lastBase + 3);
+        indices.push(lastBase + 0, lastBase + 2, lastBase + 3);
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = !isMobileGPU;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
       }
     };
 
@@ -642,6 +1038,88 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         intervals = next;
       }
       return intervals;
+    };
+
+    // Exact millimeter curb cutout spans, line cutout spans, and corner coordinates for every recess opening
+    // This guarantees zero sticking out ("không thò"), zero indentation ("không thụt"), and 100% flush L-joints
+    const RECESS_CURB_OPENINGS: Record<
+      string,
+      {
+        curbRange: [number, number];
+        lineRange: [number, number];
+        corners: number[];
+      }
+    > = {
+      rec_bai5_z_b_west: {
+        curbRange: [33.86, 38.14],
+        lineRange: [34.08, 37.92],
+        corners: [33.86, 38.14],
+      },
+      rec_bai5_z_c_west: {
+        curbRange: [23.80, 29.20],
+        lineRange: [24.02, 28.98],
+        corners: [23.80, 29.20],
+      },
+      rec_bai4_hang_b: {
+        curbRange: [21.36, 25.64],
+        lineRange: [21.58, 25.42],
+        corners: [21.36, 25.64],
+      },
+      rec_bai4_hang_c: {
+        curbRange: [10.80, 16.20],
+        lineRange: [11.02, 15.98],
+        corners: [10.80, 16.20],
+      },
+      rec_bai6_b_exit_neck: {
+        curbRange: [11.755, 16.245],
+        lineRange: [11.95, 16.05],
+        corners: [11.855, 16.145],
+      },
+      rec_bai6_b_entry_neck: {
+        curbRange: [11.755, 16.245],
+        lineRange: [11.95, 16.05],
+        corners: [11.855, 16.145],
+      },
+      rec_bai6_c_exit_neck: {
+        curbRange: [33.205, 38.795],
+        lineRange: [33.40, 38.60],
+        corners: [33.305, 38.695],
+      },
+      rec_bai6_c_entry_neck: {
+        curbRange: [33.205, 38.795],
+        lineRange: [33.40, 38.60],
+        corners: [33.305, 38.695],
+      },
+      rec_bai7_alley_c: {
+        curbRange: [-36.22, -24.78],
+        lineRange: [-36.22, -24.78],
+        corners: [-36.22, -24.78],
+      },
+      rec_bai7_alley_b: {
+        curbRange: [-62.22, -52.78],
+        lineRange: [-62.22, -52.78],
+        corners: [-62.22, -52.78],
+      },
+      rec_parallel_bay_b: {
+        curbRange: [-59.18, -51.18],
+        lineRange: [-58.9, -51.5],
+        corners: [-59.18, -51.18],
+      },
+      rec_bai_parallel_b: {
+        curbRange: [-59.18, -51.18],
+        lineRange: [-58.9, -51.5],
+        corners: [-59.18, -51.18],
+      },
+      rec_parallel_bay_c: {
+        curbRange: [-38.28, -30.0],
+        lineRange: [-38.0, -30.0],
+        corners: [-38.28, -30.0],
+      },
+      rec_bai_parallel_c: {
+        curbRange: [-38.28, -30.0],
+        lineRange: [-38.0, -30.0],
+        corners: [-38.28, -30.0],
+      },
     };
 
     // Helper to build a 3D raised concrete curb + parallel solid white road edge line along a grass island edge
@@ -669,20 +1147,25 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const curbCutouts: Array<[number, number]> = [];
         const lineCutouts: Array<[number, number]> = [];
 
-        // Cut out Bài 3 Hill-Start Ramp span (X in [-14.25..+23.25]) along South Track north edge (Z = 47.2)
-        // so the sloped concrete bridge has NO side curbs ("thanh chắn") and NO side edge lines ("vạch kẻ đường 2 bên")
+        // Cut out Bài 3 Hill-Start Ramp span (X in [-14.0..+23.0]) along South Track north edge (Z = 47.2)
+        // so the sloped concrete bridge connects flush with ground curbs without gaps or sticking blocks
         if (Math.abs(zEdge - 47.2) < 0.5) {
-          curbCutouts.push([-14.25, 23.25]);
-          lineCutouts.push([-14.25, 23.25]);
+          curbCutouts.push([-14.0, 23.0]);
+          lineCutouts.push([-14.0, 23.0]);
         }
 
         for (const rec of BLUEPRINT_PAVED_RECESSES) {
           const touchesEdge =
-            (outwardNormalZ < 0 && Math.abs(rec.minZ - zEdge) < 0.35) ||
-            (outwardNormalZ > 0 && Math.abs(rec.maxZ - zEdge) < 0.35);
+            (outwardNormalZ < 0 && Math.abs(rec.minZ - zEdge) < 0.65) ||
+            (outwardNormalZ > 0 && Math.abs(rec.maxZ - zEdge) < 0.65);
           if (touchesEdge && rec.maxX > minX && rec.minX < maxX) {
-            curbCutouts.push([rec.minX - 0.36, rec.maxX + 0.36]);
-            lineCutouts.push([rec.minX - 0.36, rec.maxX + 0.36]);
+            const spec = RECESS_CURB_OPENINGS[rec.id];
+            const cRange = spec ? spec.curbRange : ([rec.minX, rec.maxX] as [number, number]);
+            const lRange = spec ? spec.lineRange : ([rec.minX, rec.maxX] as [number, number]);
+            const cornerPts = spec ? spec.corners : [rec.minX, rec.maxX];
+
+            curbCutouts.push(cRange);
+            lineCutouts.push(lRange);
           }
         }
 
@@ -693,9 +1176,19 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
             (outwardNormalZ < 0 && Math.abs(otherIsl.maxZ - zEdge) < 0.15) ||
             (outwardNormalZ > 0 && Math.abs(otherIsl.minZ - zEdge) < 0.15);
           if (touchesIsland && otherIsl.maxX > minX && otherIsl.minX < maxX) {
-            curbCutouts.push([otherIsl.minX - 0.22, otherIsl.maxX + 0.22]);
-            lineCutouts.push([otherIsl.minX - 0.25, otherIsl.maxX + 0.25]);
+            curbCutouts.push([otherIsl.minX - 0.10, otherIsl.maxX + 0.10]);
+            lineCutouts.push([otherIsl.minX, otherIsl.maxX]);
           }
+        }
+
+        // Cutout for smooth rounded curved corners at North T-junction (khớp 100% Ảnh 1)
+        if (currentIslId === 'isl_nw_parking' && outwardNormalZ < 0 && Math.abs(zEdge - -47.0) < 0.2) {
+          curbCutouts.push([-12.1, -9.8]);
+          lineCutouts.push([-12.1, -9.8]);
+        }
+        if (currentIslId === 'isl_ne_scurve' && outwardNormalZ < 0 && Math.abs(zEdge - -47.0) < 0.2) {
+          curbCutouts.push([-3.2, -0.9]);
+          lineCutouts.push([-3.2, -0.9]);
         }
 
         // Horizontal island curbs extend by halfCurb (0.10m) at outer corners to form flush L-joints with vertical island curbs
@@ -716,14 +1209,14 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           );
         }
 
-        const lineZ = zEdge + outwardNormalZ * 0.24;
+        const lineZ = zEdge + outwardNormalZ * 0.22;
         const lineSegments = subtract1DIntervals(
-          minX - 0.24,
-          maxX + 0.24,
+          minX - 0.28,
+          maxX + 0.28,
           lineCutouts
         );
         for (const [w0, w1] of lineSegments) {
-          buildAngledFlatLine(w0, lineZ, w1, lineZ, 0.14, 0.060, whiteMarkingMat);
+          buildAngledFlatLine(w0, lineZ, w1, lineZ, 0.12, 0.060, whiteMarkingMat);
         }
       } else {
         const xEdge = x1;
@@ -736,11 +1229,16 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
 
         for (const rec of BLUEPRINT_PAVED_RECESSES) {
           const touchesEdge =
-            (outwardNormalX < 0 && Math.abs(rec.minX - xEdge) < 0.35) ||
-            (outwardNormalX > 0 && Math.abs(rec.maxX - xEdge) < 0.35);
+            (outwardNormalX < 0 && Math.abs(rec.minX - xEdge) < 0.65) ||
+            (outwardNormalX > 0 && Math.abs(rec.maxX - xEdge) < 0.65);
           if (touchesEdge && rec.maxZ > minZ && rec.minZ < maxZ) {
-            curbCutouts.push([rec.minZ - 0.36, rec.maxZ + 0.36]);
-            lineCutouts.push([rec.minZ - 0.36, rec.maxZ + 0.36]);
+            const spec = RECESS_CURB_OPENINGS[rec.id];
+            const cRange = spec ? spec.curbRange : ([rec.minZ, rec.maxZ] as [number, number]);
+            const lRange = spec ? spec.lineRange : ([rec.minZ, rec.maxZ] as [number, number]);
+            const cornerPts = spec ? spec.corners : [rec.minZ, rec.maxZ];
+
+            curbCutouts.push(cRange);
+            lineCutouts.push(lRange);
           }
         }
 
@@ -751,15 +1249,25 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
             (outwardNormalX < 0 && Math.abs(otherIsl.maxX - xEdge) < 0.15) ||
             (outwardNormalX > 0 && Math.abs(otherIsl.minX - xEdge) < 0.15);
           if (touchesIsland && otherIsl.maxZ > minZ && otherIsl.minZ < maxZ) {
-            curbCutouts.push([otherIsl.minZ - 0.22, otherIsl.maxZ + 0.22]);
-            lineCutouts.push([otherIsl.minZ - 0.25, otherIsl.maxZ + 0.25]);
+            curbCutouts.push([otherIsl.minZ - 0.10, otherIsl.maxZ + 0.10]);
+            lineCutouts.push([otherIsl.minZ, otherIsl.maxZ]);
           }
         }
 
-        // Vertical island curbs butt flush against the horizontal island curbs at minZ + halfCurb and maxZ - halfCurb
+        // Cutout for smooth rounded curved corners at North T-junction (khớp 100% Ảnh 1)
+        if (currentIslId === 'isl_nw_parking' && outwardNormalX > 0 && Math.abs(xEdge - -10.0) < 0.2) {
+          curbCutouts.push([-47.2, -44.9]);
+          lineCutouts.push([-47.2, -44.9]);
+        }
+        if (currentIslId === 'isl_ne_scurve' && outwardNormalX < 0 && Math.abs(xEdge - -3.0) < 0.2) {
+          curbCutouts.push([-47.2, -44.9]);
+          lineCutouts.push([-47.2, -44.9]);
+        }
+
+        // Vertical island curbs butt flush against the horizontal island curbs at minZ - halfCurb and maxZ + halfCurb
         const curbSegments = subtract1DIntervals(
-          minZ + halfCurb,
-          maxZ - halfCurb,
+          minZ - halfCurb,
+          maxZ + halfCurb,
           curbCutouts
         );
         for (const [s0, s1] of curbSegments) {
@@ -774,46 +1282,56 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           );
         }
 
-        const lineX = xEdge + outwardNormalX * 0.24;
+        const lineX = xEdge + outwardNormalX * 0.22;
         const lineSegments = subtract1DIntervals(
-          minZ - 0.24,
-          maxZ + 0.24,
+          minZ - 0.28,
+          maxZ + 0.28,
           lineCutouts
         );
         for (const [w0, w1] of lineSegments) {
-          buildAngledFlatLine(lineX, w0, lineX, w1, 0.14, 0.060, whiteMarkingMat);
+          buildAngledFlatLine(lineX, w0, lineX, w1, 0.12, 0.060, whiteMarkingMat);
         }
       }
     };
 
-    // Outer Course Perimeter Curbs & Solid White Outer Road Edge Lines
-    // Framed tightly around the 5.6m outer tracks: X in [-79.3..+79.3], Z in [-54.8..+52.8]
-    // South edge (Z = 52.9 / 52.65) is split around Bài 3 Ramp (X in [-14.25..+23.25]) so the ramp has NO side curbs or edge lines!
-    buildSegmentedCurbSegment(-79.51, -54.9, 79.51, -54.9, false, 0.12, 0.22);
-    buildSegmentedCurbSegment(-79.51, 52.9, -14.25, 52.9, false, 0.12, 0.22);
-    buildSegmentedCurbSegment(23.25, 52.9, 79.51, 52.9, false, 0.12, 0.22);
-    buildSegmentedCurbSegment(-79.4, -54.79, -79.4, 52.79, false, 0.12, 0.22);
-    buildSegmentedCurbSegment(79.4, -54.79, 79.4, 52.79, false, 0.12, 0.22);
+    // Outer Course Perimeter Curbs (vỉa hè bên ngoài sân sát hạch)
+    // South edge (Z = 52.9) connects flush with Bài 3 Ramp deck at X = -14.0m and X = +23.0m
+    // North edge (Z = -58.90) forms the outer curb along the wall for Bài 9 Tăng tốc & đường vào Bài 7
+    buildSegmentedCurbSegment(-80.91, -58.90, 79.51, -58.90, false, 0.12, 0.22);
+    buildSegmentedCurbSegment(-80.91, 52.9, -14.0, 52.9, false, 0.12, 0.22);
+    buildSegmentedCurbSegment(23.0, 52.9, 79.51, 52.9, false, 0.12, 0.22);
+    buildSegmentedCurbSegment(-80.80, -58.79, -80.80, 52.79, false, 0.12, 0.22);
+    buildSegmentedCurbSegment(79.4, -58.79, 79.4, 52.79, false, 0.12, 0.22);
+    buildCornerCurbBlock(-80.80, -58.90, 0.24, 0.24);
+    buildCornerCurbBlock(79.4, -58.90, 0.24, 0.24);
+    buildCornerCurbBlock(-80.80, 52.9, 0.24, 0.24);
+    buildCornerCurbBlock(79.4, 52.9, 0.24, 0.24);
 
-    // Continuous solid white road edge lines along the 4 outer perimeter tracks (inset 0.24m from outer curb, clipped at Bài 3 ramp)
-    buildAngledFlatLine(-79.15, -54.65, 79.15, -54.65, 0.14, 0.060, whiteMarkingMat);
-    buildAngledFlatLine(-79.15, 52.65, -14.25, 52.65, 0.14, 0.060, whiteMarkingMat);
-    buildAngledFlatLine(23.25, 52.65, 79.15, 52.65, 0.14, 0.060, whiteMarkingMat);
-    buildAngledFlatLine(-79.15, -54.65, -79.15, 52.65, 0.14, 0.060, whiteMarkingMat);
-    buildAngledFlatLine(79.15, -54.65, 79.15, 52.65, 0.14, 0.060, whiteMarkingMat);
+    // Continuous solid white edge lines on the outer perimeter roads forming 100% closed 2-sided road boundaries ("vạch đường 2 bên")
+    buildAngledFlatLine(-80.58, -58.68, 79.18, -58.68, 0.12, 0.060, whiteMarkingMat); // North outer road line
+    buildAngledFlatLine(79.18, -58.68, 79.18, 52.68, 0.12, 0.060, whiteMarkingMat);   // East outer road line
+    buildAngledFlatLine(-80.58, 52.68, -14.0, 52.68, 0.12, 0.060, whiteMarkingMat);   // South outer road line (West of ramp)
+    buildAngledFlatLine(23.0, 52.68, 79.18, 52.68, 0.12, 0.060, whiteMarkingMat);    // South outer road line (East of ramp)
+    buildAngledFlatLine(-80.58, -58.68, -80.58, 52.68, 0.12, 0.060, whiteMarkingMat); // West outer road line
+    for (const [ocx, ocz] of [[-80.58, -58.68], [79.18, -58.68], [-80.58, 52.68], [79.18, 52.68]]) {
+      buildFlatLineRect(ocx, ocz, 0.16, 0.16, 0.060, whiteMarkingMat);
+    }
 
-    // 1. Generate all Sculpted Concrete Sidewalk Islands with Flush Plane Base (y = 0.001) & Red-White Curbs
-    // Using a zero-thickness PlaneGeometry at y = 0.001 prevents any exposed vertical box face from appearing across exercise entrances!
+    // 1. Generate all Sculpted Green Lawn Islands with Flush Plane Base & Red-White Curbs
     const islandGrassMat = new THREE.MeshStandardMaterial({
-      map: sidewalkPaverTex,
-      color: 0xcbd5e1,
-      roughness: 0.86,
-      metalness: 0.03,
+      map: grassTex,
+      color: 0x22c55e,
+      roughness: 0.82,
+      metalness: 0.02,
     });
 
     for (const isl of BLUEPRINT_GRASS_ISLANDS) {
-      const w = isl.maxX - isl.minX;
-      const d = isl.maxZ - isl.minZ;
+      // Inset grass plane slightly (0.12m) inside the 0.20m-wide perimeter curbs
+      // so grass geometry never bleeds or protrudes past the curb outer edge onto the asphalt roadway
+      const insetX = 0.12;
+      const insetZ = 0.12;
+      const w = Math.max(0.1, isl.maxX - isl.minX - insetX * 2);
+      const d = Math.max(0.1, isl.maxZ - isl.minZ - insetZ * 2);
       const cx = (isl.minX + isl.maxX) * 0.5;
       const cz = (isl.minZ + isl.maxZ) * 0.5;
 
@@ -822,9 +1340,25 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         islandGrassMat
       );
       turf.rotation.x = -Math.PI / 2;
-      turf.position.set(cx, 0.001, cz);
+      turf.position.set(cx, 0.008, cz);
+      turf.renderOrder = 1;
       turf.receiveShadow = true;
       scene.add(turf);
+
+      // Continuous closed curb caps and white line patches at all 4 L-corners of each island
+      for (const [capX, capZ, nx, nz] of [
+        [isl.minX, isl.minZ, -1, -1],
+        [isl.maxX, isl.minZ,  1, -1],
+        [isl.minX, isl.maxZ, -1,  1],
+        [isl.maxX, isl.maxZ,  1,  1],
+      ]) {
+        // Skip North T-junction corners which have realistic smooth rounded curved curb arcs (khớp ảnh thực tế)
+        if (isl.id === 'isl_nw_parking' && capX === isl.maxX && capZ === isl.minZ) continue;
+        if (isl.id === 'isl_ne_scurve' && capX === isl.minX && capZ === isl.minZ) continue;
+
+        buildCornerCurbBlock(capX, capZ, 0.22, 0.22);
+        buildFlatLineRect(capX + nx * 0.22, capZ + nz * 0.22, 0.16, 0.16, 0.060, whiteMarkingMat);
+      }
 
       // Raised Red-White concrete curbs + parallel solid white road edge lines on all 4 sides of each island
       buildIslandCurbWithOpenings(isl.id, isl.minX, isl.minZ, isl.maxX, isl.minZ, 0, -1, 0.12, 0.20);
@@ -833,15 +1367,183 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       buildIslandCurbWithOpenings(isl.id, isl.maxX, isl.minZ, isl.maxX, isl.maxZ, 1, 0, 0.12, 0.20);
     }
 
-    // 2. Generate 100% Seamless World-UV Asphalt Patches for all Exercise Corridors (y = 0.003, ZERO height step & identical texture to mainPad!)
+    // North Road T-Junction: Authentic Curved Corner Curbs, Curved White Lines & Asphalt Corners (Khớp 100% Ảnh 1)
+    // 1. Góc cua rẽ trái Tây-Bắc (isl_nw_parking): Bo cong bán kính R = 2.0m nối từ (X=-10.0, Z=-45.0) đến (X=-12.0, Z=-47.0)
+    buildCurvedCurbArc(-12.0, -45.0, 2.0, -Math.PI / 2, 0, 0.12, 0.20, 1, 12);
+    const numArcSteps = 16;
+    for (let i = 0; i < numArcSteps; i++) {
+      const a1 = -Math.PI / 2 + (i / numArcSteps) * (Math.PI / 2);
+      const a2 = -Math.PI / 2 + ((i + 1) / numArcSteps) * (Math.PI / 2);
+      const rLine = 2.22;
+      const x1 = -12.0 + rLine * Math.cos(a1);
+      const z1 = -45.0 + rLine * Math.sin(a1);
+      const x2 = -12.0 + rLine * Math.cos(a2);
+      const z2 = -45.0 + rLine * Math.sin(a2);
+      buildAngledFlatLine(x1, z1, x2, z2, 0.12, 0.060, whiteMarkingMat);
+    }
+    // Miếng vá asphalt phẳng che phần góc vuông turf bên ngoài cung bo cong
+    {
+      const positions: number[] = [];
+      const indices: number[] = [];
+      positions.push(-10.0, 0.009, -47.0);
+      for (let i = 0; i <= numArcSteps; i++) {
+        const a = -Math.PI / 2 + (i / numArcSteps) * (Math.PI / 2);
+        positions.push(-12.0 + 2.10 * Math.cos(a), 0.009, -45.0 + 2.10 * Math.sin(a));
+      }
+      for (let i = 1; i <= numArcSteps; i++) {
+        indices.push(0, i, i + 1);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, roadMat);
+      m.renderOrder = 2;
+      m.receiveShadow = true;
+      scene.add(m);
+    }
+
+    // 2. Góc cua rẽ phải Đông-Bắc (isl_ne_scurve): Bo cong bán kính R = 2.0m nối từ (X=-3.0, Z=-45.0) đến (X=-1.0, Z=-47.0)
+    buildCurvedCurbArc(-1.0, -45.0, 2.0, -Math.PI, -Math.PI / 2, 0.12, 0.20, 0, 12);
+    for (let i = 0; i < numArcSteps; i++) {
+      const a1 = -Math.PI + (i / numArcSteps) * (Math.PI / 2);
+      const a2 = -Math.PI + ((i + 1) / numArcSteps) * (Math.PI / 2);
+      const rLine = 2.22;
+      const x1 = -1.0 + rLine * Math.cos(a1);
+      const z1 = -45.0 + rLine * Math.sin(a1);
+      const x2 = -1.0 + rLine * Math.cos(a2);
+      const z2 = -45.0 + rLine * Math.sin(a2);
+      buildAngledFlatLine(x1, z1, x2, z2, 0.12, 0.060, whiteMarkingMat);
+    }
+    {
+      const positions: number[] = [];
+      const indices: number[] = [];
+      positions.push(-3.0, 0.009, -47.0);
+      for (let i = 0; i <= numArcSteps; i++) {
+        const a = -Math.PI + (i / numArcSteps) * (Math.PI / 2);
+        positions.push(-1.0 + 2.10 * Math.cos(a), 0.009, -45.0 + 2.10 * Math.sin(a));
+      }
+      for (let i = 1; i <= numArcSteps; i++) {
+        indices.push(0, i, i + 1);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      const m = new THREE.Mesh(geo, roadMat);
+      m.renderOrder = 2;
+      m.receiveShadow = true;
+      scene.add(m);
+    }
+
+    // 2. Generate Asphalt Pavement for Recesses and Parking Stalls (rec.isConcreteBay)
     for (const rec of BLUEPRINT_PAVED_RECESSES) {
-      const [u0, v0] = worldToRoadUV(rec.minX, rec.minZ);
-      const [u1, v1] = worldToRoadUV(rec.maxX, rec.maxZ);
+      if (rec.id.startsWith('rec_bai6_')) continue; // Bài 6 has its own continuous curved S-curve road mesh below
+      const spec = RECESS_CURB_OPENINGS[rec.id];
+      let pMinX = rec.minX;
+      let pMaxX = rec.maxX;
+      let pMinZ = rec.minZ;
+      let pMaxZ = rec.maxZ;
+
+      if (spec) {
+        // Expand along opening dimension to cover the full curbRange plus 0.20m under curb blocks
+        const isXOpening =
+          Math.abs(spec.curbRange[0] - rec.minX) < 2.0 &&
+          Math.abs(spec.curbRange[1] - rec.maxX) < 2.0;
+        const isZOpening =
+          Math.abs(spec.curbRange[0] - rec.minZ) < 2.0 &&
+          Math.abs(spec.curbRange[1] - rec.maxZ) < 2.0;
+
+        if (isXOpening) {
+          pMinX = Math.min(pMinX, spec.curbRange[0] - 0.20);
+          pMaxX = Math.max(pMaxX, spec.curbRange[1] + 0.20);
+        }
+        if (isZOpening) {
+          pMinZ = Math.min(pMinZ, spec.curbRange[0] - 0.20);
+          pMaxZ = Math.max(pMaxZ, spec.curbRange[1] + 0.20);
+        }
+      }
+
+      // Concrete parking bays & dead-end recesses: expand asphalt under curbs on all closed sides and into access alley/road
+      if (rec.id === 'rec_bai7_bay_b') {
+        pMinX = Math.min(pMinX, -54.2); // expands into alley at X = -53.0
+        pMaxX = Math.max(pMaxX, -47.0); // under back curb at -47.28
+        pMinZ = Math.min(pMinZ, -27.7); // under North curb at -27.42
+        pMaxZ = Math.max(pMaxZ, -24.3); // under South curb at -24.58
+      } else if (rec.id === 'rec_bai7_bay_c') {
+        pMinX = Math.min(pMinX, -26.2); // expands into alley at X = -25.0
+        pMaxX = Math.max(pMaxX, -15.5); // under back curb at -15.78
+        pMinZ = Math.min(pMinZ, -27.95); // under North curb at -27.67
+        pMaxZ = Math.max(pMaxZ, -24.05); // under South curb at -24.33
+      } else if (rec.id === 'rec_bai7_alley_b') {
+        pMinX = Math.min(pMinX, -62.45); // under West curb at -62.22
+        pMaxX = Math.max(pMaxX, -52.55); // under East curb at -52.78
+        pMinZ = Math.min(pMinZ, -50.8);  // into North road
+        pMaxZ = Math.max(pMaxZ, -15.6);  // under South cul-de-sac curb
+      } else if (rec.id === 'rec_bai7_alley_c') {
+        pMinX = Math.min(pMinX, -36.45); // under West curb at -36.22
+        pMaxX = Math.max(pMaxX, -24.55); // under East curb at -24.78
+        pMinZ = Math.min(pMinZ, -50.8);  // into North road
+        pMaxZ = Math.max(pMaxZ, -11.6);  // under South cul-de-sac curb
+      } else if (rec.id === 'rec_bai_parallel_b' || rec.id === 'rec_parallel_bay_b') {
+        pMinX = Math.min(pMinX, -59.35); // under West curb at -58.9
+        pMaxX = Math.max(pMaxX, -51.05); // under East curb at -51.5
+        pMinZ = Math.min(pMinZ, 4.2);    // extends into road at Z = 5.0
+        pMaxZ = Math.max(pMaxZ, 7.65);   // under South curb at 7.42
+      } else if (rec.id === 'rec_bai_parallel_c' || rec.id === 'rec_parallel_bay_c') {
+        pMinX = Math.min(pMinX, -38.45); // under West curb at -38.0
+        pMaxX = Math.max(pMaxX, -29.55); // under East curb at -30.0
+        pMinZ = Math.min(pMinZ, 4.2);    // extends into road at Z = 5.0
+        pMaxZ = Math.max(pMaxZ, 8.55);   // under South curb at 8.32
+      } else if (rec.id === 'rec_bai4_hang_b') {
+        pMinZ = Math.min(pMinZ, 21.15); // under North curb at 21.36
+        pMaxZ = Math.max(pMaxZ, 25.85); // under South curb at 25.64
+        pMaxX = Math.max(pMaxX, 75.2);  // extends into East road
+      } else if (rec.id === 'rec_bai4_hang_c') {
+        pMinZ = Math.min(pMinZ, 10.60); // under North curb at 10.80
+        pMaxZ = Math.max(pMaxZ, 16.40); // under South curb at 16.20
+        pMaxX = Math.max(pMaxX, 75.2);  // extends into East road
+      } else if (rec.id === 'rec_bai5_z_b_down') {
+        pMinX = Math.min(pMinX, 22.85); // under West curb at 23.08
+        pMaxX = Math.max(pMaxX, 27.15); // under East curb at 26.92
+      } else if (rec.id === 'rec_bai5_z_c_down') {
+        pMinX = Math.min(pMinX, 10.30); // under West curb at 10.52
+        pMaxX = Math.max(pMaxX, 15.70); // under East curb at 15.48
+      } else if (rec.id === 'rec_bai5_z_b_west') {
+        pMinZ = Math.min(pMinZ, 33.85); // under North curb at 34.08
+        pMaxZ = Math.max(pMaxZ, 38.15); // under South curb at 37.92
+        pMinX = Math.min(pMinX, -4.5);  // into central vertical road
+      } else if (rec.id === 'rec_bai5_z_c_west') {
+        pMinZ = Math.min(pMinZ, 23.80); // under North curb at 24.02
+        pMaxZ = Math.max(pMaxZ, 29.20); // under South curb at 28.98
+        pMinX = Math.min(pMinX, -4.5);  // into central vertical road
+      }
+
+      // Extend mouth into connecting main roadway so there is zero asphalt-to-grass seam
+      if (rec.minX <= -3.0 && rec.minX >= -4.0) {
+        pMinX = Math.min(pMinX, -4.5);
+      }
+      if (rec.maxX >= 73.0 && rec.maxX <= 75.0) {
+        pMaxX = Math.max(pMaxX, 75.2);
+      }
+      if (rec.minZ <= -49.0 && rec.minZ >= -50.0) {
+        pMinZ = Math.min(pMinZ, -50.8);
+      }
+      if (rec.maxZ >= -2.0 && rec.minZ < -3.0) {
+        pMaxZ = Math.max(pMaxZ, -0.5);
+      }
+      if (rec.minZ <= 5.0 && rec.maxZ > 5.0) {
+        pMinZ = Math.min(pMinZ, 4.2);
+      }
+
+      const [u0, v0] = worldToRoadUV(pMinX, pMinZ);
+      const [u1, v1] = worldToRoadUV(pMaxX, pMaxZ);
+      const yLevel = 0.012; // all paved recesses sit above island grass
       const positions = new Float32Array([
-        rec.minX, 0.003, rec.minZ,
-        rec.maxX, 0.003, rec.minZ,
-        rec.minX, 0.003, rec.maxZ,
-        rec.maxX, 0.003, rec.maxZ,
+        pMinX, yLevel, pMinZ,
+        pMaxX, yLevel, pMinZ,
+        pMinX, yLevel, pMaxZ,
+        pMaxX, yLevel, pMaxZ,
       ]);
       const normals = new Float32Array([
         0, 1, 0,
@@ -861,57 +1563,377 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       patchGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       patchGeo.setIndex([0, 2, 1, 1, 2, 3]);
 
-      const patchMesh = new THREE.Mesh(
-        patchGeo,
-        rec.isConcreteBay ? concreteRecessMat : roadMat
-      );
+      // All recesses including parking stall bays use asphalt material so stalls are never green grass
+      const patchMesh = new THREE.Mesh(patchGeo, roadMat);
+      patchMesh.renderOrder = 3;
       patchMesh.receiveShadow = true;
       scene.add(patchMesh);
     }
 
-    // 2B. Generate True Smooth Curved World-UV Asphalt Ribbon for Bài 6 S-Curve Corridors (Hạng C & Hạng B)
-    for (const sLane of BLUEPRINT_SCURVE_LANES) {
-      const nPts = sLane.centerPoints.length;
-      const positions: number[] = [];
-      const normals: number[] = [];
-      const uvs: number[] = [];
-      const indices: number[] = [];
-      const shoulderMargin = 0.16;
+    // ============================================================================
+    // 2B. BÀI 6 (ĐƯỜNG VÒNG QUANH CO CHỮ S): SMOOTH PAVEMENT & CURVED RED-WHITE CURBS
+    // ============================================================================
+    for (const lane of BLUEPRINT_SCURVE_LANES) {
+      const hw = lane.halfWidthM;
+      const baseCX = lane.baseCenterX;
 
-      for (let i = 0; i < nPts; i++) {
-        const c = sLane.centerPoints[i];
-        const l = sLane.leftEdgePoints[i];
-        const r = sLane.rightEdgePoints[i];
-        const dxL = l.x - c.x;
-        const dzL = l.z - c.z;
-        const lenL = Math.hypot(dxL, dzL) || 1;
-        const lx = l.x + (dxL / lenL) * shoulderMargin;
-        const lz = l.z + (dzL / lenL) * shoulderMargin;
-        const rx = r.x - (dxL / lenL) * shoulderMargin;
-        const rz = r.z - (dzL / lenL) * shoulderMargin;
+      // 1. Build continuous sequence of centerline points from North road (Z = -47.4m) to South road (Z = -1.60m)
+      const centerPath: Array<{ x: number; z: number }> = [];
+      // North entry straight neck (extends 0.4m into North crossroad)
+      for (let z = -47.4; z < -44.2; z += 0.4) {
+        centerPath.push({ x: baseCX, z: Number(z.toFixed(2)) });
+      }
+      // S-curve curve points (from Z = -44.0 to Z = -7.0)
+      for (const pt of lane.centerPoints) {
+        centerPath.push({ x: pt.x, z: pt.z });
+      }
+      // South exit straight neck (extends 0.4m into South crossroad)
+      for (let z = -6.6; z <= -1.61; z += 0.4) {
+        centerPath.push({ x: baseCX, z: Number(z.toFixed(2)) });
+      }
+      centerPath.push({ x: baseCX, z: -1.60 });
 
-        positions.push(lx, 0.003, lz, rx, 0.003, rz);
-        normals.push(0, 1, 0, 0, 1, 0);
-        const [uL, vL] = worldToRoadUV(lx, lz);
-        const [uR, vR] = worldToRoadUV(rx, rz);
-        uvs.push(uL, vL, uR, vR);
+      const numPts = centerPath.length;
 
-        if (i < nPts - 1) {
-          const base = i * 2;
-          indices.push(base, base + 2, base + 1);
-          indices.push(base + 1, base + 2, base + 3);
-        }
+      // 2. Compute smooth unit normals along the path (pointing East +X, right side)
+      const normals: Array<{ x: number; z: number }> = [];
+      for (let i = 0; i < numPts; i++) {
+        const pPrev = centerPath[Math.max(0, i - 1)];
+        const pNext = centerPath[Math.min(numPts - 1, i + 1)];
+        const dx = pNext.x - pPrev.x;
+        const dz = pNext.z - pPrev.z;
+        const len = Math.hypot(dx, dz) || 1;
+        normals.push({ x: dz / len, z: -dx / len });
       }
 
-      const ribbonGeo = new THREE.BufferGeometry();
-      ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      ribbonGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-      ribbonGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-      ribbonGeo.setIndex(indices);
+      // 3. Generate Continuous Paved Asphalt Road Surface (spanning beyond the curbs to eliminate any grass gaps)
+      const roadAsphaltPositions: number[] = [];
+      const roadAsphaltUvs: number[] = [];
+      const roadAsphaltIndices: number[] = [];
+      const asphaltHalfW = hw + 0.38; // extends cleanly beyond the curb outer footprint
 
-      const ribbonMesh = new THREE.Mesh(ribbonGeo, roadMat);
-      ribbonMesh.receiveShadow = true;
-      scene.add(ribbonMesh);
+      for (let i = 0; i < numPts; i++) {
+        const c = centerPath[i];
+        const n = normals[i];
+        const leftX = c.x - n.x * asphaltHalfW;
+        const leftZ = c.z - n.z * asphaltHalfW;
+        const rightX = c.x + n.x * asphaltHalfW;
+        const rightZ = c.z + n.z * asphaltHalfW;
+
+        // Smooth elevation: 0.014 inside island, sloping gently to 0.002 at mouths in crossroads
+        let yH = 0.014;
+        if (c.z < -47.00) {
+          const t = Math.max(0, Math.min(1, (c.z - (-47.40)) / 0.40));
+          yH = 0.002 + 0.012 * t;
+        } else if (c.z > -2.00) {
+          const t = Math.max(0, Math.min(1, (-1.60 - c.z) / 0.40));
+          yH = 0.002 + 0.012 * t;
+        }
+
+        roadAsphaltPositions.push(leftX, yH, leftZ);
+        const [uL, vL] = worldToRoadUV(leftX, leftZ);
+        roadAsphaltUvs.push(uL, vL);
+
+        roadAsphaltPositions.push(rightX, yH, rightZ);
+        const [uR, vR] = worldToRoadUV(rightX, rightZ);
+        roadAsphaltUvs.push(uR, vR);
+      }
+
+      for (let i = 0; i < numPts - 1; i++) {
+        const i0 = i * 2;
+        const i1 = i * 2 + 1;
+        const i2 = (i + 1) * 2;
+        const i3 = (i + 1) * 2 + 1;
+        roadAsphaltIndices.push(i0, i1, i2, i1, i3, i2);
+      }
+
+      const roadAsphaltGeo = new THREE.BufferGeometry();
+      roadAsphaltGeo.setAttribute('position', new THREE.Float32BufferAttribute(roadAsphaltPositions, 3));
+      roadAsphaltGeo.setAttribute('uv', new THREE.Float32BufferAttribute(roadAsphaltUvs, 2));
+      roadAsphaltGeo.setIndex(roadAsphaltIndices);
+      roadAsphaltGeo.computeVertexNormals();
+
+      const roadAsphaltMesh = new THREE.Mesh(roadAsphaltGeo, roadMat);
+      roadAsphaltMesh.renderOrder = 3;
+      roadAsphaltMesh.receiveShadow = true;
+      scene.add(roadAsphaltMesh);
+
+      // 4. Generate Smooth Curved Red-White Curbs (alternating every 1.0m, silky smooth geometry)
+      const buildSmoothSCurveCurb = (isLeft: boolean) => {
+        const curbDist = hw + 0.22;
+        const curbWidth = 0.20;
+        const halfCW = curbWidth * 0.5; // 0.10m
+        const curbH = 0.12;
+        const yBase = 0.002;
+        const yTop = yBase + curbH; // 0.122m (exact same height as segmented curbs)
+
+        // Collect curb centerline points strictly within Z = -47.00 to Z = -2.00
+        const curbCenterPts: Array<{ x: number; z: number }> = [];
+        for (let i = 0; i < numPts; i++) {
+          const c = centerPath[i];
+          if (c.z < -47.00 || c.z > -2.00) continue;
+          const n = normals[i];
+          const sign = isLeft ? -1 : 1;
+          curbCenterPts.push({
+            x: c.x + sign * n.x * curbDist,
+            z: c.z + sign * n.z * curbDist,
+          });
+        }
+        if (curbCenterPts.length === 0) return;
+        const sign = isLeft ? -1 : 1;
+        const curbFirst = { x: baseCX + sign * curbDist, z: -47.00 };
+        const curbLast = { x: baseCX + sign * curbDist, z: -2.00 };
+        if (Math.abs(curbCenterPts[0].z - (-47.00)) > 0.05) {
+          curbCenterPts.unshift(curbFirst);
+        } else {
+          curbCenterPts[0] = curbFirst;
+        }
+        if (Math.abs(curbCenterPts[curbCenterPts.length - 1].z - (-2.00)) > 0.05) {
+          curbCenterPts.push(curbLast);
+        } else {
+          curbCenterPts[curbCenterPts.length - 1] = curbLast;
+        }
+
+        // Subdivide densely (step <= 0.25m) so the curvature is ultra-smooth
+        const densePts: Array<{ x: number; z: number; dist: number }> = [];
+        let totalDist = 0;
+        densePts.push({ x: curbCenterPts[0].x, z: curbCenterPts[0].z, dist: 0 });
+
+        for (let i = 0; i < curbCenterPts.length - 1; i++) {
+          const pA = curbCenterPts[i];
+          const pB = curbCenterPts[i + 1];
+          const segLen = Math.hypot(pB.x - pA.x, pB.z - pA.z);
+          const subSteps = Math.max(1, Math.ceil(segLen / 0.25));
+          for (let s = 1; s <= subSteps; s++) {
+            const frac = s / subSteps;
+            const px = pA.x + (pB.x - pA.x) * frac;
+            const pz = pA.z + (pB.z - pA.z) * frac;
+            totalDist += segLen / subSteps;
+            densePts.push({ x: px, z: pz, dist: totalDist });
+          }
+        }
+
+        const redPos: number[] = [];
+        const redIndices: number[] = [];
+        const whitePos: number[] = [];
+        const whiteIndices: number[] = [];
+
+        // For each dense step, compute tangent & outward normal (facing grass)
+        for (let i = 0; i < densePts.length - 1; i++) {
+          const pt0 = densePts[i];
+          const pt1 = densePts[i + 1];
+          const midDist = (pt0.dist + pt1.dist) * 0.5;
+          const blockIdx = Math.floor(midDist / 1.0);
+          const isRed = blockIdx % 2 === 0;
+
+          const targetPos = isRed ? redPos : whitePos;
+          const targetIndices = isRed ? redIndices : whiteIndices;
+
+          const dx0 = pt1.x - pt0.x;
+          const dz0 = pt1.z - pt0.z;
+          const len0 = Math.hypot(dx0, dz0) || 1;
+          const outX = isLeft ? -dz0 / len0 : dz0 / len0;
+          const outZ = isLeft ? dx0 / len0 : -dx0 / len0;
+
+          // Corner points at pt0
+          const inB0 = [pt0.x - outX * halfCW, yBase, pt0.z - outZ * halfCW];
+          const inT0 = [pt0.x - outX * halfCW, yTop, pt0.z - outZ * halfCW];
+          const outT0 = [pt0.x + outX * halfCW, yTop, pt0.z + outZ * halfCW];
+          const outB0 = [pt0.x + outX * halfCW, yBase, pt0.z + outZ * halfCW];
+
+          // Corner points at pt1
+          const inB1 = [pt1.x - outX * halfCW, yBase, pt1.z - outZ * halfCW];
+          const inT1 = [pt1.x - outX * halfCW, yTop, pt1.z - outZ * halfCW];
+          const outT1 = [pt1.x + outX * halfCW, yTop, pt1.z + outZ * halfCW];
+          const outB1 = [pt1.x + outX * halfCW, yBase, pt1.z + outZ * halfCW];
+
+          // Top face (2 triangles)
+          const baseVTop = targetPos.length / 3;
+          targetPos.push(...inT0, ...outT0, ...inT1, ...outT1);
+          targetIndices.push(
+            baseVTop, baseVTop + 2, baseVTop + 1,
+            baseVTop + 1, baseVTop + 2, baseVTop + 3
+          );
+
+          // Inner wall (road-facing, 2 triangles)
+          const baseVIn = targetPos.length / 3;
+          targetPos.push(...inB0, ...inT0, ...inB1, ...inT1);
+          targetIndices.push(
+            baseVIn, baseVIn + 1, baseVIn + 2,
+            baseVIn + 1, baseVIn + 3, baseVIn + 2
+          );
+
+          // Outer wall (grass-facing, 2 triangles)
+          const baseVOut = targetPos.length / 3;
+          targetPos.push(...outB0, ...outT0, ...outB1, ...outT1);
+          targetIndices.push(
+            baseVOut, baseVOut + 2, baseVOut + 1,
+            baseVOut + 1, baseVOut + 2, baseVOut + 3
+          );
+
+          // End-cap at start of curb
+          if (i === 0) {
+            const baseCap0 = targetPos.length / 3;
+            targetPos.push(...inB0, ...outB0, ...inT0, ...outT0);
+            targetIndices.push(
+              baseCap0, baseCap0 + 1, baseCap0 + 2,
+              baseCap0 + 1, baseCap0 + 3, baseCap0 + 2
+            );
+          }
+          // End-cap at end of curb
+          if (i === densePts.length - 2) {
+            const baseCap1 = targetPos.length / 3;
+            targetPos.push(...inB1, ...outB1, ...inT1, ...outT1);
+            targetIndices.push(
+              baseCap1, baseCap1 + 2, baseCap1 + 1,
+              baseCap1 + 1, baseCap1 + 2, baseCap1 + 3
+            );
+          }
+        }
+
+        if (redPos.length > 0) {
+          const redGeo = new THREE.BufferGeometry();
+          redGeo.setAttribute('position', new THREE.Float32BufferAttribute(redPos, 3));
+          redGeo.setIndex(redIndices);
+          redGeo.computeVertexNormals();
+          const redMesh = new THREE.Mesh(redGeo, curbRedMat);
+          redMesh.castShadow = !isMobileGPU;
+          redMesh.receiveShadow = true;
+          scene.add(redMesh);
+        }
+
+        if (whitePos.length > 0) {
+          const whiteGeo = new THREE.BufferGeometry();
+          whiteGeo.setAttribute('position', new THREE.Float32BufferAttribute(whitePos, 3));
+          whiteGeo.setIndex(whiteIndices);
+          whiteGeo.computeVertexNormals();
+          const whiteMesh = new THREE.Mesh(whiteGeo, curbWhiteMat);
+          whiteMesh.castShadow = !isMobileGPU;
+          whiteMesh.receiveShadow = true;
+          scene.add(whiteMesh);
+        }
+      };
+
+      buildSmoothSCurveCurb(true);  // Left curb
+      buildSmoothSCurveCurb(false); // Right curb
+
+      // 5. Generate Continuous Silky-Smooth White Boundary Lines along both curbs inside Bài 6 ("vạch kẻ 2 bên vỉa hè / vạch kẻ sát lề")
+      const scurveWhiteLineMat = new THREE.MeshBasicMaterial({
+        color: 0xf8fafc,
+        side: THREE.DoubleSide,
+        depthWrite: true,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -3,
+      });
+
+      const buildSmoothSCurveWhiteLine = (isLeft: boolean) => {
+        const lineDist = hw + 0.045; // Snug against the inner edge of the curb wall (hw + 0.12)
+        const lineW = 0.15;
+        const halfLW = lineW * 0.5;
+        const yLevel = 0.024;
+
+        // Collect centerline points along the curve from Z = -47.00 to Z = -1.90
+        const lineCenterPts: Array<{ x: number; z: number }> = [];
+        for (let i = 0; i < numPts; i++) {
+          const c = centerPath[i];
+          if (c.z < -47.00 || c.z > -1.90) continue;
+          const n = normals[i];
+          const sign = isLeft ? -1 : 1;
+          lineCenterPts.push({
+            x: c.x + sign * n.x * lineDist,
+            z: c.z + sign * n.z * lineDist,
+          });
+        }
+        if (lineCenterPts.length === 0) return;
+        const sign = isLeft ? -1 : 1;
+        const firstPt = { x: baseCX + sign * lineDist, z: -47.00 };
+        const lastPt = { x: baseCX + sign * lineDist, z: -1.90 };
+        if (Math.abs(lineCenterPts[0].z - (-47.00)) > 0.05) {
+          lineCenterPts.unshift(firstPt);
+        } else {
+          lineCenterPts[0] = firstPt;
+        }
+        if (Math.abs(lineCenterPts[lineCenterPts.length - 1].z - (-1.90)) > 0.05) {
+          lineCenterPts.push(lastPt);
+        } else {
+          lineCenterPts[lineCenterPts.length - 1] = lastPt;
+        }
+
+        // Subdivide densely (step <= 0.20m) so the white line curvature matches the curb's silky smoothness
+        const denseLinePts: Array<{ x: number; z: number }> = [];
+        denseLinePts.push({ x: lineCenterPts[0].x, z: lineCenterPts[0].z });
+
+        for (let i = 0; i < lineCenterPts.length - 1; i++) {
+          const pA = lineCenterPts[i];
+          const pB = lineCenterPts[i + 1];
+          const segLen = Math.hypot(pB.x - pA.x, pB.z - pA.z);
+          const subSteps = Math.max(1, Math.ceil(segLen / 0.20));
+          for (let s = 1; s <= subSteps; s++) {
+            const frac = s / subSteps;
+            denseLinePts.push({
+              x: pA.x + (pB.x - pA.x) * frac,
+              z: pA.z + (pB.z - pA.z) * frac,
+            });
+          }
+        }
+
+        const positions: number[] = [];
+        const uvs: number[] = [];
+        const indices: number[] = [];
+
+        for (let i = 0; i < denseLinePts.length; i++) {
+          const pPrev = denseLinePts[Math.max(0, i - 1)];
+          const pNext = denseLinePts[Math.min(denseLinePts.length - 1, i + 1)];
+          const tdx = pNext.x - pPrev.x;
+          const tdz = pNext.z - pPrev.z;
+          const tlen = Math.hypot(tdx, tdz) || 1;
+          const pnx = -tdz / tlen;
+          const pnz = tdx / tlen;
+
+          const pt = denseLinePts[i];
+          const xL = pt.x - pnx * halfLW;
+          const zL = pt.z - pnz * halfLW;
+          const xR = pt.x + pnx * halfLW;
+          const zR = pt.z + pnz * halfLW;
+
+          positions.push(xL, yLevel, zL);
+          uvs.push(0, i / (denseLinePts.length - 1));
+          positions.push(xR, yLevel, zR);
+          uvs.push(1, i / (denseLinePts.length - 1));
+        }
+
+        for (let i = 0; i < denseLinePts.length - 1; i++) {
+          const i0 = i * 2;
+          const i1 = i * 2 + 1;
+          const i2 = (i + 1) * 2;
+          const i3 = (i + 1) * 2 + 1;
+          // Counter-clockwise triangle winding for upwards-facing normals
+          indices.push(i0, i1, i2, i1, i3, i2);
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geo.setIndex(indices);
+        geo.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(geo, scurveWhiteLineMat);
+        mesh.renderOrder = 5;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+      };
+
+      buildSmoothSCurveWhiteLine(true);  // Left white edge line
+      buildSmoothSCurveWhiteLine(false); // Right white edge line
+
+      // Connect S-curve white edge lines with crossroad white lines cleanly
+      const leftLineX = baseCX - (hw + 0.05);
+      const rightLineX = baseCX + (hw + 0.05);
+      buildFlatLineRect(leftLineX, -47.0, 0.16, 0.16, 0.024, scurveWhiteLineMat);
+      buildFlatLineRect(rightLineX, -47.0, 0.16, 0.16, 0.024, scurveWhiteLineMat);
+      buildFlatLineRect(leftLineX, -1.78, 0.16, 0.16, 0.024, scurveWhiteLineMat);
+      buildFlatLineRect(rightLineX, -1.78, 0.16, 0.16, 0.024, scurveWhiteLineMat);
     }
 
     // 3. Render VẠCH KẺ CỨNG, ỐNG HƠI CẢM BIẾN ĐÈ VẠCH & CHẮN TƯỜNG ĐỎ TRẮNG from BLUEPRINT_SOLID_LINES
@@ -932,18 +1954,49 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
             ? redMarkingMat
             : yellowMarkingMat;
 
-      // Crisp flat painted line on the asphalt (width 15cm, y = 0.014) — no black strips on top of white/yellow markings
-      const paintedStrip = new THREE.Mesh(
-        new THREE.PlaneGeometry(len + 0.03, 0.15),
-        paintMat
-      );
-      paintedStrip.rotation.x = -Math.PI / 2;
-      paintedStrip.rotation.z = angleY;
-      paintedStrip.position.set(cx, 0.014, cz);
-      scene.add(paintedStrip);
+      // In Bài 6 (Đường vòng quanh co), white lines are rendered smoothly by buildSmoothSCurveWhiteLine above
+      // Also skip solid_line_ (handled dedicatedly) and sensor_parallel_ (handled dedicatedly below)
+      if (
+        (!sLine.id.startsWith('sensor_b6_') || sLine.kind === 'DASHED_LINE') &&
+        !sLine.id.startsWith('solid_line_') &&
+        !sLine.id.startsWith('sensor_parallel_')
+      ) {
+        if (sLine.kind === 'DASHED_LINE') {
+          const isStallEntry =
+            sLine.id.includes('entry_dashed') ||
+            sLine.id.includes('exit_dashed') ||
+            sLine.id.includes('entry_yellow') ||
+            sLine.id.includes('chip_yellow');
+          const dashL = isStallEntry ? 0.40 : 2.0;
+          const gapL = isStallEntry ? 0.25 : 1.8;
+          const dashW = isStallEntry ? 0.15 : 0.16;
+          buildDashedLineSegment(
+            sLine.x1,
+            sLine.z1,
+            sLine.x2,
+            sLine.z2,
+            dashL,
+            gapL,
+            dashW,
+            isStallEntry ? 0.024 : 0.062,
+            paintMat
+          );
+        } else {
+          const paintedStrip = new THREE.Mesh(
+            new THREE.PlaneGeometry(len + 0.08, 0.15),
+            paintMat
+          );
+          paintedStrip.rotation.x = -Math.PI / 2;
+          paintedStrip.rotation.z = angleY;
+          paintedStrip.position.set(cx, 0.024, cz);
+          paintedStrip.renderOrder = 4;
+          scene.add(paintedStrip);
+        }
+      }
 
       // 3D Raised Red-White Concrete Curb Wall ("chắn tường đỏ trắng") outside the boundary line
       if (sLine.hasRedWhiteCurb) {
+        if (sLine.id.startsWith('sensor_b6_')) continue; // Handled by smooth curved red-white curb generator
         const nx = sLine.curbNormalX ?? 0;
         const nz = sLine.curbNormalZ ?? 0;
         const offsetDist = 0.22;
@@ -959,10 +2012,166 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           false,
           0.12,
           0.20,
-          curbIndexCounter++
+          curbIndexCounter
         );
+        curbIndexCounter += Math.max(1, Math.round(Math.hypot(cx2 - cx1, cz2 - cz1) / 1.0));
       }
     }
+
+    // Connect straight line & curb corner joints cleanly without protruding blocks
+    for (let i = 0; i < BLUEPRINT_SOLID_LINES.length; i++) {
+      const lineA = BLUEPRINT_SOLID_LINES[i];
+      if (
+        lineA.id.startsWith('sensor_b6_') ||
+        lineA.id.startsWith('solid_line_') ||
+        lineA.id.startsWith('sensor_b7_') ||
+        lineA.id.startsWith('sensor_parallel_') ||
+        lineA.id.startsWith('sensor_b5_') ||
+        lineA.id.startsWith('sensor_b4_')
+      )
+        continue;
+
+      const epA_list = [
+        {
+          pt: { x: lineA.x1, z: lineA.z1 },
+          curbPt: {
+            x: lineA.curbX1 ?? (lineA.x1 + (lineA.curbNormalX ?? 0) * 0.22),
+            z: lineA.curbZ1 ?? (lineA.z1 + (lineA.curbNormalZ ?? 0) * 0.22),
+          },
+        },
+        {
+          pt: { x: lineA.x2, z: lineA.z2 },
+          curbPt: {
+            x: lineA.curbX2 ?? (lineA.x2 + (lineA.curbNormalX ?? 0) * 0.22),
+            z: lineA.curbZ2 ?? (lineA.z2 + (lineA.curbNormalZ ?? 0) * 0.22),
+          },
+        },
+      ];
+
+      for (let j = i + 1; j < BLUEPRINT_SOLID_LINES.length; j++) {
+        const lineB = BLUEPRINT_SOLID_LINES[j];
+        if (
+          lineB.id.startsWith('sensor_b6_') ||
+          lineB.id.startsWith('solid_line_') ||
+          lineB.id.startsWith('sensor_b7_') ||
+          lineB.id.startsWith('sensor_parallel_') ||
+          lineB.id.startsWith('sensor_b5_') ||
+          lineB.id.startsWith('sensor_b4_')
+        )
+          continue;
+
+        const epB_list = [
+          {
+            pt: { x: lineB.x1, z: lineB.z1 },
+            curbPt: {
+              x: lineB.curbX1 ?? (lineB.x1 + (lineB.curbNormalX ?? 0) * 0.22),
+              z: lineB.curbZ1 ?? (lineB.z1 + (lineB.curbNormalZ ?? 0) * 0.22),
+            },
+          },
+          {
+            pt: { x: lineB.x2, z: lineB.z2 },
+            curbPt: {
+              x: lineB.curbX2 ?? (lineB.x2 + (lineB.curbNormalX ?? 0) * 0.22),
+              z: lineB.curbZ2 ?? (lineB.z2 + (lineB.curbNormalZ ?? 0) * 0.22),
+            },
+          },
+        ];
+
+        for (const epA of epA_list) {
+          for (const epB of epB_list) {
+            const dLine = Math.hypot(epA.pt.x - epB.pt.x, epA.pt.z - epB.pt.z);
+            if (dLine < 0.20) {
+              if (lineA.hasRedWhiteCurb && lineB.hasRedWhiteCurb) {
+                const p1 = epA.curbPt;
+                const p2 = epB.curbPt;
+                const dCurb = Math.hypot(p1.x - p2.x, p1.z - p2.z);
+                if (dCurb < 0.25) {
+                  buildCornerCurbBlock((p1.x + p2.x) * 0.5, (p1.z + p2.z) * 0.5, 0.20, 0.20, curbRedMat);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ============================================================================
+    // BÀI 10 & BÀI 7: CHUẨN 100% THEO ẢNH THỰC TẾ SÂN SÁT HẠCH (Ảnh 2)
+    // - Bó vỉa bê tông phẳng vuông góc 90 độ chuẩn chỉ (không thò, không lệch)
+    // - Vạch vàng thành chuồng chữ U chạy dọc 3 cạnh có bo cong tròn mềm mại ở 2 góc đáy
+    // - Ống hơi cảm biến đè vạch chạy dọc theo vạch vàng và bo cong qua 2 góc
+    // - Vạch vàng nét đứt ngoài cửa chuồng (Z = 5.0m)
+    // - Vạch vàng nét đứt ngang chuồng giao với vạch cửa tạo thành ngã ba dấu cộng (+)
+    // ============================================================================
+
+    // 1. BÀI 10 (Ghép xe ngang) — Bay 1 (Hạng B: X in [-58.9 .. -51.5], Z in [5.0 .. 7.2]):
+    // - Vạch vàng nét liền thành chuồng hình chữ U chạy dọc 3 cạnh sát bó vỉa hè:
+    //   • Thành Tây: X = -58.90m, Z từ 5.00m đến 7.20m (dài 2.20m, tâm Z = 6.10m)
+    buildFlatLineRect(-58.90, 6.10, 0.15, 2.20, 0.025, yellowMarkingMat);
+    //   • Thành đáy trong: Z = 7.20m, X từ -58.90m đến -51.50m (dài 7.40m, tâm X = -55.20m)
+    buildFlatLineRect(-55.20, 7.20, 7.40, 0.15, 0.025, yellowMarkingMat);
+    //   • Thành Đông: X = -51.50m, Z từ 5.00m đến 7.20m (dài 2.20m, tâm Z = 6.10m)
+    buildFlatLineRect(-51.50, 6.10, 0.15, 2.20, 0.025, yellowMarkingMat);
+
+    // - Vạch vàng nét đứt ngoài cửa chuồng (Z = 5.0m: nối chạm khít từ mép Tây -58.90m đến mép Đông -51.50m)
+    buildDashedLineSegment(-58.90, 5.0, -51.50, 5.0, 0.35, 0.20, 0.15, 0.025, yellowMarkingMat);
+    // - Vạch vàng nét đứt ngang chuồng (X = -56.5m: nối thẳng từ vạch cửa Z = 5.0m đến vách đáy Z = 7.20m)
+    buildDashedLineSegment(-56.5, 5.0, -56.5, 7.20, 0.35, 0.20, 0.14, 0.025, yellowMarkingMat);
+
+    // Kín khít tuyệt đối 4 góc chuồng không có bất kỳ kẽ hở nào:
+    buildFlatLineRect(-58.90, 5.00, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-51.50, 5.00, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-58.90, 7.20, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-51.50, 7.20, 0.16, 0.16, 0.026, yellowMarkingMat);
+
+    // Khối bó vỉa góc vuông kín khít tại 4 góc bê tông của ô đỗ:
+    buildCornerCurbBlock(-59.18, 5.00, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-51.18, 5.00, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-59.18, 7.38, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-51.18, 7.38, 0.24, 0.24, curbRedMat);
+
+    // Bay 2 (Ghép xe ngang số 2: X in [-38.0 .. -30.0], Z in [5.0 .. 8.1]):
+    // - Vạch vàng nét liền thành chuồng hình chữ U chạy dọc 3 cạnh sát bó vỉa hè:
+    //   • Thành Tây: X = -38.00m, Z từ 5.00m đến 8.10m (dài 3.10m, tâm Z = 6.55m)
+    buildFlatLineRect(-38.00, 6.55, 0.15, 3.10, 0.025, yellowMarkingMat);
+    //   • Thành đáy trong: Z = 8.10m, X từ -38.00m đến -30.00m (dài 8.00m, tâm X = -34.00m)
+    buildFlatLineRect(-34.00, 8.10, 8.00, 0.15, 0.025, yellowMarkingMat);
+    //   • Thành Đông: X = -30.00m, Z từ 5.00m đến 8.10m (dài 3.10m, tâm Z = 6.55m)
+    buildFlatLineRect(-30.00, 6.55, 0.15, 3.10, 0.025, yellowMarkingMat);
+
+    // - Vạch vàng nét đứt ngoài cửa chuồng số 2 (chạm khít 2 bên)
+    buildDashedLineSegment(-38.00, 5.0, -30.00, 5.0, 0.35, 0.20, 0.15, 0.025, yellowMarkingMat);
+    // - Vạch vàng nét đứt ngang chuồng số 2
+    buildDashedLineSegment(-35.2, 5.0, -35.2, 8.10, 0.35, 0.20, 0.14, 0.025, yellowMarkingMat);
+
+    // Kín khít tuyệt đối 4 góc chuồng số 2:
+    buildFlatLineRect(-38.00, 5.00, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-30.00, 5.00, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-38.00, 8.10, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-30.00, 8.10, 0.16, 0.16, 0.026, yellowMarkingMat);
+
+    // Khối bó vỉa góc vuông kín khít tại 4 góc bê tông của ô đỗ số 2:
+    buildCornerCurbBlock(-38.28, 5.00, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-30.00, 5.00, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-38.28, 8.28, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-30.00, 8.28, 0.24, 0.24, curbRedMat);
+
+    // 2. BÀI 7 (Ghép xe dọc / Lùi chuồng):
+    // Kín khít các góc đáy phía sau chuồng:
+    buildFlatLineRect(-47.50, -27.20, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-47.50, -24.80, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildCornerCurbBlock(-47.28, -27.38, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-47.28, -24.62, 0.24, 0.24, curbRedMat);
+
+    buildFlatLineRect(-16.00, -27.45, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildFlatLineRect(-16.00, -24.55, 0.16, 0.16, 0.026, yellowMarkingMat);
+    buildCornerCurbBlock(-15.78, -27.63, 0.24, 0.24, curbRedMat);
+    buildCornerCurbBlock(-15.78, -24.37, 0.24, 0.24, curbRedMat);
+
+    // 3. Ngã tư Đèn đỏ 5 uses standard straight concrete curbs with flush 90° corner caps (buildCornerCurbBlock)
+
+    // 5. Stencil "B" on the lane outside Bài 10 (Ghép xe ngang) matching Image 1:
+    buildRoadTextStencil('B', -54.0, 3.25, -Math.PI / 2, 2.2, 1.8, '#f8fafc');
 
     // Administration Building & Waiting Area on South-West Lower Island (isl_sw_lower)
     const adminRoof = new THREE.Mesh(
@@ -1000,8 +2209,8 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const t = i / steps;
         const px = seg.start.x + dx * t;
         const pz = seg.start.z + dz * t;
-        // Skip only the sloped 3D Bài 3 ramp (handled below with 3D sloped yellow dashes), crosswalk, & transverse stop/text lines
-        if (pz > 44 && px >= -14.2 && px <= 23.2) continue;
+        // Skip Bài 3 elevated ramp deck (X in [-14.2, 23.0] rendered with 3D sloped dashes on the deck)
+        if (pz > 44 && px >= -14.2 && px <= 23.0) continue;
         if (pz > 44 && px >= -61.2 && px <= -55.0) continue; // XUẤT PHÁT text & start line
         if (pz > 44 && (Math.abs(px - -34.8) < 1.2 || Math.abs(px - -29.0) < 1.2)) continue; // Bài 2 lines
         if (pz > 44 && px >= -26.8 && px <= -23.2) continue; // Bài 2 zebra crosswalk
@@ -1009,6 +2218,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         if (px > 70 && (Math.abs(pz - -15.2) < 1.2 || Math.abs(pz - -21.0) < 1.2)) continue; // Bài 8 railway stop lines
         if (px > 70 && pz >= -27.0 && pz <= -22.2) continue; // Bài 8 railway tracks
         if (pz < -48 && ((px >= 56.5 && px <= 63.0) || (px >= 20.5 && px <= 27.5) || Math.abs(px - -15.0) < 1.5)) continue; // Bài 9 lines & text
+        if (pz <= -46.5 && pz >= -52.5 && px >= -12.0 && px <= -1.0) continue; // Clear North T-junction throat mouth
         if (px < -72 && pz >= 30.8 && pz <= 37.5) continue; // Bài 11 KẾT THÚC text & line
         // Skip inside diagonal hatch zones
         if (
@@ -1032,17 +2242,18 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       }
     }
 
-    // 4A. Render 4 Diagonal Striped Barrier Markings ("////") from BLUEPRINT_DIAGONAL_HATCH_ZONES matching the 2D Reference Image
+    // 4A. Render Diagonal Striped Barrier Markings ("////") from BLUEPRINT_DIAGONAL_HATCH_ZONES matching the 2D Reference Image
     for (const hz of BLUEPRINT_DIAGONAL_HATCH_ZONES) {
+      if (hz.id === 'hatch_north_t_junction_triangle') continue; // Rendered below with authentic curved triangular geometry
       const w = hz.maxX - hz.minX;
       const d = hz.maxZ - hz.minZ;
       // Outer white frame box
-      buildAngledFlatLine(hz.minX, hz.minZ, hz.maxX, hz.minZ, 0.12, 0.063, whiteMarkingMat);
-      buildAngledFlatLine(hz.minX, hz.maxZ, hz.maxX, hz.maxZ, 0.12, 0.063, whiteMarkingMat);
-      buildAngledFlatLine(hz.minX, hz.minZ, hz.minX, hz.maxZ, 0.12, 0.063, whiteMarkingMat);
-      buildAngledFlatLine(hz.maxX, hz.minZ, hz.maxX, hz.maxZ, 0.12, 0.063, whiteMarkingMat);
+      buildAngledFlatLine(hz.minX, hz.minZ, hz.maxX, hz.minZ, 0.14, 0.063, whiteMarkingMat);
+      buildAngledFlatLine(hz.minX, hz.maxZ, hz.maxX, hz.maxZ, 0.14, 0.063, whiteMarkingMat);
+      buildAngledFlatLine(hz.minX, hz.minZ, hz.minX, hz.maxZ, 0.14, 0.063, whiteMarkingMat);
+      buildAngledFlatLine(hz.maxX, hz.minZ, hz.maxX, hz.maxZ, 0.14, 0.063, whiteMarkingMat);
       // Diagonal white chevron stripes inside the box
-      const numStripes = Math.max(3, Math.floor((w + d) / 1.4));
+      const numStripes = Math.max(3, Math.floor((w + d) / 1.35));
       for (let s = 1; s < numStripes; s++) {
         const t = s / numStripes;
         const dist = t * (w + d);
@@ -1050,27 +2261,85 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const zStart = dist <= w ? hz.minZ : hz.minZ + (dist - w);
         const xEnd = dist <= d ? hz.minX : hz.minX + (dist - d);
         const zEnd = dist <= d ? hz.minZ + dist : hz.maxZ;
-        buildAngledFlatLine(xStart, zStart, xEnd, zEnd, 0.14, 0.063, whiteMarkingMat);
+        buildAngledFlatLine(xStart, zStart, xEnd, zEnd, 0.20, 0.063, whiteMarkingMat);
       }
     }
 
-    // 4B. Solid White Lane Divider Lines on the 4 approaches to Central Intersection (X = -6.5, Z = +1.5)
-    buildFlatLineRect(-6.5, 13.0, 0.14, 7.0, 0.063, whiteMarkingMat); // South approach (Z = 9.5..16.5)
-    buildFlatLineRect(-6.5, -10.0, 0.14, 7.0, 0.063, whiteMarkingMat); // North approach (Z = -13.5..-6.5)
-    buildFlatLineRect(-18.0, 1.5, 7.0, 0.14, 0.063, whiteMarkingMat); // West approach (X = -21.5..-14.5)
-    buildFlatLineRect(5.0, 1.5, 7.0, 0.14, 0.063, whiteMarkingMat); // East approach (X = 1.5..8.5)
+    // 4B. North Road T-Junction Triangular Channelizing Island (Đảo tam giác kênh hóa dòng xe phân luồng ngã ba đường Bắc)
+    // Khớp 100% Ảnh 1 thực tế (QCVN 41:2019 Vạch 4.2):
+    // - Vạch vàng trục dọc (solid_line_spine_north_bai5) đẩy lên tới Z = -48.0m (1/2 chiều dài đảo).
+    // - Cạnh trên đảo tam giác chạm khít Z = -55.15m vào vạch vàng trục ngang đường Bắc (solid_line_north_accel_gear).
+    // - Cân đối đối xứng 100% hai bên trục tim đường X = -6.5m:
+    //   • Nhánh viền cong trái lượn từ (-6.5m, -48.0m) lên (-8.50m, -55.15m)
+    //   • Nhánh viền cong phải lượn từ (-6.5m, -48.0m) lên (-4.50m, -55.15m)
+    //   • Cạnh ngang viền trên màu trắng nối (-8.50m, -55.15m) đến (-4.50m, -55.15m) chạm thẳng vạch vàng ngang Z = -55.15m
+    // - 7 vạch chéo trắng nét đậm bên trong nghiêng song song theo chuẩn Ảnh 1 thực tế
+    {
+      const apexX = -6.5;
+      const apexZ = -48.0;
+      const leftEndX = -8.50;
+      const rightEndX = -4.50;
+      const topZ = -55.15;
+      const ctrlLx = -7.20;
+      const ctrlLz = (apexZ + topZ) * 0.5; // -51.575
+      const ctrlRx = -5.80;
+      const ctrlRz = (apexZ + topZ) * 0.5; // -51.575
 
-    // 4C. Authentic Yellow Box Junction (Vạch mắt võng màu vàng tại Ngã tư trung tâm 7.0m × 7.0m: X = -9.6..-3.4, Z = -1.6..+4.6)
-    buildAngledFlatLine(-9.6, -1.6, -3.4, -1.6, 0.12, 0.063, yellowMarkingMat);
-    buildAngledFlatLine(-9.6, 4.6, -3.4, 4.6, 0.12, 0.063, yellowMarkingMat);
-    buildAngledFlatLine(-9.6, -1.6, -9.6, 4.6, 0.12, 0.063, yellowMarkingMat);
-    buildAngledFlatLine(-3.4, -1.6, -3.4, 4.6, 0.12, 0.063, yellowMarkingMat);
-    buildAngledFlatLine(-9.6, -1.6, -3.4, 4.6, 0.10, 0.062, yellowMarkingMat);
-    buildAngledFlatLine(-9.6, 4.6, -3.4, -1.6, 0.10, 0.062, yellowMarkingMat);
-    buildAngledFlatLine(-9.6, 1.5, -6.5, 4.6, 0.09, 0.062, yellowMarkingMat);
-    buildAngledFlatLine(-6.5, -1.6, -3.4, 1.5, 0.09, 0.062, yellowMarkingMat);
-    buildAngledFlatLine(-9.6, 1.5, -6.5, -1.6, 0.09, 0.062, yellowMarkingMat);
-    buildAngledFlatLine(-6.5, 4.6, -3.4, 1.5, 0.09, 0.062, yellowMarkingMat);
+      // Nối khít 100% không để khe hở giữa vạch vàng tim đường phía dưới và chóp trắng đảo tam giác
+      buildFlatLineRect(apexX, apexZ + 0.15, 0.16, 0.30, 0.063, yellowMarkingMat);
+      buildFlatLineRect(apexX, apexZ, 0.18, 0.22, 0.064, whiteMarkingMat);
+
+      // 1. Nhánh viền cong trắng bên trái (Bezier quadratic curve)
+      const numCurveSteps = 20;
+      for (let i = 0; i < numCurveSteps; i++) {
+        const t1 = i / numCurveSteps;
+        const t2 = (i + 1) / numCurveSteps;
+        const getPtL = (t: number) => {
+          const inv = 1 - t;
+          const px = inv * inv * apexX + 2 * inv * t * ctrlLx + t * t * leftEndX;
+          const pz = inv * inv * apexZ + 2 * inv * t * ctrlLz + t * t * topZ;
+          return { px, pz };
+        };
+        const p1 = getPtL(t1);
+        const p2 = getPtL(t2);
+        buildAngledFlatLine(p1.px, p1.pz, p2.px, p2.pz, 0.16, 0.063, whiteMarkingMat);
+      }
+
+      // 2. Nhánh viền cong trắng bên phải (Bezier quadratic curve)
+      for (let i = 0; i < numCurveSteps; i++) {
+        const t1 = i / numCurveSteps;
+        const t2 = (i + 1) / numCurveSteps;
+        const getPtR = (t: number) => {
+          const inv = 1 - t;
+          const px = inv * inv * apexX + 2 * inv * t * ctrlRx + t * t * rightEndX;
+          const pz = inv * inv * apexZ + 2 * inv * t * ctrlRz + t * t * topZ;
+          return { px, pz };
+        };
+        const p1 = getPtR(t1);
+        const p2 = getPtR(t2);
+        buildAngledFlatLine(p1.px, p1.pz, p2.px, p2.pz, 0.16, 0.063, whiteMarkingMat);
+      }
+
+      // 3. Vạch ngang trắng thẳng cạnh trên chạm khít vạch vàng ngang Z = -55.15m
+      buildAngledFlatLine(leftEndX, topZ, rightEndX, topZ, 0.16, 0.063, whiteMarkingMat);
+
+      // 4. 7 vạch chéo trắng đậm bên trong đảo tam giác nghiêng song song khớp 100% Ảnh 1
+      const whiteStripes = [
+        { x1: -5.43, z1: -55.15, x2: -7.82, z2: -53.48 },
+        { x1: -4.76, z1: -54.72, x2: -7.59, z2: -52.74 },
+        { x1: -5.16, z1: -53.54, x2: -7.36, z2: -51.99 },
+        { x1: -5.51, z1: -52.39, x2: -7.16, z2: -51.24 },
+        { x1: -5.84, z1: -51.27, x2: -6.96, z2: -50.48 },
+        { x1: -6.12, z1: -50.16, x2: -6.76, z2: -49.72 },
+        { x1: -6.38, z1: -49.09, x2: -6.59, z2: -48.94 },
+      ];
+      for (const st of whiteStripes) {
+        buildAngledFlatLine(st.x1, st.z1, st.x2, st.z2, 0.24, 0.064, whiteMarkingMat);
+      }
+    }
+
+    // 4C. Central 4-Way Intersection: Trung tâm giao lộ để trống nhựa đường sạch sẽ 100% theo đúng ảnh thực tế sân sát hạch
+    // (Xóa hoàn toàn vạch mắt võng vàng thừa trong lòng ngã tư)
 
     // 5. White Directional Road Arrows from BLUEPRINT_ROAD_ARROWS
     // Built as elongated QCVN 41:2019 Vạch 9.3 road surface markings (STRAIGHT, LEFT, RIGHT, STRAIGHT_LEFT, STRAIGHT_RIGHT)
@@ -1081,7 +2350,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       type: 'STRAIGHT' | 'LEFT' | 'RIGHT' | 'STRAIGHT_LEFT' | 'STRAIGHT_RIGHT'
     ) => {
       const arrowGroup = new THREE.Group();
-      arrowGroup.position.set(x, 0.015, z);
+      arrowGroup.position.set(x, 0.022, z);
       arrowGroup.rotation.y = THREE.MathUtils.degToRad(yawDeg - 90);
 
       const shape = new THREE.Shape();
@@ -1159,6 +2428,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         whiteMarkingMat
       );
       arrowMesh.rotation.x = -Math.PI / 2;
+      arrowMesh.renderOrder = 2;
       arrowGroup.add(arrowMesh);
       scene.add(arrowGroup);
     };
@@ -1168,22 +2438,28 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     }
 
     // 7. Pedestrian Zebra Crossings from BLUEPRINT_ZEBRA_CROSSINGS (Bài 2 + 4 Central Intersection Crosswalks)
+    // Các vạch kẻ trắng hình chữ nhật to rõ 0.40m, khoảng cách 0.40m song song chiều xe chạy chuẩn 100% QCVN 41:2019
     for (const zc of BLUEPRINT_ZEBRA_CROSSINGS) {
+      const halfWidth = zc.widthM * 0.5;
+      const stripeW = 0.40;
+      const stripePitch = 0.80; // 0.40m vạch trắng + 0.40m khoảng trống đối xứng
+      const numHalf = Math.floor((halfWidth - stripePitch * 0.5) / stripePitch);
+      const offsets: number[] = [];
+      for (let k = 0; k <= numHalf; k++) {
+        const off = (k + 0.5) * stripePitch;
+        if (off + stripeW * 0.5 <= halfWidth) {
+          offsets.push(-off, off);
+        }
+      }
+      offsets.sort((a, b) => a - b);
+
       if (zc.orientation === 'NS') {
-        for (
-          let zStripe = zc.z - zc.widthM * 0.45;
-          zStripe <= zc.z + zc.widthM * 0.45;
-          zStripe += 0.75
-        ) {
-          buildFlatLineRect(zc.x, zStripe, zc.depthM, 0.36, 0.064, whiteMarkingMat);
+        for (const off of offsets) {
+          buildFlatLineRect(zc.x, zc.z + off, zc.depthM, stripeW, 0.062, whiteMarkingMat);
         }
       } else {
-        for (
-          let xStripe = zc.x - zc.widthM * 0.45;
-          xStripe <= zc.x + zc.widthM * 0.45;
-          xStripe += 0.75
-        ) {
-          buildFlatLineRect(xStripe, zc.z, 0.36, zc.depthM, 0.064, whiteMarkingMat);
+        for (const off of offsets) {
+          buildFlatLineRect(zc.x + off, zc.z, stripeW, zc.depthM, 0.062, whiteMarkingMat);
         }
       }
     }
@@ -1202,15 +2478,15 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     // 8. Bài 3: 10% Sloped Concrete Hill-Start Ramp along South 5.6m Track (X = -14.0..+23.0, Z = 47.2..52.8, width 5.6m)
     const rampConcreteMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
-      color: 0x64748b,
-      roughness: 0.85,
-      metalness: 0.06,
+      color: 0x374151,  // Match mainPad asphalt colour — removes the blueish seam contrast
+      roughness: 0.84,
+      metalness: 0.04,
     });
     const rampShape = new THREE.Shape();
-    rampShape.moveTo(-14.0, 0);
+    rampShape.moveTo(-14.0, -0.10);
     rampShape.lineTo(4.0, 1.45);
     rampShape.lineTo(8.5, 1.45);
-    rampShape.lineTo(23.0, 0);
+    rampShape.lineTo(23.0, -0.10);
     rampShape.closePath();
 
     const rampExtrude = new THREE.ExtrudeGeometry(rampShape, {
@@ -1265,11 +2541,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     });
     const parapetLeft = new THREE.Mesh(parapetGeo, bridgeParapetMat);
     parapetLeft.position.set(0, 0, 47.20);
-    parapetLeft.castShadow = true;
+    parapetLeft.castShadow = !isMobileGPU;
     parapetLeft.receiveShadow = true;
     const parapetRight = new THREE.Mesh(parapetGeo, bridgeParapetMat);
     parapetRight.position.set(0, 0, 52.64);
-    parapetRight.castShadow = true;
+    parapetRight.castShadow = !isMobileGPU;
     parapetRight.receiveShadow = true;
     scene.add(parapetLeft, parapetRight);
 
@@ -1281,7 +2557,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const deckY = sampleRampDeckY(px);
         const post = new THREE.Mesh(postGeo, bridgeRailSteelMat);
         post.position.set(px, deckY + 0.44, zSide);
-        post.castShadow = true;
+        post.castShadow = !isMobileGPU;
         const collar = new THREE.Mesh(collarGeo, bridgeRailRedAccentMat);
         collar.position.set(px, deckY + 0.72, zSide);
         scene.add(post, collar);
@@ -1307,7 +2583,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
             new THREE.TubeGeometry(segCurve, 8, railRadius, 12, false),
             bridgeRailSteelMat
           );
-          railMesh.castShadow = true;
+          railMesh.castShadow = !isMobileGPU;
           scene.add(railMesh);
         }
       }
@@ -1316,87 +2592,165 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     buildBridgeSideRailing(47.28);
     buildBridgeSideRailing(52.72);
 
-    // Bài 3 Uphill Markings:
+    // Bài 3 Uphill Markings (3D sloped onto ramp deck, renderOrder = 4):
     // • Vạch VÀNG bắt đầu bài thi ngang dốc at X = -3.8m (cách vạch trắng 5.8m — dài hơn thân xe ô tô một chút!)
     // • Vạch TRẮNG dừng ngang dốc ③ at X = +2.0m + Black Sensor Tube
     const hillAngleZ = Math.atan(1.45 / 18.0);
     const hillEntryHeight = ((-3.8 - -14.0) / 18.0) * 1.45;
     const hillEntryBar = new THREE.Mesh(
-      new THREE.BoxGeometry(0.24, 0.04, 5.0),
+      new THREE.BoxGeometry(0.18, 0.018, 5.2),
       yellowMarkingMat
     );
-    hillEntryBar.position.set(-3.8, hillEntryHeight + 0.022, 50.0);
+    hillEntryBar.position.set(-3.8, hillEntryHeight + 0.012, 50.0);
     hillEntryBar.rotation.z = hillAngleZ;
+    hillEntryBar.renderOrder = 4;
     scene.add(hillEntryBar);
 
     const hillStopHeight = ((2.0 - -14.0) / 18.0) * 1.45;
     const hillStopBar = new THREE.Mesh(
-      new THREE.BoxGeometry(0.34, 0.04, 5.0),
+      new THREE.BoxGeometry(0.22, 0.018, 5.2),
       whiteMarkingMat
     );
-    hillStopBar.position.set(2.0, hillStopHeight + 0.022, 50.0);
+    hillStopBar.position.set(2.0, hillStopHeight + 0.012, 50.0);
     hillStopBar.rotation.z = hillAngleZ;
+    hillStopBar.renderOrder = 4;
     scene.add(hillStopBar);
 
-    // Dashed YELLOW Centerline along the 3D sloped Bài 3 Hill Ramp (Z = 50.0m, X = -12.2 .. +21.2)
+    // Sensor tube removed per user request — hillStopBar white line is sufficient
+
+    // ============================================================================
+    // Vạch NÉT LIỀN Phân Làn Từ Bài 3 Dốc Cầu Qua Chân Dốc Tới Bài 4 Đường Hẹp Vuông Góc
+    // ============================================================================
     const hillDownAngleZ = -Math.atan(1.45 / 14.5);
+
+    // 1. Vạch NÉT ĐỨT màu vàng phân làn trên mặt cầu dốc 3D Bài 3 (Bài 1, 2, 3 vẫn là nét đứt)
     for (let rx = -12.0; rx <= 21.0; rx += 3.6) {
       if (Math.abs(rx - -3.8) < 1.5 || Math.abs(rx - 2.0) < 1.5) continue;
       const ry = sampleRampDeckY(rx);
       const rRotZ = rx < 4.0 ? hillAngleZ : rx <= 8.5 ? 0 : hillDownAngleZ;
       const hillDash = new THREE.Mesh(
-        new THREE.BoxGeometry(1.7, 0.036, 0.14),
+        new THREE.BoxGeometry(1.7, 0.018, 0.14),
         yellowMarkingMat
       );
-      hillDash.position.set(rx, ry + 0.022, 50.0);
+      hillDash.position.set(rx, ry + 0.012, 50.0);
       hillDash.rotation.z = rRotZ;
+      hillDash.renderOrder = 4;
       scene.add(hillDash);
     }
 
+    // 2. Vạch NÉT LIỀN màu vàng phân làn toàn bộ các bài từ sau Bài 3 (Bài 4, 5, 7, 8, 9, 10, 11) from BLUEPRINT_SOLID_LINES
+    for (const sLine of BLUEPRINT_SOLID_LINES) {
+      if (!sLine.id.startsWith('solid_line_')) continue;
+      const dx = sLine.x2 - sLine.x1;
+      const dz = sLine.z2 - sLine.z1;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.1) continue;
+      const cx = (sLine.x1 + sLine.x2) * 0.5;
+      const cz = (sLine.z1 + sLine.z2) * 0.5;
+      const mat = sLine.colorHex === 0xfacc15 ? yellowMarkingMat : whiteMarkingMat;
+      const isHorizontal = Math.abs(dx) >= Math.abs(dz);
+      if (isHorizontal) {
+        buildFlatLineRect(cx, cz, len, 0.14, 0.062, mat);
+      } else {
+        buildFlatLineRect(cx, cz, 0.14, len, 0.062, mat);
+      }
+    }
+
+    // Seamless yellow corner patches at Northwest (-77.25, -55.15) and Northeast (76.5, -55.15) corners
+    buildFlatLineRect(-77.25, -55.15, 0.18, 0.18, 0.062, yellowMarkingMat);
+    buildFlatLineRect(76.5, -55.15, 0.18, 0.18, 0.062, yellowMarkingMat);
+
+    // Solid WHITE Edge Lines on both outer edges of Bài 3 Ramp (Z = 47.45 and Z = 52.55)
+    for (const zEdge of [47.45, 52.55]) {
+      // Incline section: X = -14.0 to 4.0 (length = 18.06m)
+      const incLen = Math.hypot(18.0, 1.45);
+      const incLine = new THREE.Mesh(
+        new THREE.BoxGeometry(incLen, 0.016, 0.08),
+        whiteMarkingMat
+      );
+      incLine.position.set(-5.0, 1.45 * 0.5 + 0.011, zEdge);
+      incLine.rotation.z = hillAngleZ;
+      incLine.renderOrder = 4;
+      scene.add(incLine);
+
+      // Crest flat deck: X = 4.0 to 8.5 (length = 4.5m)
+      const crestLine = new THREE.Mesh(
+        new THREE.BoxGeometry(4.5, 0.016, 0.08),
+        whiteMarkingMat
+      );
+      crestLine.position.set(6.25, 1.45 + 0.011, zEdge);
+      crestLine.renderOrder = 4;
+      scene.add(crestLine);
+
+      // Decline section: X = 8.5 to 23.0 (length = 14.57m)
+      const decLen = Math.hypot(14.5, 1.45);
+      const decLine = new THREE.Mesh(
+        new THREE.BoxGeometry(decLen, 0.016, 0.08),
+        whiteMarkingMat
+      );
+      decLine.position.set(15.75, 1.45 * 0.5 + 0.011, zEdge);
+      decLine.rotation.z = hillDownAngleZ;
+      decLine.renderOrder = 4;
+      scene.add(decLine);
+    }
+
     // 9. Bài 4 (④ HÀNG ĐINH, CHỮ Z — ĐÚNG SƠ ĐỒ 2D: HẠNG B Ở DƯỚI Z=23.5m, HẠNG C Ở TRÊN Z=13.5m):
-    //    • Làn Hạng B (nằm dưới, QCVN 40 rộng 3.85m, Z = 23.5m): Đôi đũa vệt bánh xe dài 4.5m × rộng 0.48m (Z = 22.20m..22.68m, X = 45.5m..50.0m)
-    //    • Làn Hạng C (nằm trên, QCVN 40 rộng 4.95m, Z = 13.5m): Đôi đũa vệt bánh xe dài 8.0m × rộng 0.50m (Z = 12.29m..12.79m, X = 43.8m..51.8m)
-    buildFlatLineRect(47.75, 22.44, 4.5, 0.54, 0.042, concreteRecessMat);
-    buildFlatLineRect(47.8, 12.54, 8.0, 0.58, 0.042, concreteRecessMat);
+    //    • Làn Hạng B (nằm dưới, QCVN 40 rộng 3.85m, Z = 23.5m)
+    //    • Làn Hạng C (nằm trên, QCVN 40 rộng 4.95m, Z = 13.5m)
     buildRoadTextStencil('HẠNG B', 64.5, 23.5, Math.PI / 2, 3.0, 0.85, '#38bdf8');
     buildRoadTextStencil('HẠNG C', 64.5, 13.5, Math.PI / 2, 3.4, 0.95, '#fde047');
 
-    // 10. Bài 6 (⑥ CHỮ S in NE Quadrant — ĐÚNG SƠ ĐỒ 2D: Vào từ đầu trên Bắc Z=-49.2m tại chữ B / C đi xuống đầu dưới Nam Z=-2.0m):
-    buildRoadTextStencil('HẠNG B', 14.0, -46.5, Math.PI, 2.6, 0.80, '#38bdf8');
-    buildRoadTextStencil('HẠNG C', 36.0, -46.5, Math.PI, 3.2, 0.90, '#fde047');
-
-    // 11. Bài 7 (⑦ ĐỖ XE — GHÉP XE DỌC: VÀO TỪ ĐƯỜNG BẮC <- C TẠI X=-30.5m & <- B TẠI X=-57.5m, CHUỒNG 7 NẰM BÊN VÁCH ĐÔNG):
-    // • Ô Chuồng 7 Hạng C (QCVN 40: X = -25.0..-16.0m, Z = -27.45..-24.55m, rộng 2.9m × sâu 9.0m):
-    //   Cửa chuồng tại X = -25.0m, vạch vàng nhận 2 bánh sau tại X = -17.2m
-    for (let gz = -27.1; gz <= -24.9; gz += 0.7) {
-      buildFlatLineRect(-25.0, gz, 0.14, 0.44, 0.066, whiteMarkingMat);
+    // ============================================================================
+    // "ĐÔI ĐŨA" (Vệt bánh xe / Hàng đinh) 3D Cảm Biến Nổi Trên Mặt Đường ở Bài 4
+    // ============================================================================
+    // Làn Hạng B: 2 thanh cảm biến song song tại Z = 22.20m & Z = 22.68m (X = 45.5m .. 50.0m)
+    // 1) Dải sơn vạch phẳng nền
+    buildFlatLineRect(47.75, 22.20, 4.5, 0.12, 0.08, whiteMarkingMat);
+    buildFlatLineRect(47.75, 22.68, 4.5, 0.12, 0.08, yellowMarkingMat);
+    // 2) Ống hơi cảm biến hình trụ 3D nổi ("đôi đũa")
+    const tubeGeoB = new THREE.CylinderGeometry(0.024, 0.024, 4.5, 16);
+    tubeGeoB.rotateZ(Math.PI / 2);
+    const tubeMeshB1 = new THREE.Mesh(tubeGeoB, whiteMarkingMat);
+    tubeMeshB1.position.set(47.75, 0.024, 22.20);
+    const tubeMeshB2 = new THREE.Mesh(tubeGeoB, yellowMarkingMat);
+    tubeMeshB2.position.set(47.75, 0.024, 22.68);
+    scene.add(tubeMeshB1, tubeMeshB2);
+    // 3) Đầu cảm biến bọc cao su ở 2 đầu thanh
+    for (const nailX of [45.5, 50.0]) {
+      const capB1 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.045, 0.12), whiteMarkingMat);
+      capB1.position.set(nailX, 0.024, 22.20);
+      const capB2 = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.045, 0.12), yellowMarkingMat);
+      capB2.position.set(nailX, 0.024, 22.68);
+      scene.add(capB1, capB2);
     }
-    buildFlatLineRect(-17.2, -26.0, 0.28, 2.70, 0.066, yellowMarkingMat);
-    buildRoadTextStencil('HẠNG C', -30.5, -45.5, Math.PI, 2.8, 0.85, '#fde047');
 
-    // • Ô Chuồng 7 Hạng B (QCVN 40: X = -53.0..-47.5m, Z = -27.2..-24.8m, rộng 2.4m × sâu 5.5m):
-    //   Cửa chuồng tại X = -53.0m, vạch vàng nhận 2 bánh sau tại X = -48.2m
-    for (let gz = -26.8; gz <= -25.2; gz += 0.5) {
-      buildFlatLineRect(-53.0, gz, 0.14, 0.34, 0.066, whiteMarkingMat);
+    // Làn Hạng C: 2 thanh cảm biến song song tại Z = 12.29m & Z = 12.79m (X = 43.8m .. 51.8m)
+    buildFlatLineRect(47.8, 12.29, 8.0, 0.14, 0.08, whiteMarkingMat);
+    buildFlatLineRect(47.8, 12.79, 8.0, 0.14, 0.08, yellowMarkingMat);
+    const tubeGeoC = new THREE.CylinderGeometry(0.026, 0.026, 8.0, 16);
+    tubeGeoC.rotateZ(Math.PI / 2);
+    const tubeMeshC1 = new THREE.Mesh(tubeGeoC, whiteMarkingMat);
+    tubeMeshC1.position.set(47.8, 0.026, 12.29);
+    const tubeMeshC2 = new THREE.Mesh(tubeGeoC, yellowMarkingMat);
+    tubeMeshC2.position.set(47.8, 0.026, 12.79);
+    scene.add(tubeMeshC1, tubeMeshC2);
+    for (const nailX of [43.8, 51.8]) {
+      const capC1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.048, 0.14), whiteMarkingMat);
+      capC1.position.set(nailX, 0.026, 12.29);
+      const capC2 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.048, 0.14), yellowMarkingMat);
+      capC2.position.set(nailX, 0.026, 12.79);
+      scene.add(capC1, capC2);
     }
-    buildFlatLineRect(-48.2, -26.0, 0.28, 2.20, 0.066, yellowMarkingMat);
-    buildRoadTextStencil('HẠNG B', -57.5, -45.5, Math.PI, 2.6, 0.80, '#38bdf8');
 
-    // Bài 10 (⑩ GHÉP XE NGANG — 2 Ô ĐỖ SONG SONG BÊN PHẢI ĐƯỜNG NGANG TRƯỚC NGÃ TƯ 5: Z = +5.0m..+7.2m)
-    // • Ô 10 Tây (Hạng B — QCVN 40: X = -58.9m..-51.5m, Z = +5.0m..+7.2m, rộng 2.2m × dài 7.4m)
-    for (let px = -58.4; px <= -52.0; px += 1.05) {
-      buildFlatLineRect(px, 5.0, 0.56, 0.14, 0.066, whiteMarkingMat);
-    }
-    buildFlatLineRect(-57.2, 6.10, 0.28, 2.05, 0.066, yellowMarkingMat);
-    buildFlatLineRect(-55.2, 6.95, 6.8, 0.16, 0.065, yellowMarkingMat);
-    buildRoadTextStencil('10. GHÉP NGANG', -55.2, 3.25, -Math.PI / 2, 4.2, 0.85, '#facc15');
+    // 10. Bài 6 (⑥ CHỮ S in NE Quadrant — Mũi tên chỉ hướng rẽ thực tế chuẩn ảnh trên làn rẽ vào Bài 6 tại Z = -49.04m chính giữa làn)
+    buildRoadComboTurnArrowWithLetter('B', 6.5, -49.04, 0, 3.8, 1.9);
+    buildRoadComboTurnArrowWithLetter('C', 26.5, -49.04, 0, 3.8, 1.9);
 
-    // • Ô 10 Đông (Ô số 2: X = -38.0m..-30.0m, Z = +5.0m..+8.1m)
-    for (let px = -37.3; px <= -30.7; px += 1.1) {
-      buildFlatLineRect(px, 5.0, 0.56, 0.14, 0.066, whiteMarkingMat);
-    }
-    buildFlatLineRect(-36.0, 6.55, 0.28, 2.85, 0.066, yellowMarkingMat);
-    buildFlatLineRect(-34.0, 7.45, 7.6, 0.16, 0.065, yellowMarkingMat);
+    // 11. Bài 7 (⑦ ĐỖ XE — GHÉP XE DỌC: VÀO TỪ ĐƯỜNG BẮC <- C TẠI X=-30.5m & <- B TẠI X=-57.5m):
+    // Mặt đường Bài 7 phẳng sạch theo chuẩn sa hình thi thực tế, không để các mũi tên ngược chiều gây nhầm lẫn
+
+
+
 
     // 12. Central 4-Way Signalized Intersection (X = -6.5, Z = +1.5)
     const poleMat = new THREE.MeshStandardMaterial({
@@ -1531,7 +2885,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         poleMat
       );
       post.position.y = 2.25;
-      post.castShadow = true;
+      post.castShadow = !isMobileGPU;
 
       const arm = new THREE.Mesh(
         new THREE.BoxGeometry(2.3, 0.12, 0.12),
@@ -1644,28 +2998,23 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     buildTrafficSignalPole(-2.4, -2.6, Math.PI / 2);
     buildTrafficSignalPole(-10.6, 5.6, -Math.PI / 2);
 
-    // Crisp White Stop Lines + Yellow Sensor Trigger Lines in all 4 right-hand approaching lanes
-    // Khoảng cách giữa vạch vàng và vạch trắng là 5.6m (dài hơn chiếc ô tô một chút để toàn bộ thân xe nằm gọn trong vùng dừng)
-    buildFlatLineRect(-4.75, 8.8, 3.45, 0.34, 0.065, whiteMarkingMat); // South approach (Northbound right lane)
-    buildFlatLineRect(-4.75, 14.4, 3.45, 0.24, 0.064, yellowMarkingMat);
-    buildFlatLineRect(-8.25, -5.8, 3.45, 0.34, 0.065, whiteMarkingMat); // North approach (Southbound right lane)
-    buildFlatLineRect(-8.25, -11.4, 3.45, 0.24, 0.064, yellowMarkingMat);
-    buildFlatLineRect(-13.8, 3.25, 0.34, 3.45, 0.065, whiteMarkingMat); // West approach (Eastbound right lane)
-    buildFlatLineRect(-19.4, 3.25, 0.24, 3.45, 0.064, yellowMarkingMat);
-    buildFlatLineRect(0.8, -0.25, 0.34, 3.45, 0.065, whiteMarkingMat); // East approach (Westbound right lane)
-    buildFlatLineRect(6.4, -0.25, 0.24, 3.45, 0.064, yellowMarkingMat);
+    // Crisp White Stop Lines in all 4 right-hand approaching lanes (trước vạch người đi bộ, bỏ các vạch vàng thừa)
+    buildFlatLineRect(-4.75, 8.8, 3.45, 0.35, 0.065, whiteMarkingMat); // South approach (Northbound right lane)
+    buildFlatLineRect(-8.25, -5.8, 3.45, 0.35, 0.065, whiteMarkingMat); // North approach (Southbound right lane)
+    buildFlatLineRect(-13.8, 3.25, 0.35, 3.45, 0.065, whiteMarkingMat); // West approach (Eastbound right lane)
+    buildFlatLineRect(0.8, -0.25, 0.35, 3.45, 0.065, whiteMarkingMat); // East approach (Westbound right lane)
 
     // 13. Bài 8 (⑧ ĐƯỜNG SẮT on East Outer 5.6m Track):
-    //     • Vạch VÀNG bắt đầu bài thi at Z = -15.2m
+    //     • Vạch VÀNG NÉT ĐỨT bắt đầu bài thi at Z = -15.2m
     //     • Vạch TRẮNG dừng đường sắt at Z = -21.0m (khoảng cách 5.8m — dài hơn chiếc ô tô một chút!)
     //     • Đường ray xe lửa at Z = -25.5m
-    buildFlatLineRect(76.5, -15.2, 5.3, 0.24, 0.064, yellowMarkingMat);
-    buildFlatLineRect(76.5, -21.0, 5.3, 0.34, 0.065, whiteMarkingMat);
+    buildDashedLineSegment(73.85, -15.2, 79.15, -15.2, 0.40, 0.25, 0.22, 0.068, yellowMarkingMat);
+    buildFlatLineRect(76.5, -21.0, 5.3, 0.28, 0.068, whiteMarkingMat);
     const railSensorTube = new THREE.Mesh(
-      new THREE.BoxGeometry(5.2, 0.024, 0.055),
+      new THREE.BoxGeometry(5.2, 0.022, 0.055),
       sensorTubeBlackMat
     );
-    railSensorTube.position.set(76.5, 0.020, -21.0);
+    railSensorTube.position.set(76.5, 0.022, -21.0);
     scene.add(railSensorTube);
 
     const railSteelMat = new THREE.MeshStandardMaterial({
@@ -1725,18 +3074,22 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     crossGroup.add(crossPost, crossBlade1, crossBlade2);
     scene.add(crossGroup);
 
-    // 14. Bài 9 (⑨ TĂNG TỐC on North Outer 5.6m Track at Z = -52.0, X = +58.0 -> +22.0 -> -15.0):
-    buildFlatLineRect(58.0, -52.0, 0.30, 5.1, 0.065, whiteMarkingMat);
-    buildRoadTextStencil('9. TĂNG TỐC', 61.0, -52.0, Math.PI / 2, 3.8, 0.95, '#f8fafc');
+    // 14. Bài 9 (⑨ TĂNG TỐC on North Outer Dedicated Lane at Z = -57.00m, X = +58.0 -> +22.0 -> -15.0):
+    // Thu hẹp làn bớt 1/5 còn rộng 3.75m chuẩn QCVN 41: Vạch kẻ ngang rộng 3.5m tâm tại Z = -57.00m
+    buildFlatLineRect(58.0, -57.00, 0.30, 3.5, 0.065, whiteMarkingMat);
+    buildRoadTextStencil('9. TĂNG TỐC', 61.0, -57.00, Math.PI / 2, 3.6, 0.95, '#f8fafc');
 
-    buildFlatLineRect(22.0, -52.0, 0.30, 5.1, 0.065, yellowMarkingMat);
-    buildRoadTextStencil('GIẢM TỐC 20', 25.2, -52.0, Math.PI / 2, 3.8, 0.95, '#facc15');
+    buildFlatLineRect(22.0, -57.00, 0.30, 3.5, 0.065, yellowMarkingMat);
+    buildRoadTextStencil('GIẢM TỐC 20', 25.2, -57.00, Math.PI / 2, 3.6, 0.95, '#facc15');
 
-    buildFlatLineRect(-15.0, -52.0, 0.30, 5.1, 0.065, whiteMarkingMat);
+    // (Vạch trắng cuối Bài 9 tại X=-15.0 đã được xóa theo yêu cầu)
 
-    // 15. Bài 11 (⑪ KẾT THÚC on Far West Outer Track at X = -76.5, Z = +36.0, width 5.6m, driving South +Z)
-    buildFlatLineRect(-76.5, 36.0, 5.1, 0.35, 0.065, whiteMarkingMat);
-    buildRoadTextStencil('KẾT THÚC', -76.5, 32.8, 0, 3.6, 0.95, '#facc15');
+    // 15. Bài 11 (⑪ KẾT THÚC on Far West Outer Track at X = -77.25, Z = +36.0, width 7.1m, driving South +Z)
+    buildFlatLineRect(-77.25, 36.0, 6.5, 0.35, 0.065, whiteMarkingMat);
+    buildRoadTextStencil('KẾT THÚC', -77.25, 32.8, Math.PI, 4.4, 0.95, '#facc15');
+
+    // Vạch TRẮNG XUẤT PHÁT nằm ngay dưới cổng XUẤT PHÁT tại X=-56.0, Z=47.4..52.6 (rộng 5.2m theo chiều Z của đường 2 làn)
+    buildFlatLineRect(-56.0, 50.0, 0.30, 5.2, 0.065, whiteMarkingMat);
 
     // Overhead Start (①) & Finish (⑪) Gantries (Signboard mounted cleanly IN FRONT of the gantry columns & crossbar!)
     const buildGantryAcrossXRoad = (
@@ -1850,11 +3203,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       '▼   ▼   ▼',
       '#0284c7'
     );
-    // Finish Gantry across Far West Track at X = -76.5, Z = +36.0 (rotated -Math.PI / 2 so signboard faces North -Z toward the approaching car!)
+    // Finish Gantry across Far West Track at X = -77.25, Z = +36.0 (rotated -Math.PI / 2 so signboard faces North -Z toward the approaching car!)
     buildGantryAcrossXRoad(
-      -76.5,
+      -77.25,
       36.0,
-      6.4,
+      7.8,
       -Math.PI / 2,
       'KẾT THÚC',
       '▼   ▼   ▼',
@@ -2556,7 +3909,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       signType: Qcvn41SignType,
       arrowDir?: 'LEFT' | 'RIGHT' | 'STRAIGHT',
       secondarySignType?: Qcvn41SignType,
-      secondaryArrowDir?: 'LEFT' | 'RIGHT' | 'STRAIGHT'
+      secondaryArrowDir?: 'LEFT' | 'RIGHT' | 'STRAIGHT',
+      tertiarySignType?: Qcvn41SignType,
+      tertiaryArrowDir?: 'LEFT' | 'RIGHT' | 'STRAIGHT',
+      customPostHeight?: number,
+      customPlateY?: number
     ) => {
       physicsRef.current.registerScenePoleCollider(
         `sign_pole_${x}_${z}`,
@@ -2565,22 +3922,25 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         z,
         0.24
       );
-      // Ground elevation under the sign pole (so signs on Bài 3 slope sit at the right height)
-      const groundH = physicsRef.current.sampleGroundAt(x, z).heightM;
+      // Ground elevation under the sign pole (signs on Bài 3 slope sit at the right height, but poles outside ramp sit at Y=0)
+      const rawGroundH = physicsRef.current.sampleGroundAt(x, z).heightM;
+      const isOutsideRamp = (z > 52.9 || z < 47.1) && x >= -14.0 && x <= 23.0;
+      const groundH = isOutsideRamp ? 0 : rawGroundH;
       const hasSecondary = Boolean(secondarySignType);
+      const hasTertiary = Boolean(tertiarySignType);
 
       // Single regulation traffic sign post positioned BEHIND the sign plates (z = -0.055)
       // so the cylindrical post NEVER cuts through the front graphic of the sign!
       const postGroup = new THREE.Group();
       postGroup.position.set(x, groundH, z);
       postGroup.rotation.y = rotY;
-      const postHeight = hasSecondary ? 3.15 : 2.38;
+      const postHeight = customPostHeight ?? (hasTertiary ? 4.55 : hasSecondary ? 3.65 : 2.75);
       const post = new THREE.Mesh(
         new THREE.CylinderGeometry(0.042, 0.048, postHeight, 12),
         poleMat
       );
       post.position.set(0, postHeight * 0.5, -0.055);
-      post.castShadow = true;
+      post.castShadow = !isMobileGPU;
       postGroup.add(post);
 
       const addSignPlateAtY = (
@@ -2606,7 +3966,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         // Front painted sign face at z = +0.016 (completely clear of the pole at z = -0.055)
         const frontPlate = new THREE.Mesh(plateGeom, signPlateMat);
         frontPlate.position.set(0, centerY, 0.016);
-        frontPlate.castShadow = true;
+        frontPlate.castShadow = !isMobileGPU;
         postGroup.add(frontPlate);
 
         // Galvanized steel backing plate at z = +0.006 facing backwards (-Z)
@@ -2627,7 +3987,14 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         postGroup.add(clamp);
       };
 
-      if (hasSecondary && secondarySignType) {
+      if (customPlateY !== undefined) {
+        addSignPlateAtY(signType, arrowDir, customPlateY);
+      } else if (hasTertiary && tertiarySignType && secondarySignType) {
+        // 3-sign stack: Top (W.209), Middle (W.205A), Bottom (R.301) on same tall pole
+        addSignPlateAtY(signType, arrowDir, 3.98);
+        addSignPlateAtY(secondarySignType, secondaryArrowDir, 2.86);
+        addSignPlateAtY(tertiarySignType, tertiaryArrowDir, 1.74);
+      } else if (hasSecondary && secondarySignType) {
         // Top plate + Bottom plate stacked cleanly on the SAME single pole with a crisp gap!
         addSignPlateAtY(signType, arrowDir, 3.06);
         addSignPlateAtY(secondarySignType, secondaryArrowDir, 1.98);
@@ -2638,23 +4005,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       scene.add(postGroup);
     };
 
-    // Place Blue "P" Ground Plaques from BLUEPRINT_PARKING_SIGN_BOXES
-    for (const pBox of BLUEPRINT_PARKING_SIGN_BOXES) {
-      const pTex = createSignboardTexture(
-        'P',
-        pBox.label,
-        '#1d4ed8',
-        '#ffffff',
-        maxAnisotropy
-      );
-      const groundPlaque = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.8, 1.5),
-        new THREE.MeshBasicMaterial({ map: pTex })
-      );
-      groundPlaque.rotation.x = -Math.PI / 2;
-      groundPlaque.position.set(pBox.x, 0.015, pBox.z);
-      scene.add(groundPlaque);
-    }
+    // Stalls in Bài 7 & Bài 10 are completely empty ("trống trơn"), no ground plaques or painted interior lines
 
     // ============================================================================
     // PLACE QCVN 41:2019/BGTVT SYMBOL TRAFFIC SIGNS ACROSS ALL EXERCISES
@@ -2666,22 +4017,18 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     //   • Car driving South (+Z): front normal must point North (-Z) -> rotY = Math.PI
     // ============================================================================
     // Bài 2 (Nhường đường người đi bộ — xe đi hướng Đông +X):
-    // Biển chỉ dẫn I.423a người đi bộ trước trạm (X = -34.5m) & Biển STOP R.122 bát giác đỏ ngay vạch dừng màu trắng (X = -28.9m)!
-    buildQcvn41TrafficSign(-34.5, 53.8, -Math.PI / 2, 'I_423A_CROSSWALK');
-    buildQcvn41TrafficSign(-28.9, 53.8, -Math.PI / 2, 'R_122_STOP');
+    // Biển chỉ dẫn I.423a người đi bộ đặt trước trạm (X = -34.5m) — BIỂN STOP R.122 GỒP CHUNG 1 CỘT với biển vạch người đi bộ (X = -28.9m)!
+    buildQcvn41TrafficSign(-28.9, 53.8, -Math.PI / 2, 'R_122_STOP', undefined, 'I_423A_CROSSWALK');
 
     // Bài 3 (Dừng và khởi hành ngang dốc — xe đi hướng Đông +X trên lề cỏ Nam):
     //   • Biển W.220 Dốc lên 10% tại chân dốc Tây (X = -13.5m)
     //   • Cột biển STOP cắm tại X = 0.15m để ngang vai người lái khi cản trước xe nằm trúng giữa vùng dừng hợp lệ!
-    //   • Biển W.219 Dốc xuống 10% qua đỉnh dốc (X = 8.5m)
+    //   • Biển W.219 Dốc xuống 10% đặt tại vị trí biển chỉ dẫn đã xóa trên lề đường Nam sau khi xuống dốc (X = 28.5m, Z = 53.8m)
     //   • Biển hiệu lệnh / chỉ dẫn hướng đi phải theo khi xuống dốc:
-    //     - Trên đoạn dốc xuống (X = 21.0m) & Chân dốc (X = 28.5m): Biển R.301a Đi thẳng
     //     - Cuối đường Nam trước khúc cua dẫn lên Bài 4 Hàng đinh (X = 66.0m): Biển R.301e Rẽ trái
     buildQcvn41TrafficSign(-13.5, 53.8, -Math.PI / 2, 'W_220_STEEP_HILL');
     buildQcvn41TrafficSign(0.15, 53.8, -Math.PI / 2, 'R_122_STOP');
-    buildQcvn41TrafficSign(8.5, 53.8, -Math.PI / 2, 'W_219_DOWNHILL');
-    buildQcvn41TrafficSign(21.0, 53.8, -Math.PI / 2, 'R_301A_AHEAD_ONLY');
-    buildQcvn41TrafficSign(28.5, 53.8, -Math.PI / 2, 'R_301A_AHEAD_ONLY');
+    buildQcvn41TrafficSign(28.5, 53.8, -Math.PI / 2, 'W_219_DOWNHILL');
     buildQcvn41TrafficSign(66.0, 53.8, -Math.PI / 2, 'R_301E_LEFT_ONLY');
 
     // Bài 4 (Hàng đinh, chữ Z — Đặt trên đảo cỏ Đông-Nam, cách xa mép bo góc):
@@ -2689,50 +4036,47 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     buildQcvn41TrafficSign(71.8, 9.8, 0, 'I_412_LANE_TRUCK_C', 'LEFT');
 
     // Lối ra Bài 4 gặp trục dọc trung tâm: Đặt sâu trên đảo cỏ Tây-Nam Dưới (X = -11.6m), tuyệt đối không lấn ra lòng đường
-    buildQcvn41TrafficSign(-11.6, 36.0, Math.PI / 2, 'R_301D_RIGHT_ONLY');
+    // (Biển R_301D tại Z=36.0 đã xóa — chỉ giữ 1 biển rẽ phải tại Z=26.5)
     buildQcvn41TrafficSign(-11.6, 26.5, Math.PI / 2, 'R_301D_RIGHT_ONLY');
 
-    // Bài 5 (Ngã tư có tín hiệu điều khiển giao thông — Đầy đủ Biển W.205a Đường giao nhau cùng cấp + Biển W.209 Tín hiệu đèn + Biển hiệu lệnh R.301a/d/e trên thảm cỏ 4 góc):
-    //   • Hướng Nam tiến vào Ngã tư 5 (Bài 5 — đi thẳng lên đường Bắc):
-    buildQcvn41TrafficSign(-1.6, 14.5, 0, 'W_205A_EQUAL_INTERSECTION');
-    buildQcvn41TrafficSign(-1.6, 9.6, 0, 'W_209_TRAFFIC_LIGHT', undefined, 'R_301A_AHEAD_ONLY');
-    //   • Hướng Đông tiến vào Ngã tư 5 (Từ cửa dưới Bài 6 Chữ S chạy thẳng qua Ngã tư 5 sang Tây để lên Bài 7 — Đúng Ảnh 2):
-    buildQcvn41TrafficSign(6.8, -3.4, Math.PI / 2, 'W_205A_EQUAL_INTERSECTION');
-    buildQcvn41TrafficSign(2.2, -3.4, Math.PI / 2, 'W_209_TRAFFIC_LIGHT', undefined, 'R_301A_AHEAD_ONLY');
-    //   • Hướng Tây tiến vào Ngã tư 5 (Từ Bài 10 Ghép ngang tới Ngã tư):
-    buildQcvn41TrafficSign(-19.5, 6.4, -Math.PI / 2, 'W_205A_EQUAL_INTERSECTION');
-    buildQcvn41TrafficSign(-14.8, 6.4, -Math.PI / 2, 'W_209_TRAFFIC_LIGHT', undefined, 'R_301D_RIGHT_ONLY');
-    //   • Hướng Bắc tiến vào Ngã tư 5 (Từ Bài 7 Đỗ xe xuống Ngã tư):
-    buildQcvn41TrafficSign(-11.4, -12.0, Math.PI, 'W_205A_EQUAL_INTERSECTION');
-    buildQcvn41TrafficSign(-11.4, -7.2, Math.PI, 'W_209_TRAFFIC_LIGHT', undefined, 'R_301E_LEFT_ONLY');
+    // Bài 5 (Ngã tư có tín hiệu điều khiển giao thông — 4 hướng kết hợp W.209 + W.205A + R.301 trên CÙNG 1 CỘT):
+    //   • Hướng Nam tiến vào Ngã tư 5:
+    buildQcvn41TrafficSign(-1.6, 11.5, 0, 'W_209_TRAFFIC_LIGHT', undefined, 'W_205A_EQUAL_INTERSECTION', undefined, 'R_301A_AHEAD_ONLY');
+    //   • Hướng Đông tiến vào Ngã tư 5:
+    buildQcvn41TrafficSign(3.8, -3.4, Math.PI / 2, 'W_209_TRAFFIC_LIGHT', undefined, 'W_205A_EQUAL_INTERSECTION', undefined, 'R_301A_AHEAD_ONLY');
+    //   • Hướng Tây tiến vào Ngã tư 5:
+    buildQcvn41TrafficSign(-16.8, 6.4, -Math.PI / 2, 'W_209_TRAFFIC_LIGHT', undefined, 'W_205A_EQUAL_INTERSECTION', undefined, 'R_301D_RIGHT_ONLY');
+    //   • Hướng Bắc tiến vào Ngã tư 5:
+    buildQcvn41TrafficSign(-11.4, -8.8, Math.PI, 'W_209_TRAFFIC_LIGHT', undefined, 'W_205A_EQUAL_INTERSECTION', undefined, 'R_301E_LEFT_ONLY');
 
-    // Biển hiệu lệnh tại ngã ba Bắc/Nam của trục dọc Ngã tư 5 (Đúng Ảnh 1: Đầu Bắc rẽ phải sang Bài 6, phía Nam rẽ phải về Bài 11 Kết thúc — không đặt biển đường cấm ở Bài 11):
-    buildQcvn41TrafficSign(-1.6, -46.8, 0, 'R_301D_RIGHT_ONLY');
+    // Biển hiệu lệnh tại ngã ba Bắc/Nam của trục dọc Ngã tư 5 (Đầu Bắc rẽ phải sang Bài 6, phía Nam rẽ phải về Bài 11 Kết thúc — đặt sâu trên đảo cỏ, không lấn ra mép đường):
+    buildQcvn41TrafficSign(-1.5, -42.5, 0, 'R_301D_RIGHT_ONLY');
     buildQcvn41TrafficSign(-11.6, 11.8, Math.PI, 'R_301D_RIGHT_ONLY');
 
-    // Bài 6 (Chữ S — Đặt trên thảm cỏ đảo Đông-Bắc & Đông-Nam, cách xa miệng phễu vào/ra):
-    buildQcvn41TrafficSign(9.8, -47.8, -Math.PI / 2, 'W_202A_DOUBLE_CURVE_S', undefined, 'I_412_LANE_CAR_B', 'RIGHT');
-    buildQcvn41TrafficSign(31.2, -47.8, -Math.PI / 2, 'W_202A_DOUBLE_CURVE_S', undefined, 'I_412_LANE_TRUCK_C', 'RIGHT');
+    // Bài 6 (Chữ S — Đặt sâu trên thảm cỏ đảo Đông-Bắc Z=-43.0m, lùi hẳn 4m vào trong so với mép đường Bắc Z=-47.0m, hoàn toàn không ở ngoài đường):
+    buildQcvn41TrafficSign(8.5, -43.0, -Math.PI / 2, 'W_202A_DOUBLE_CURVE_S', undefined, 'I_412_LANE_CAR_B', 'RIGHT');
+    buildQcvn41TrafficSign(30.0, -43.0, -Math.PI / 2, 'W_202A_DOUBLE_CURVE_S', undefined, 'I_412_LANE_TRUCK_C', 'RIGHT');
     buildQcvn41TrafficSign(14.0, 6.4, Math.PI, 'R_301D_RIGHT_ONLY');
     buildQcvn41TrafficSign(36.0, 6.4, Math.PI, 'R_301D_RIGHT_ONLY');
 
-    // Bài 7 (Đỗ xe — Ghép dọc: 2 biển I.409 nơi đỗ xe đặt chuẩn trên thảm cỏ vỉa hè ngay đầu cửa chuồng Hạng B & Hạng C, không nằm dưới lòng đường dẫn):
-    buildQcvn41TrafficSign(-63.5, -47.8, -Math.PI / 2, 'I_412_LANE_CAR_B', 'RIGHT');
-    buildQcvn41TrafficSign(-36.5, -47.8, -Math.PI / 2, 'I_412_LANE_TRUCK_C', 'RIGHT');
-    buildQcvn41TrafficSign(-23.6, -29.2, Math.PI, 'I_409_PARKING');
-    buildQcvn41TrafficSign(-51.6, -28.8, Math.PI, 'I_409_PARKING');
+    // Bài 7 (Đỗ xe — Ghép dọc: 2 biển I.409 nơi đỗ xe đặt ngay sau chuồng Hạng C & Hạng B, quay mặt về cửa chuồng, không chắn camera khi lùi):
+    buildQcvn41TrafficSign(-15.1, -26.0, -Math.PI / 2, 'I_409_PARKING');
+    buildQcvn41TrafficSign(-46.6, -26.0, -Math.PI / 2, 'I_409_PARKING');
 
     // Bài 8 (Xe lửa — Giao nhau với đường sắt trên đường bao Đông X = +76.5m):
     buildQcvn41TrafficSign(70.5, 6.4, -Math.PI / 2, 'R_301E_LEFT_ONLY');
     buildQcvn41TrafficSign(80.4, -21.0, 0, 'W_211A_RAILWAY', undefined, 'R_122_STOP');
 
-    // Bài 9 (Tăng tốc — Thay đổi số trên lề cỏ Bắc Z = -56.0m):
-    buildQcvn41TrafficSign(58.0, -56.0, Math.PI / 2, 'R_306_MIN_20');
-    buildQcvn41TrafficSign(22.0, -56.0, Math.PI / 2, 'P_127_MAX_20');
-    buildQcvn41TrafficSign(-15.0, -56.0, Math.PI / 2, 'R_307_END_MIN_20');
+    // Bài 9 (Tăng tốc — Thay đổi số dọc hành lang tường Bắc Z = -59.3m):
+    buildQcvn41TrafficSign(58.0, -59.3, Math.PI / 2, 'R_306_MIN_20');
+    buildQcvn41TrafficSign(22.0, -59.3, Math.PI / 2, 'P_127_MAX_20');
+    // (Biển R_307_END_MIN_20 tại X=-15.0 đã được xóa theo yêu cầu)
 
     // Bài 10 (Ghép xe ngang — Chỉ giữ biển hiệu lệnh rẽ trái đầu đường, không hiện biển chữ P ở bài ghép ngang):
     buildQcvn41TrafficSign(-71.5, 6.4, Math.PI, 'R_301E_LEFT_ONLY');
+
+    // Bài 7 (Sau khi ra khỏi Chuồng C — Biển tròn xanh hiệu lệnh rẽ phải R.301D đặt trên vỉa hè đảo cỏ Z=-45.2m, mặt biển quay về hướng Tây -Math.PI/2 đón xe từ Bài 7 đi ra):
+    buildQcvn41TrafficSign(-21.0, -45.2, -Math.PI / 2, 'R_301D_RIGHT_ONLY');
 
     // 8. Render Solid Obstacles from Physics Engine
     for (const obs of physicsRef.current.solidObstacles) {
@@ -2799,7 +4143,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     // 10. Checkpoint markers are kept natural without artificial 3D ground rings
     // so drivers realistically observe painted white stop lines, curbs, and road markings.
 
-    // 10B. 3D Course Debug Gizmos Group (Road Centerlines, Segment Boundaries, Exercise Zones & Checkpoint Trigger Volumes)
+    // 10B. 3D Course Debug Gizmos Group (Cleaned: Zero artificial green lines, wireframe boxes or checkpoint lines)
     const courseDebugGizmoGroup = new THREE.Group();
     courseDebugGizmoGroup.visible = false;
     scene.add(courseDebugGizmoGroup);
@@ -2813,94 +4157,267 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const child = courseDebugGizmoGroup.children[0];
         courseDebugGizmoGroup.remove(child);
       }
-
-      // A. Always render Blueprint Road Centerlines (Main 10-Exercise Loop)
-      for (const seg of BLUEPRINT_ROAD_SEGMENTS) {
-        const g1 = physicsRef.current.sampleGroundAt(seg.start.x, seg.start.z);
-        const g2 = physicsRef.current.sampleGroundAt(seg.end.x, seg.end.z);
-        const clPts = [
-          new THREE.Vector3(seg.start.x, g1.heightM + 0.22, seg.start.z),
-          new THREE.Vector3(seg.end.x, g2.heightM + 0.22, seg.end.z),
-        ];
-        const clLine = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(clPts),
-          new THREE.LineBasicMaterial({
-            color: 0x22c55e,
-          })
-        );
-        courseDebugGizmoGroup.add(clLine);
-      }
-
-      // B. Always render Segment Boundaries for all 10 Blueprint Exercise Zones (①..⑩)
-      const zoneBoundaryMat = new THREE.LineBasicMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: 0.7,
-      });
-      for (const zSpec of SA_HINH_BLUEPRINT_ZONES) {
-        const b = zSpec.boundsM;
-        const w = b.maxX - b.minX;
-        const d = b.maxZ - b.minZ;
-        const cx = (b.minX + b.maxX) * 0.5;
-        const cz = (b.minZ + b.maxZ) * 0.5;
-        const boxGeo = new THREE.BoxGeometry(w, 0.35, d);
-        const edges = new THREE.EdgesGeometry(boxGeo);
-        const wire = new THREE.LineSegments(edges, zoneBoundaryMat);
-        wire.position.set(cx, 0.2, cz);
-        courseDebugGizmoGroup.add(wire);
-      }
-
-      // C. Render Active Exercise Corridors & Checkpoint Trigger Volumes
-      const ex = exEngineRefCurrentExercise();
-      if (!ex) return;
-
-      const routePoints: THREE.Vector3[] = [
-        new THREE.Vector3(ex.startPosition.x, 0.25, ex.startPosition.z),
-      ];
-      for (let i = 0; i < ex.checkpoints.length; i++) {
-        const cp = ex.checkpoints[i];
-        routePoints.push(
-          new THREE.Vector3(cp.position.x, cp.position.y + 0.25, cp.position.z)
-        );
-        const cpWireMat = new THREE.MeshBasicMaterial({
-          color: cp.requiresFullStop ? 0xf59e0b : 0x10b981,
-          wireframe: true,
-          transparent: true,
-          opacity: 0.55,
-        });
-        if (cp.boxSizeM) {
-          const boxMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(cp.boxSizeM.width, 1.4, cp.boxSizeM.length),
-            cpWireMat
-          );
-          boxMesh.position.set(
-            cp.position.x,
-            cp.position.y + 0.7,
-            cp.position.z
-          );
-          courseDebugGizmoGroup.add(boxMesh);
-        } else {
-          const cylMesh = new THREE.Mesh(
-            new THREE.CylinderGeometry(cp.radiusM, cp.radiusM, 1.2, 20, 1, true),
-            cpWireMat
-          );
-          cylMesh.position.set(
-            cp.position.x,
-            cp.position.y + 0.6,
-            cp.position.z
-          );
-          courseDebugGizmoGroup.add(cylMesh);
-        }
-      }
-      if (routePoints.length >= 2) {
-        const routeGeo = new THREE.BufferGeometry().setFromPoints(routePoints);
-        const routeLine = new THREE.Line(
-          routeGeo,
-          new THREE.LineBasicMaterial({ color: 0xfacc15 })
-        );
-        courseDebugGizmoGroup.add(routeLine);
-      }
+      // Keep course 100% clean and realistic without artificial green start/end gizmo lines or trigger boxes
     };
+
+    // ============================================================================
+    // 10B. 3D Concrete Perimeter Wall & Streetlight Poles along North Road (Bài 9 & 7)
+    // Khớp 100% ảnh chụp flycam: tường rào bê tông xám chia ô, hàng cột đèn cao áp
+    // ============================================================================
+    const northWallGroup = new THREE.Group();
+    const concreteWallMat = new THREE.MeshStandardMaterial({
+      color: 0xc8d0d5,
+      roughness: 0.88,
+      metalness: 0.02,
+    });
+    const concreteCapMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      roughness: 0.82,
+      metalness: 0.03,
+    });
+    const pilasterMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.86,
+      metalness: 0.03,
+    });
+
+    // Main wall body: length 162.6m (X = -82.6m .. +80.0m), height 2.2m, thickness 0.18m at Z = -59.90m
+    const wallBody = new THREE.Mesh(
+      new THREE.BoxGeometry(162.6, 2.2, 0.18),
+      concreteWallMat
+    );
+    wallBody.position.set(-1.30, 1.1, -59.90);
+    if (!isMobileGPU) {
+      wallBody.castShadow = true;
+      wallBody.receiveShadow = true;
+    }
+    northWallGroup.add(wallBody);
+
+    // Continuous top coping / concrete cap
+    const wallCap = new THREE.Mesh(
+      new THREE.BoxGeometry(163.0, 0.10, 0.26),
+      concreteCapMat
+    );
+    wallCap.position.set(-1.30, 2.25, -59.90);
+    northWallGroup.add(wallCap);
+
+    // Pilasters / vertical pillars spaced every 4.0m
+    const pilasterGeo = new THREE.BoxGeometry(0.32, 2.32, 0.26);
+    for (let px = -82.0; px <= 80.0; px += 4.0) {
+      const pMesh = new THREE.Mesh(pilasterGeo, pilasterMat);
+      pMesh.position.set(px, 1.16, -59.90);
+      if (!isMobileGPU) pMesh.castShadow = true;
+      northWallGroup.add(pMesh);
+    }
+    scene.add(northWallGroup);
+
+    // Streetlight poles with curved arms and LED luminaire cobra-head fixtures along North road
+    // 10B. HIGH-FIDELITY MODERN HIGHWAY LED STREETLIGHT POLES (CỘT ĐÈN CHIẾU SÁNG CAO CẤP)
+    // Thiết kế chuẩn cột thép côn mạ kẽm nhúng nóng, bệ móng bê tông, bu lông neo,
+    // cần đèn cong mềm khí động học (TubeGeometry liền khối 100% không hở khớp),
+    // và bộ đèn LED tản nhiệt hiện đại.
+    const lightPoleGroup = new THREE.Group();
+
+    // Vật liệu kim loại mạ kẽm nhúng nóng và linh kiện cao cấp
+    const galvanizedPoleMat = new THREE.MeshStandardMaterial({
+      color: 0xb4bec9,
+      metalness: 0.86,
+      roughness: 0.30,
+    });
+    const darkHardwareMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.70,
+      roughness: 0.40,
+    });
+    const concretePedestalMat = new THREE.MeshStandardMaterial({
+      color: 0xd6d3d1,
+      roughness: 0.88,
+      metalness: 0.04,
+    });
+    const ledHousingMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      metalness: 0.76,
+      roughness: 0.28,
+    });
+    const ledLensMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffedd5,
+      emissiveIntensity: 0.95,
+      roughness: 0.12,
+    });
+    const photocellMat = new THREE.MeshStandardMaterial({
+      color: 0x1d4ed8,
+      roughness: 0.35,
+      metalness: 0.20,
+    });
+
+    // Tạo nguyên mẫu cột đèn chất lượng cao (Master Streetlight Prototype)
+    const buildStreetlightPrototype = () => {
+      const pole = new THREE.Group();
+
+      // 1. Bệ bê tông móng trụ (Concrete Foundation Pedestal)
+      const pedestal = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.24, 0.28, 0.16, 12),
+        concretePedestalMat
+      );
+      pedestal.position.y = 0.08;
+      pole.add(pedestal);
+
+      // 2. Mặt bích đế cột bằng thép mạ kẽm (Galvanized Steel Base Flange)
+      const baseFlange = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.21, 0.21, 0.035, 12),
+        galvanizedPoleMat
+      );
+      baseFlange.position.y = 0.16 + 0.0175;
+      pole.add(baseFlange);
+
+      // 3. 4 Bu lông neo mạ kẽm với đai ốc lục giác (Hex Anchor Bolts & Nuts)
+      const boltGeo = new THREE.CylinderGeometry(0.014, 0.014, 0.045, 6);
+      const boltDist = 0.155;
+      for (let b = 0; b < 4; b++) {
+        const ang = (b * Math.PI) / 2 + Math.PI / 4;
+        const bolt = new THREE.Mesh(boltGeo, darkHardwareMat);
+        bolt.position.set(
+          Math.cos(ang) * boltDist,
+          0.16 + 0.035 + 0.02,
+          Math.sin(ang) * boltDist
+        );
+        pole.add(bolt);
+      }
+
+      // 4. 4 Gân tăng cứng hàn gia cường chân cột (Welded Gusset Stiffener Ribs)
+      const gussetGeo = new THREE.BoxGeometry(0.016, 0.16, 0.07);
+      for (let g = 0; g < 4; g++) {
+        const ang = (g * Math.PI) / 2;
+        const gusset = new THREE.Mesh(gussetGeo, galvanizedPoleMat);
+        gusset.position.set(
+          Math.cos(ang) * 0.13,
+          0.16 + 0.035 + 0.08,
+          Math.sin(ang) * 0.13
+        );
+        gusset.rotation.y = -ang;
+        pole.add(gusset);
+      }
+
+      // 5. Cửa luồn dây kỹ thuật / nắp kiểm tra cột (Electrical Inspection Access Door)
+      const doorPlate = new THREE.Mesh(
+        new THREE.BoxGeometry(0.075, 0.24, 0.02),
+        darkHardwareMat
+      );
+      doorPlate.position.set(0, 0.85, -0.092);
+      pole.add(doorPlate);
+
+      // 6. Thân cột thép côn tròn vuốt thon đều (Tapered Galvanized Mast Shaft)
+      // Chân cột phi 190 (R=0.095m) vuốt thon dần lên ngọn phi 100 (R=0.050m), chiều cao 5.8m
+      const mastHeight = 5.8;
+      const mastBottomY = 0.16 + 0.035;
+      const mast = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.050, 0.095, mastHeight, 16),
+        galvanizedPoleMat
+      );
+      mast.position.y = mastBottomY + mastHeight * 0.5;
+      pole.add(mast);
+
+      // 7. Vòng đai chuyển tiếp cổ ngọn cột (Transition Collar Ring)
+      const collar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.058, 0.054, 0.09, 16),
+        galvanizedPoleMat
+      );
+      collar.position.y = mastBottomY + mastHeight;
+      pole.add(collar);
+
+      // 8. CẦN ĐÈN UỐN CONG KHÍ ĐỘNG HỌC LIỀN KHỐI (Smooth Aerodynamic Swept Gooseneck Arm)
+      // Đường cong Catmull-Rom 3D mượt mà, điểm đầu cắm ngập vào lòng ngọn cột (không có khe hở!)
+      const armCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, mastBottomY + mastHeight - 0.06, 0),       // Cắm sâu trong ngọn cột
+        new THREE.Vector3(0, mastBottomY + mastHeight + 0.50, 0.08),    // Vươn lên và bắt đầu ngả về phía lòng đường
+        new THREE.Vector3(0, mastBottomY + mastHeight + 1.15, 0.65),    // Cung uốn cong mềm mại
+        new THREE.Vector3(0, mastBottomY + mastHeight + 1.42, 1.40),    // Đỉnh cần đèn đạt cao độ 7.4m
+        new THREE.Vector3(0, mastBottomY + mastHeight + 1.38, 2.05),    // Vươn ngang qua mép bó vỉa
+        new THREE.Vector3(0, mastBottomY + mastHeight + 1.25, 2.50),    // Dốc nhẹ đón khớp đèn
+      ]);
+      const armTube = new THREE.Mesh(
+        new THREE.TubeGeometry(armCurve, 28, 0.034, 12, false),
+        galvanizedPoleMat
+      );
+      pole.add(armTube);
+
+      // 9. Đầu nối cần đèn (Luminaire Mounting Spigot Clamp Sleeve)
+      const spigot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.042, 0.042, 0.15, 12),
+        darkHardwareMat
+      );
+      spigot.position.set(0, mastBottomY + mastHeight + 1.25, 2.50);
+      spigot.rotation.x = Math.PI / 2 + 0.22; // Cân chỉnh góc nghiêng theo tiếp tuyến đầu cần
+      pole.add(spigot);
+
+      // 10. BỘ ĐÈN ĐƯỜNG LED HIỆN ĐẠI (Aerodynamic Die-cast LED Luminaire Fixture)
+      const luminaireGroup = new THREE.Group();
+      luminaireGroup.position.set(0, mastBottomY + mastHeight + 1.20, 2.80);
+      luminaireGroup.rotation.x = 0.18; // Nghiêng 10 độ rọi sáng xuống mặt đường
+
+      // 10a. Vỏ đèn nhôm đúc khí động học (Streamlined Die-cast Housing)
+      const housing = new THREE.Mesh(
+        new THREE.BoxGeometry(0.28, 0.09, 0.64),
+        ledHousingMat
+      );
+      luminaireGroup.add(housing);
+
+      // Mũi đèn vát thon phía trước
+      const nose = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.14, 0.08, 12),
+        ledHousingMat
+      );
+      nose.position.set(0, 0, 0.32);
+      nose.rotation.x = Math.PI / 2;
+      luminaireGroup.add(nose);
+
+      // 10b. 3 Gân tản nhiệt nhôm đúc trên lưng đèn (Cooling Heat-sink Fins)
+      const finGeo = new THREE.BoxGeometry(0.012, 0.032, 0.42);
+      for (const fx of [-0.07, 0, 0.07]) {
+        const fin = new THREE.Mesh(finGeo, darkHardwareMat);
+        fin.position.set(fx, 0.055, -0.04);
+        luminaireGroup.add(fin);
+      }
+
+      // 10c. Mắt cảm biến ánh sáng NEMA màu xanh (Twist-lock Photocell Sensor)
+      const photocell = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.022, 0.022, 0.04, 10),
+        photocellMat
+      );
+      photocell.position.set(0, 0.065, -0.20);
+      luminaireGroup.add(photocell);
+
+      // 10d. Mặt kính thấu kính phát quang LED (Underside Optical Luminous Lens)
+      const lens = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.015, 0.46),
+        ledLensMat
+      );
+      lens.position.set(0, -0.046, 0.02);
+      luminaireGroup.add(lens);
+
+      pole.add(luminaireGroup);
+
+      if (!isMobileGPU) {
+        pole.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+      }
+
+      return pole;
+    };
+
+    const streetlightMaster = buildStreetlightPrototype();
+
+    for (const lx of [-70.0, -50.0, -30.0, -10.0, 10.0, 30.0, 50.0, 70.0]) {
+      const poleClone = streetlightMaster.clone();
+      poleClone.position.set(lx, 0, -59.30);
+      lightPoleGroup.add(poleClone);
+    }
+    scene.add(lightPoleGroup);
 
     // 11. Peripheral Instanced Trees (Placed strictly outside the rectangular [-84..+84] x [-58..+58] yard wall so no tree ever touches any road!)
     const treeCount = 48;
@@ -2925,8 +4442,10 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       foliageMat,
       treeCount
     );
-    trunkInstanced.castShadow = true;
-    foliageInstanced.castShadow = true;
+    if (!isMobileGPU) {
+      trunkInstanced.castShadow = true;
+      foliageInstanced.castShadow = true;
+    }
 
     const dummy = new THREE.Object3D();
     const tintColor = new THREE.Color();
@@ -3464,8 +4983,13 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
     // 14. Main 60fps Render & Frame-Locked Substep Simulation Loop
     const clock = new THREE.Clock();
     let telemetryTimer = 0;
+    // Separate slower timer for when game is paused — saves React re-renders on mobile
+    let pausedTelemetryTimer = 0;
     let titleOrbitAngle = 0.55;
     let animationFrameId = 0;
+    // Mobile: render rear-view mirrors every 2nd frame (30Hz) to halve mirror GPU overhead
+    let mirrorFrameSkip = 0;
+    let mirrorRoundRobinIndex = 0;
     const chaseCamForward = new THREE.Vector3(
       -Math.sin(physicsRef.current.yawRad),
       0,
@@ -3763,6 +5287,22 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         carRig.tintedGlassMat.needsUpdate = true;
       }
 
+      // Cockpit View Frustum & Mirror Visibility Optimization:
+      // 1. near = 0.05m in cockpit mode so the left A-pillar and door trim are never sliced open by near plane.
+      // 2. Hide 3D floating rearview mirror assembly in cockpit view because the HUD mirror bar already provides clear view,
+      //    eliminating the floating rectangular mirror and stalk obstructing the windshield.
+      const targetNear = isCockpitCam ? 0.05 : 0.25;
+      if (Math.abs(camera.near - targetNear) > 0.01) {
+        camera.near = targetNear;
+        camera.updateProjectionMatrix();
+      }
+      if (
+        carRig.rearViewMirrorGroup &&
+        carRig.rearViewMirrorGroup.visible === isCockpitCam
+      ) {
+        carRig.rearViewMirrorGroup.visible = !isCockpitCam;
+      }
+
       if (isTitleScreenRef.current) {
         titleOrbitAngle += rawDt * 0.28;
         const orbitRadius = 5.6 + (lengthScale - 1) * 2.4;
@@ -3785,11 +5325,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         const isTruck3D = carRig.truckModelHolder.visible;
         const bScale = carRig.bodyModelHolder.scale;
         const bOffsetY = carRig.bodyModelHolder.position.y;
-        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.34m) and Hạng C Truck (-0.34m):
+        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.32m) and Hạng C Truck (-0.34m):
         // High seating posture looking cleanly out the windshield while framing the full 360° round steering wheel.
-        const eyeXLocal = -0.34;
-        const eyeHeightLocal = isTruck3D ? 0.79 : 0.44;
-        const eyeZLocal = isTruck3D ? -1.12 : -0.17;
+        const eyeXLocal = isTruck3D ? -0.34 : -0.32;
+        const eyeHeightLocal = isTruck3D ? 0.82 : 0.52;
+        const eyeZLocal = isTruck3D ? -1.12 : -0.12;
         const localEye = new THREE.Vector3(
           eyeXLocal * bScale.x,
           eyeHeightLocal * bScale.y + bOffsetY,
@@ -3802,7 +5342,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
         // so steering left/right (A/D) NEVER sways or shakes the screen!
         const steerLookYaw = cockpitLookYaw;
         const lookDist = 14.0;
-        const basePitchDrop = isTruck3D ? 1.85 : 1.92;
+        const basePitchDrop = isTruck3D ? 1.85 : 1.70;
         const lookForward = new THREE.Vector3(
           eyeXLocal * bScale.x - Math.sin(steerLookYaw) * lookDist,
           eyeHeightLocal * bScale.y +
@@ -3910,12 +5450,12 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           concreteRecessMat.metalness = 0.08;
           rainLines.visible = false;
         } else {
-          skyHorizonColor.setHex(0xdce7f3);
-          expFog.color.setHex(0xdce7f3);
-          expFog.density = 0.0062;
-          hemiLight.intensity = 0.85;
-          sunKeyLight.intensity = 2.1;
-          rimLight.intensity = 0.55;
+          skyHorizonColor.setHex(0xdbeafe);
+          expFog.color.setHex(0xdbeafe);
+          expFog.density = 0.0032;
+          hemiLight.intensity = 0.95;
+          sunKeyLight.intensity = 2.3;
+          rimLight.intensity = 0.65;
           roadMat.roughness = 0.84;
           roadMat.metalness = 0.04;
           roadMat.color.setHex(0xffffff);
@@ -4104,79 +5644,191 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
 
       // ======================================================================
       // Update & Render 3 Live Rear-Facing Mirror Cameras (Left, Center, Right)
+      // Only render when mirrors are actually visible to user!
+      // Mobile: round-robin 1 mirror per update without shadows to eliminate lag
       // ======================================================================
-      if (!isTitleScreenRef.current && cameraModeRef.current !== 'TOP_DOWN') {
-        const isTruck3D = carRig.truckModelHolder.visible;
+      const shouldRenderMirrors =
+        showRearviewMirrorsRef.current &&
+        !isTitleScreenRef.current &&
+        cameraModeRef.current !== 'TOP_DOWN' &&
+        cameraModeRef.current !== 'ORBIT_INSPECT';
+
+      if (shouldRenderMirrors) {
+        mirrorFrameSkip = (mirrorFrameSkip + 1) % (isMobileGPU ? 2 : 1);
+        if (mirrorFrameSkip === 0) {
+          const isTruck3D = carRig.truckModelHolder.visible;
+          const bScale = carRig.bodyModelHolder.scale;
+          const bOffsetY = carRig.bodyModelHolder.position.y;
+          const chassisQuat = carRig.chassisGroup.quaternion;
+
+          // 1. Left Wing Mirror Camera
+          _mirrorLocalPos.set(
+            (isTruck3D ? -0.96 : -0.82) * bScale.x,
+            (isTruck3D ? 0.48 : 0.44) * bScale.y + bOffsetY,
+            (isTruck3D ? -1.55 : -0.45) * bScale.z
+          );
+          _mirrorLocalPos.applyQuaternion(chassisQuat);
+          leftMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
+
+          _mirrorLocalTarget.set(
+            (isTruck3D ? -0.70 : -0.58) * bScale.x,
+            -0.26 * bScale.y + bOffsetY,
+            10.5 * bScale.z
+          );
+          _mirrorLocalTarget.applyQuaternion(chassisQuat);
+          _mirrorWorldTarget.copy(phys.position).add(_mirrorLocalTarget);
+          leftMirrorCam.lookAt(_mirrorWorldTarget);
+
+          // 2. Center Rearview Mirror Camera
+          _mirrorLocalPos.set(
+            0,
+            (isTruck3D ? 0.62 : 0.54) * bScale.y + bOffsetY,
+            (isTruck3D ? 2.48 : 1.56) * bScale.z
+          );
+          _mirrorLocalPos.applyQuaternion(chassisQuat);
+          centerMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
+
+          _mirrorLocalTarget.set(
+            0,
+            -0.18 * bScale.y + bOffsetY,
+            18.0 * bScale.z
+          );
+          _mirrorLocalTarget.applyQuaternion(chassisQuat);
+          _mirrorWorldTarget.copy(phys.position).add(_mirrorLocalTarget);
+          centerMirrorCam.lookAt(_mirrorWorldTarget);
+
+          // 3. Right Wing Mirror Camera
+          _mirrorLocalPos.set(
+            (isTruck3D ? 0.96 : 0.82) * bScale.x,
+            (isTruck3D ? 0.48 : 0.44) * bScale.y + bOffsetY,
+            (isTruck3D ? -1.55 : -0.45) * bScale.z
+          );
+          _mirrorLocalPos.applyQuaternion(chassisQuat);
+          rightMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
+
+          _mirrorLocalTarget.set(
+            (isTruck3D ? 0.70 : 0.58) * bScale.x,
+            -0.26 * bScale.y + bOffsetY,
+            10.5 * bScale.z
+          );
+          _mirrorLocalTarget.applyQuaternion(chassisQuat);
+          _mirrorWorldTarget.copy(phys.position).add(_mirrorLocalTarget);
+          rightMirrorCam.lookAt(_mirrorWorldTarget);
+
+          // Temporarily disable shadow map during mirror passes (mirrors never need real-time shadow recalculation)
+          const prevShadowMap = renderer.shadowMap.enabled;
+          renderer.shadowMap.enabled = false;
+
+          if (isMobileGPU) {
+            // Round-robin: render 1 mirror per update on mobile to divide GPU work by 3
+            mirrorRoundRobinIndex = (mirrorRoundRobinIndex + 1) % 3;
+            if (mirrorRoundRobinIndex === 0) {
+              renderer.setRenderTarget(leftMirrorRT);
+              renderer.render(scene, leftMirrorCam);
+            } else if (mirrorRoundRobinIndex === 1) {
+              renderer.setRenderTarget(centerMirrorRT);
+              renderer.render(scene, centerMirrorCam);
+            } else {
+              renderer.setRenderTarget(rightMirrorRT);
+              renderer.render(scene, rightMirrorCam);
+            }
+          } else {
+            renderer.setRenderTarget(leftMirrorRT);
+            renderer.render(scene, leftMirrorCam);
+            renderer.setRenderTarget(centerMirrorRT);
+            renderer.render(scene, centerMirrorCam);
+            renderer.setRenderTarget(rightMirrorRT);
+            renderer.render(scene, rightMirrorCam);
+          }
+          renderer.setRenderTarget(null);
+          renderer.shadowMap.enabled = prevShadowMap;
+        }
+      }
+
+      // ======================================================================
+      // Wheel Cam: render when gear is REVERSE and in parking exercise (Bài 7 or 10)
+      // Camera sits ~0.4m below rear axle centre, tilted slightly down to see tyres + ground
+      // ======================================================================
+      const isReversing = phys.currentGear === -1;
+      const wheelCamExId = exEngine.getRuntimeStateSnapshot().exercise?.id ?? '';
+      const isParkingExercise =
+        wheelCamExId === 'ex_07_vertical_parking' ||
+        wheelCamExId === 'ex_10_horizontal_parking';
+      const shouldRenderWheelCam =
+        isReversing && isParkingExercise && !isTitleScreenRef.current;
+
+      if (shouldRenderWheelCam && carRig) {
         const bScale = carRig.bodyModelHolder.scale;
         const bOffsetY = carRig.bodyModelHolder.position.y;
         const chassisQuat = carRig.chassisGroup.quaternion;
 
-        // 1. Left Wing Mirror Camera (looks back along left body flank, left rear tire & parking line)
-        _mirrorLocalPos.set(
-          (isTruck3D ? -0.96 : -0.82) * bScale.x,
-          (isTruck3D ? 0.48 : 0.44) * bScale.y + bOffsetY,
-          (isTruck3D ? -1.55 : -0.45) * bScale.z
-        );
+        // Position camera below rear axle, looking down and slightly forward
+        _mirrorLocalPos.set(0, -0.30 * bScale.y + bOffsetY, -1.05 * bScale.z);
         _mirrorLocalPos.applyQuaternion(chassisQuat);
-        leftMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
+        wheelCamCamera.position.copy(phys.position).add(_mirrorLocalPos);
 
-        _mirrorLocalTarget.set(
-          (isTruck3D ? -0.70 : -0.58) * bScale.x,
-          -0.26 * bScale.y + bOffsetY,
-          10.5 * bScale.z
-        );
+        // Look at a point slightly in front of rear bumper at ground level
+        _mirrorLocalTarget.set(0, -0.62 * bScale.y + bOffsetY, -1.85 * bScale.z);
         _mirrorLocalTarget.applyQuaternion(chassisQuat);
         _mirrorWorldTarget.copy(phys.position).add(_mirrorLocalTarget);
-        leftMirrorCam.lookAt(_mirrorWorldTarget);
+        wheelCamCamera.lookAt(_mirrorWorldTarget);
 
-        // 2. Center Rearview Mirror Camera (wide panoramic view directly behind rear window / tailgate)
-        _mirrorLocalPos.set(
-          0,
-          (isTruck3D ? 0.62 : 0.54) * bScale.y + bOffsetY,
-          (isTruck3D ? 2.48 : 1.56) * bScale.z
-        );
-        _mirrorLocalPos.applyQuaternion(chassisQuat);
-        centerMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
-
-        _mirrorLocalTarget.set(
-          0,
-          -0.18 * bScale.y + bOffsetY,
-          18.0 * bScale.z
-        );
-        _mirrorLocalTarget.applyQuaternion(chassisQuat);
-        _mirrorWorldTarget.copy(phys.position).add(_mirrorLocalTarget);
-        centerMirrorCam.lookAt(_mirrorWorldTarget);
-
-        // 3. Right Wing Mirror Camera (looks back along right body flank, right rear tire & parking line)
-        _mirrorLocalPos.set(
-          (isTruck3D ? 0.96 : 0.82) * bScale.x,
-          (isTruck3D ? 0.48 : 0.44) * bScale.y + bOffsetY,
-          (isTruck3D ? -1.55 : -0.45) * bScale.z
-        );
-        _mirrorLocalPos.applyQuaternion(chassisQuat);
-        rightMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
-
-        _mirrorLocalTarget.set(
-          (isTruck3D ? 0.70 : 0.58) * bScale.x,
-          -0.26 * bScale.y + bOffsetY,
-          10.5 * bScale.z
-        );
-        _mirrorLocalTarget.applyQuaternion(chassisQuat);
-        _mirrorWorldTarget.copy(phys.position).add(_mirrorLocalTarget);
-        rightMirrorCam.lookAt(_mirrorWorldTarget);
-
-        renderer.setRenderTarget(leftMirrorRT);
-        renderer.render(scene, leftMirrorCam);
-        renderer.setRenderTarget(centerMirrorRT);
-        renderer.render(scene, centerMirrorCam);
-        renderer.setRenderTarget(rightMirrorRT);
-        renderer.render(scene, rightMirrorCam);
+        const prevShadowMapWC = renderer.shadowMap.enabled;
+        renderer.shadowMap.enabled = false;
+        renderer.setRenderTarget(wheelCamRT);
+        renderer.render(scene, wheelCamCamera);
         renderer.setRenderTarget(null);
-      }
+        renderer.shadowMap.enabled = prevShadowMapWC;
 
-      // Emit 30Hz Telemetry, Redraw 3D Cockpit Instrument Cluster & Update Audio
+        // Blit wheelCamRT onto the wheelCamSlot div via scissor/viewport
+        const slotEl = wheelCamSlotRef.current;
+        if (slotEl) {
+          const cw = container.clientWidth;
+          const ch = container.clientHeight;
+          const rect = slotEl.getBoundingClientRect();
+          const cRect = container.getBoundingClientRect();
+          if (rect.width >= 8 && rect.height >= 8) {
+            let vx: number, vy: number, vw: number, vh: number;
+            if (isCssRotated90Ref.current) {
+              vx = Math.round(rect.top - cRect.top);
+              vy = Math.round(rect.left - cRect.left);
+              vw = Math.round(rect.height);
+              vh = Math.round(rect.width);
+            } else {
+              vx = Math.round(rect.left - cRect.left);
+              vy = Math.round(ch - (rect.bottom - cRect.top));
+              vw = Math.round(rect.width);
+              vh = Math.round(rect.height);
+            }
+            const prevAutoClearWC = renderer.autoClear;
+            renderer.autoClear = false;
+            renderer.setScissorTest(true);
+            renderer.setViewport(vx, vy, vw, vh);
+            renderer.setScissor(vx, vy, vw, vh);
+            renderer.clearDepth();
+            mirrorFlipMat.map = wheelCamRT.texture;
+            mirrorFlipMat.needsUpdate = true;
+            renderer.render(mirrorFlipScene, mirrorFlipCam);
+            renderer.setScissorTest(false);
+            renderer.setViewport(0, 0, cw, ch);
+            renderer.autoClear = prevAutoClearWC;
+          }
+        }
+      }
+      // Show/hide the wheel cam overlay element based on active state
+      const wcSlot = wheelCamSlotRef.current;
+      if (wcSlot) {
+        wcSlot.style.display = shouldRenderWheelCam ? 'block' : 'none';
+      }
+      // Emit Telemetry: 12.5Hz on mobile (~0.08s) or 30Hz on desktop, 10Hz when paused/title (saves React re-renders)
       telemetryTimer += rawDt;
-      if (telemetryTimer >= 0.033) {
+      const emitInterval =
+        isPausedRef.current || isTitleScreenRef.current
+          ? 0.1
+          : isMobileGPU
+            ? 0.08
+            : 0.033;
+      if (telemetryTimer >= emitInterval) {
         telemetryTimer = 0;
         const snap = phys.getTelemetrySnapshot();
         const exSnap = exEngine.getRuntimeStateSnapshot();
@@ -4282,6 +5934,9 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
       leftMirrorRT.dispose();
       centerMirrorRT.dispose();
       rightMirrorRT.dispose();
+      wheelCamRT.dispose();
+      skyTex.dispose();
+      grassTex.dispose();
       rainGeo.dispose();
       rainMat.dispose();
       renderer.dispose();
@@ -4356,6 +6011,30 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = ({
           </div>
         </div>
       )}
+      {/* Wheel Cam: PiP overlay showing rear tyre proximity when reversing into parking stall (Bài 7 & 10) */}
+      <div
+        ref={wheelCamSlotRef}
+        className="absolute bottom-28 right-3 z-20 pointer-events-none select-none wheel-cam-overlay"
+        style={{ width: 200, height: 150, display: 'none' }}
+        aria-label="Camera soi lốp xe sau khi lùi chuồng"
+      >
+        {/* Label */}
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-1.5 py-0.5 z-20"
+          style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%)' }}
+        >
+          <span className="text-[9px] font-mono font-black tracking-widest" style={{ color: '#00ffb4', textShadow: '0 0 6px #00ffb4' }}>● CAM LỐP SAU</span>
+          <span className="text-[8px] font-mono" style={{ color: 'rgba(0,255,180,0.65)' }}>REVERSE</span>
+        </div>
+        {/* Corner crosshair guides */}
+        <div className="absolute inset-0 z-20 pointer-events-none">
+          <div className="absolute top-5 left-2" style={{ width: 10, height: 10, borderTop: '1.5px solid rgba(0,255,180,0.6)', borderLeft: '1.5px solid rgba(0,255,180,0.6)' }} />
+          <div className="absolute top-5 right-2" style={{ width: 10, height: 10, borderTop: '1.5px solid rgba(0,255,180,0.6)', borderRight: '1.5px solid rgba(0,255,180,0.6)' }} />
+          <div className="absolute bottom-1 left-2" style={{ width: 10, height: 10, borderBottom: '1.5px solid rgba(0,255,180,0.6)', borderLeft: '1.5px solid rgba(0,255,180,0.6)' }} />
+          <div className="absolute bottom-1 right-2" style={{ width: 10, height: 10, borderBottom: '1.5px solid rgba(0,255,180,0.6)', borderRight: '1.5px solid rgba(0,255,180,0.6)' }} />
+          {/* Centre horizontal guide line */}
+          <div className="absolute left-4 right-4" style={{ top: '60%', height: 1, background: 'rgba(0,255,180,0.25)' }} />
+        </div>
+      </div>
     </>
   );
-};
+});

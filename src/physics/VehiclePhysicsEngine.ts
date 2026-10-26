@@ -172,21 +172,21 @@ export class VehiclePhysicsEngine {
   private initEnvironmentGeometry(): void {
     this.solidObstacles.length = 0;
     this.solidObstacles.push(
-      // Outer Yard Boundary Fences (around paved [-82..+82] x [-56..+54])
+      // Outer Yard Boundary Fences (around paved [-85..+82] x [-59..+54])
       {
         id: 'boundary_north',
         nameVi: 'Rào chắn sân sát hạch (Phía Bắc)',
-        minX: -84.0,
+        minX: -85.5,
         maxX: 84.0,
-        minZ: -58.0,
-        maxZ: -56.5,
+        minZ: -61.5,
+        maxZ: -59.8,
         heightM: 1.2,
         colorHex: 0x475569,
       },
       {
         id: 'boundary_south',
         nameVi: 'Rào chắn sân sát hạch (Phía Nam)',
-        minX: -84.0,
+        minX: -85.5,
         maxX: 84.0,
         minZ: 54.5,
         maxZ: 56.0,
@@ -196,9 +196,9 @@ export class VehiclePhysicsEngine {
       {
         id: 'boundary_west',
         nameVi: 'Rào chắn sân sát hạch (Phía Tây)',
-        minX: -84.0,
-        maxX: -82.5,
-        minZ: -58.0,
+        minX: -85.5,
+        maxX: -82.6,
+        minZ: -61.5,
         maxZ: 56.0,
         heightM: 1.2,
         colorHex: 0x475569,
@@ -208,7 +208,7 @@ export class VehiclePhysicsEngine {
         nameVi: 'Rào chắn sân sát hạch (Phía Đông)',
         minX: 82.5,
         maxX: 84.0,
-        minZ: -58.0,
+        minZ: -61.5,
         maxZ: 56.0,
         heightM: 1.2,
         colorHex: 0x475569,

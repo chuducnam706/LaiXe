@@ -13,8 +13,10 @@ service cloud.firestore {
     }
 
     // Hàm kiểm tra tài khoản Quản Trị Viên Tối Cao
+    // BẢO MẬT: Bắt buộc email_verified == true để chặn tấn công giả mạo email chưa xác minh
     function isMasterAdmin() {
-      return isAuthenticated() && (
+      return isAuthenticated() &&
+        request.auth.token.email_verified == true && (
         request.auth.token.email == 'phucnam995@gmail.com' ||
         request.auth.token.email == 'admin@laixe.vn'
       );
@@ -30,12 +32,25 @@ service cloud.firestore {
         !('role' in request.resource.data) ||
         request.resource.data.role == 1 ||
         isMasterAdmin()
-      );
+      ) &&
+        // VALIDATE: Kiểm tra kiểu dữ liệu và độ dài chuỗi đầu vào
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() >= 1 &&
+        request.resource.data.displayName.size() <= 100 &&
+        request.resource.data.licenseClass is string &&
+        request.resource.data.licenseClass.size() <= 10 &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 150));
 
       // Cập nhật hồ sơ: Học viên được đổi tên/hạng xe, nhưng KHÔNG được tự sửa quyền 'role'
       allow update: if isMasterAdmin() || (
         isOwner(userId) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) &&
+        // VALIDATE: Kiểm tra kiểu dữ liệu và độ dài khi cập nhật
+        request.resource.data.displayName is string &&
+        request.resource.data.displayName.size() >= 1 &&
+        request.resource.data.displayName.size() <= 100 &&
+        request.resource.data.licenseClass is string &&
+        request.resource.data.licenseClass.size() <= 10
       );
 
       // Cho phép người dùng yêu cầu xóa tài khoản cá nhân
@@ -50,15 +65,27 @@ service cloud.firestore {
     // 2. Lịch sử chấm điểm bài thi sa hình (exam_records)
     match /exam_records/{recordId} {
       allow read: if isMasterAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        // VALIDATE: Bắt buộc có trường userId, result và kiểm tra kiểu dữ liệu, thang điểm (0-100)
+        request.resource.data.keys().hasAll(['userId', 'result']) &&
+        request.resource.data.userId is string &&
+        request.resource.data.result is map &&
+        request.resource.data.result.keys().hasAll(['finalScore', 'passed']) &&
+        request.resource.data.result.finalScore is number &&
+        request.resource.data.result.finalScore >= 0 &&
+        request.resource.data.result.finalScore <= 100 &&
+        request.resource.data.result.passed is bool;
       allow delete: if isMasterAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow update: if false; // Kết quả thi sa hình là bất biến, không cho phép chỉnh sửa
     }
 
     // 3. Hệ thống Mã VIP (vip_keys)
     match /vip_keys/{code} {
-      // Cho phép đọc để xác minh mã khi nhập vào modal kích hoạt
-      allow read: if isAuthenticated();
+      // BẢO MẬT: Chỉ cho phép đọc (get) 1 mã cụ thể khi học viên nhập mã kích hoạt
+      // CẤM TUYỆT ĐỐI quyền list/query toàn bộ collection để tránh lộ danh sách mã VIP chưa dùng
+      allow get: if isAuthenticated();
+      allow list: if isMasterAdmin();
 
       // Chỉ Master Admin mới có quyền sinh mã hoặc xóa mã VIP
       allow create, delete: if isMasterAdmin();
@@ -69,6 +96,14 @@ service cloud.firestore {
         request.resource.data.isRedeemed == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRedeemed', 'redeemedBy', 'redeemedAt']) &&
         request.resource.data.redeemedBy == request.auth.uid;
+    }
+
+    // 4. Cấu hình hệ thống (system_config)
+    match /system_config/{configId} {
+      // Cho phép đọc thông số cấu hình chung (thưởng lượt quảng cáo, quy định) — cố ý public
+      allow read: if true;
+      // Chỉ Master Admin mới có quyền điều chỉnh cấu hình hệ thống
+      allow write: if isMasterAdmin();
     }
   }
 }

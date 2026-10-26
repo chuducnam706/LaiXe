@@ -1,0 +1,539 @@
+================================================================================
+BỘ QUY TẮC BẢO MẬT TOÀN DIỆN & CHÍNH SÁCH QUYỀN RIÊNG TƯ (PRIVACY POLICY)
+DỰ ÁN: MÔ PHỎNG & SÁT HẠCH LÁI XE SA HÌNH 3D (REACT / THREE.JS / FIREBASE)
+Phiên bản: 2.0 (Cập nhật tháng 10/2026)
+================================================================================
+
+Tài liệu này bao gồm 10 phần toàn diện:
+- PHẦN 1: BỘ QUY TẮC BẢO MẬT MÃ NGUỒN & HỆ THỐNG (Dành cho Lập trình viên)
+- PHẦN 2: CHÍNH SÁCH QUYỀN RIÊNG TƯ CHUẨN (Tuân thủ Google AdSense & Nghị định 13/2023/NĐ-CP)
+- PHẦN 3: CHECKLIST BẢO MẬT NHANH 17 BƯỚC TRƯỚC KHI DEPLOY
+- PHẦN 4: BỘ QUY TẮC CHỐNG GIAN LẬN & HACK GAME (Anti-Cheat & Checkpoint Integrity)
+- PHẦN 5: ĐIỀU KHOẢN DỊCH VỤ & MIỄN TRỪ TRÁCH NHIỆM (Terms of Service & Disclaimer)
+- PHẦN 6: KIỂM SOÁT CHI PHÍ ĐÁM MÂY & ỨNG PHÓ SỰ CỐ (Budget Alerts & Incident Plan)
+- PHẦN 7: QUẢN LÝ MÃ NGUỒN, SECRET KEYS & GIT (DevOps & Secrets Safety)
+- PHẦN 8: BẢO VỆ TÀI NGUYÊN 3D & CHỐNG TRÀN BỘ NHỚ (Three.js Memory & GPU Safety)
+- PHẦN 9: BỘ QUY TẮC THƯƠNG MẠI ĐIỆN TỬ, THANH TOÁN & ĐỔI TRẢ (E-Commerce & Payments)
+- PHẦN 10: BỘ QUY TẮC CODE WEB DÀNH CHO DEV ANDROID (React/TS vs Kotlin/Native)
+
+================================================================================
+PHẦN 1: BỘ QUY TẮC BẢO MẬT MÃ NGUỒN & HỆ THỐNG (DEVELOPER SECURITY RULES)
+================================================================================
+
+1. QUY TẮC XÁC THỰC & BẢO VỆ MẬT KHẨU (AUTHENTICATION & PASSWORDS)
+--------------------------------------------------------------------------------
+1.1. Tuyệt đối KHÔNG lưu mật khẩu dạng văn bản thô (Plaintext):
+     - Không lưu mật khẩu thô trong LocalStorage, SessionStorage, Cookie hoặc Database.
+     - Kiểm tra toàn bộ mã nguồn để loại bỏ mọi trường `password` hoặc `pass` thô.
+1.2. Chuẩn mã hóa mật khẩu bắt buộc:
+     - Khi lưu trữ tài khoản phía Client (Local Offline Account): Bắt buộc dùng thuật
+       toán PBKDF2 (Password-Based Key Derivation Function 2) với tối thiểu 100.000 vòng
+       lặp (iterations), kèm chuỗi Salt ngẫu nhiên từ crypto.getRandomValues (16 bytes).
+     - Không sử dụng các hàm băm đơn giản như MD5, SHA-1 hoặc SHA-256 thuần (không salt)
+       vì rất dễ bị giải mã qua bảng Rainbow Table.
+1.3. Cơ chế tự động chuyển đổi dữ liệu cũ (Auto-migration):
+     - Khi nâng cấp thuật toán băm mật khẩu, hệ thống phải tự động nhận diện và cập nhật
+       hash mới ngay khi người dùng đăng nhập lại thành công lần đầu tiên.
+
+2. QUY TẮC PHÒNG CHỐNG TẤN CÔNG BRUTE-FORCE & QUẢN LÝ PHIÊN (RATE LIMIT & SESSION)
+--------------------------------------------------------------------------------
+2.1. Giới hạn tần suất đăng nhập (Rate Limiting):
+     - Khống chế tối đa 5 lần thử đăng nhập sai liên tiếp.
+     - Sau 5 lần thất bại: Tự động khóa tính năng đăng nhập trong vòng 5 phút (300.000ms).
+     - Reset bộ đếm về 0 ngay khi đăng nhập thành công.
+     - Hiển thị thông báo thân thiện kèm thời gian đếm ngược còn lại cho người dùng.
+2.2. Quản lý thời hạn sống của phiên làm việc (Session TTL):
+     - Mọi phiên đăng nhập lưu cục bộ (Local Session) bắt buộc phải có trường `expiresAt`.
+     - Thời gian sống tối đa khuyến nghị: 24 giờ kể từ thời điểm đăng nhập.
+     - Khi người dùng mở lại trang web: Phải đọc và kiểm tra `expiresAt`. Nếu quá hạn,
+       tự động xóa session rác và đưa người dùng về trạng thái Khách vãng lai (Guest).
+2.3. Che giấu thông tin lỗi thô (Error Sanitization):
+     - CẤM in chi tiết lỗi thô của hệ thống (như `err.message`, SQL error, Firebase code)
+       lên giao diện người dùng.
+     - Chỉ hiển thị các thông báo tiếng Việt đã được chuẩn hóa và thân thiện.
+     - CẤM gọi `console.error(error)` để lộ chi tiết mã lỗi trong môi trường Production.
+
+3. QUY TẮC BẢO MẬT CƠ SỞ DỮ LIỆU & PHÂN QUYỀN (FIRESTORE SECURITY RULES)
+--------------------------------------------------------------------------------
+3.1. Nguyên tắc đặc quyền tối thiểu (Least Privilege):
+     - Mặc định từ chối mọi truy cập (`allow read, write: if false;`).
+     - Chỉ mở quyền cho đúng đối tượng và đúng mục đích sử dụng.
+3.2. Tách biệt nghiêm ngặt giữa quyền "get" (đọc 1 bản ghi) và "list" (liệt kê danh sách):
+     - Với các bảng dữ liệu nhạy cảm (như bảng `vip_keys` chứa mã nạp VIP):
+       + Cho phép học viên `get` 1 mã cụ thể khi nhập chuỗi kích hoạt.
+       + CẤM TUYỆT ĐỐI học viên dùng lệnh `list`/`query` để quét toàn bộ danh sách mã.
+3.3. Bảo vệ tài khoản Quản Trị Viên Tối Cao (Master Admin):
+     - Kiểm tra email quản trị viên kết hợp BẮT BUỘC trường `email_verified == true`.
+     - Chặn đứng hoàn toàn nguy cơ kẻ xấu tạo tài khoản mạo danh email admin chưa xác thực.
+3.4. Bảo vệ dữ liệu cá nhân theo người dùng (Data Ownership):
+     - Người dùng chỉ được đọc, tạo hoặc xóa dữ liệu có `userId == request.auth.uid`.
+     - Cấm học viên tự ý thay đổi quyền hạn của mình (`role: 0` là Admin, `role: 1` là User).
+3.5. Bất biến dữ liệu lịch sử sát hạch (Exam History Immutability):
+     - Với bảng `exam_records`: Đặt quy tắc `allow update: if false;` để cấm hoàn toàn
+       hành vi sửa đổi điểm thi hoặc can thiệp kết quả sau khi bài thi đã hoàn thành.
+
+4. QUY TẮC KIỂM TRA & XÁC THỰC DỮ LIỆU ĐẦU VÀO (DATA VALIDATION)
+--------------------------------------------------------------------------------
+4.1. Luôn xác thực ở tầng Server/Database:
+     - Không tin tưởng hoàn toàn vào sự kiểm tra của giao diện Frontend.
+     - Thiết lập quy tắc kiểm tra kiểu dữ liệu trực tiếp trên `firestore.rules`:
+       + Tên hiển thị (`displayName`): Phải là `string`, độ dài từ 1 đến 100 ký tự.
+       + Hạng bằng lái (`licenseClass`): Phải là `string`, độ dài tối đa 10 ký tự.
+       + Email: Phải là `string`, độ dài tối đa 150 ký tự.
+4.2. Khống chế thang điểm và kiểu giá trị số:
+     - Điểm thi sát hạch (`finalScore`): Bắt buộc là `number`, giá trị từ 0 đến 100.
+     - Trạng thái đỗ/trượt (`passed`): Bắt buộc là kiểu `bool` (true/false).
+     - Ngăn chặn kẻ gian gửi điểm số âm hoặc điểm số ảo (ví dụ: 9999 điểm).
+
+5. QUY TẮC BẢO MẬT MẠNG & HẠ TẦNG TRIỂN KHAI (NETWORK & HEADERS)
+--------------------------------------------------------------------------------
+5.1. Bắt buộc kết nối mã hóa toàn diện (HTTPS Enforcement):
+     - Thêm thẻ meta: `<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">`.
+     - Kích hoạt HSTS (HTTP Strict Transport Security) với thời hạn 1 năm:
+       `Strict-Transport-Security: max-age=31536000; includeSubDomains`.
+5.2. Chống tấn công giả mạo giao diện (Clickjacking Protection):
+     - Cấu hình Header máy chủ: `X-Frame-Options: SAMEORIGIN`.
+     - Ngăn chặn các website độc hại nhúng trang web của bạn vào `<iframe>` lén lút.
+5.3. Chống tấn công MIME Sniffing:
+     - Cấu hình Header máy chủ: `X-Content-Type-Options: nosniff`.
+     - Ngăn trình duyệt tự ý thực thi các file tài nguyên sai định dạng.
+5.4. Bảo vệ thông tin giới thiệu URL (Referrer Protection):
+     - Cấu hình Header & Meta: `Referrer-Policy: strict-origin-when-cross-origin`.
+     - Không làm lộ tham số truy vấn nhạy cảm khi người dùng chuyển hướng sang trang khác.
+5.5. Khóa quyền truy cập phần cứng không cần thiết (Permissions Policy):
+     - Vô hiệu hóa quyền truy cập thiết bị không dùng đến trong game:
+       `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+
+6. QUY TẮC DỌN DẸP MÃ NGUỒN KHI BUILD PRODUCTION (CLEAN BUILD)
+--------------------------------------------------------------------------------
+6.1. Xóa bỏ 100% lệnh Debug và Console Log:
+     - Sử dụng tính năng Minifier (như Rolldown/Oxc trên Vite 8):
+       `build.rolldownOptions.output.minify.compress: { dropConsole: true, dropDebugger: true }`.
+     - Đảm bảo trong gói JavaScript thành phẩm không còn sót lại bất kỳ câu lệnh
+       `console.log`, `console.info` hay `debugger` nào.
+6.2. Tuyệt đối không để lộ Khóa bí mật (Secret Keys):
+     - Không commit file `.env` chứa Private Keys lên kho mã nguồn (Git).
+     - Không lưu trữ Service Account Key của Google Cloud/Firebase trên mã nguồn Frontend.
+
+================================================================================
+PHẦN 2: CHÍNH SÁCH QUYỀN RIÊNG TƯ (PRIVACY POLICY)
+================================================================================
+(Văn bản chính thức áp dụng cho Ứng dụng Mô Phỏng Sát Hạch Lái Xe Sa Hình 3D)
+
+ĐƠN VỊ VẬN HÀNH: Ban Quản Trị Hệ Thống Mô Phỏng Lái Xe Sa Hình 3D
+NGÀY HIỆU LỰC: 24/10/2026 | PHIÊN BẢN: 2.0
+EMAIL LIÊN HỆ: phucnam995@gmail.com
+
+1. NGUYÊN TẮC CHUNG
+Chúng tôi coi trọng việc bảo vệ thông tin cá nhân của người học và người dùng. Chính sách
+này giải thích minh bạch cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ dữ liệu khi
+bạn sử dụng ứng dụng web và di động, tuân thủ Nghị định 13/2023/NĐ-CP về Bảo vệ Dữ liệu Cá nhân
+và các chính sách bảo vệ người dùng của Google.
+
+2. CÁC THÔNG TIN CHÚNG TÔI THU THẬP
+A. Trường hợp Lái thử (Không đăng nhập):
+   - Bạn có thể trải nghiệm toàn bộ các bài thi lái xe hoàn toàn miễn phí mà không cần
+     cung cấp bất kỳ thông tin nhận dạng cá nhân nào (Không cần họ tên, số điện thoại, email).
+   - Lịch sử lái thử chỉ được lưu tạm thời trên trình duyệt của chính bạn (LocalStorage).
+B. Trường hợp Đăng ký Tài khoản Học viên:
+   - Địa chỉ Email: Dùng để làm tên đăng nhập, xác thực và khôi phục tài khoản.
+   - Tên hiển thị (DisplayName): Biệt danh do bạn tự đặt khi tạo tài khoản.
+   - Hạng giấy phép lái xe: Lựa chọn ôn tập (Hạng B1, B2 hoặc C).
+   - Lịch sử sát hạch: Điểm số bài thi (0-100), các lỗi trừ điểm sa hình, thời gian hoàn thành.
+   - Trạng thái gói học viên: Thời hạn kích hoạt gói ôn tập VIP (nếu có).
+
+3. CAM KẾT KHÔNG THU THẬP DỮ LIỆU NHẠY CẢM
+- KHÔNG yêu cầu quyền truy cập Danh bạ, Tin nhắn SMS, Micro hoặc Máy ảnh.
+- KHÔNG thu thập dữ liệu định vị vị trí GPS theo thời gian thực.
+- KHÔNG thu thập mã định danh phần cứng vĩnh viễn (IMEI, MAC Address).
+
+4. QUẢNG CÁO CỦA BÊN THỨ BA & CHÍNH SÁCH COOKIE (GOOGLE ADSENSE)
+- Ứng dụng có thể hiển thị quảng cáo từ đối tác Google AdSense để duy trì máy chủ miễn phí.
+- Google, với tư cách là nhà cung cấp bên thứ ba, sử dụng cookie (như cookie DART) để phân
+  phục vụ quảng cáo dựa trên các lần truy cập trước đây của người dùng vào trang web này
+  hoặc các trang web khác trên Internet.
+- Cách từ chối quảng cáo cá nhân hóa:
+  Người dùng có toàn quyền tắt cookie DART và từ chối quảng cáo cá nhân hóa bất cứ lúc nào
+  bằng cách truy cập vào trang Cài đặt quảng cáo của Google:
+  URL: https://adssettings.google.com
+
+5. THỜI GIAN LƯU TRỮ VÀ TỰ ĐỘNG DỌN RÁC (DATA RETENTION)
+- Dữ liệu kết quả bài thi sát hạch trên máy chủ được áp dụng cơ chế tự hủy định kỳ
+  (mặc định sau 3 giờ) nhằm tối ưu hóa quyền riêng tư và tiết kiệm tài nguyên lưu trữ.
+- Thông tin tài khoản người dùng được lưu trữ an toàn cho đến khi người dùng chủ động yêu cầu xóa.
+
+6. BẢO MẬT DỮ LIỆU
+- Toàn bộ kết nối giữa trình duyệt và máy chủ đều được mã hóa bằng chuẩn HTTPS/TLS cao cấp.
+- Hệ thống áp dụng cơ chế băm mật khẩu PBKDF2 (100.000 vòng lặp) và phân quyền chặt chẽ
+  qua Firebase Cloud Security Rules.
+
+7. QUYỀN CỦA HỌC VIÊN & XÓA BỎ TÀI KHOẢN (DATA DELETION)
+Học viên có toàn quyền kiểm soát thông tin cá nhân của mình theo quy định pháp luật:
+- Quyền tra cứu và chỉnh sửa thông tin hồ sơ cá nhân.
+- Quyền yêu cầu xóa bỏ hoàn toàn tài khoản và dữ liệu liên quan:
+  Học viên có thể yêu cầu xóa vĩnh viễn tài khoản bằng cách gửi email về:
+  Địa chỉ: phucnam995@gmail.com
+  Tiêu đề: [Yêu Cầu Xóa Tài Khoản Lái Xe 3D]
+  Chúng tôi sẽ tiến hành xóa vĩnh viễn toàn bộ dữ liệu khỏi hệ thống trong vòng 48 giờ làm việc.
+
+================================================================================
+PHẦN 3: CHECKLIST BẢO MẬT NHANH TRƯỚC KHI DEPLOY (PRE-DEPLOYMENT CHECKLIST)
+================================================================================
+(Trước khi chạy lệnh `firebase deploy` hoặc đưa website lên môi trường thực tế,
+hãy kiểm tra đủ 17 dấu tích dưới đây):
+
+[ ] 1. Mật khẩu lưu trữ: Đã kiểm tra không còn trường `pass` dạng plaintext nào.
+[ ] 2. Thuật toán băm: Đã kích hoạt PBKDF2 100K iterations + crypto random salt.
+[ ] 3. Rate Limit đăng nhập: Đã bật khóa 5 phút sau 5 lần nhập sai mật khẩu.
+[ ] 4. Session TTL: Đã gắn thời hạn 24 giờ cho phiên làm việc của người dùng.
+[ ] 5. Lỗi giao diện: Đã xóa mọi `console.error` và ẩn chi tiết lỗi thô ra UI.
+[ ] 6. Firestore Rules: Đã kiểm tra email_verified của Admin và cấm `list` trên bảng `vip_keys`.
+[ ] 7. Data Validation: Đã khống chế thang điểm thi (0-100) và độ dài tên hiển thị (1-100 ký tự).
+[ ] 8. HTTPS & Headers: Đã có thẻ meta `upgrade-insecure-requests` và cấu hình 5 headers trong `firebase.json`.
+[ ] 9. Xóa Debug Build: Đã chạy `npm run build` và kiểm tra bundle không còn lệnh `console.log`.
+[ ] 10. Privacy Policy & Terms: Đã có đường dẫn công khai Chính sách Quyền riêng tư và Điều khoản dịch vụ.
+[ ] 11. Anti-Cheat Checkpoints: Đã kích hoạt cơ chế đối chiếu tiến trình bài thi sa hình theo trình tự.
+[ ] 12. Giới hạn lượt chơi: Đã cấu hình đối chiếu `daily_usage` trên Firestore, chống hack client.
+[ ] 13. Cảnh báo chi phí: Đã cài đặt Budget Alert trên Google Cloud Console (ví dụ ngưỡng 5$, 10$).
+[ ] 14. Kiểm tra Git Secrets: Đã kiểm tra `.gitignore` không commit file `.env`, service account hay private keys.
+[ ] 15. Dọn dẹp bộ nhớ 3D: Đã gọi `dispose()` giải phóng Texture/Geometry khi thoát bài thi.
+[ ] 16. Webhook Thanh toán: Webhook cổng thanh toán đã xác minh chữ ký HMAC SHA-256 từ Backend, tuyệt đối không duyệt VIP từ Frontend.
+[ ] 17. Thông tin Pháp lý TMĐT: Đã công khai thông tin thương nhân, chính sách giá, hoàn tiền và thực hiện thông báo Bộ Công Thương.
+
+================================================================================
+PHẦN 4: BỘ QUY TẮC CHỐNG GIAN LẬN & HACK GAME (ANTI-CHEAT & INTEGRITY)
+================================================================================
+
+1. CHỐNG HACK TỌA ĐỘ VÀ VƯỢT CHECKPOINT (TELEPORT & SPEED HACK)
+--------------------------------------------------------------------------------
+1.1. Bắt buộc kiểm tra chuỗi Checkpoint liên tục:
+     - Bài thi sa hình có 11 bài thi tuần tự. Không chấp nhận bản ghi kết quả hoàn
+       thành nếu xe không đi qua đầy đủ các Checkpoint theo đúng thứ tự logic.
+     - Kiểm tra thời gian tối thiểu hợp lý (Minimum Plausible Time):
+       Ví dụ bài thi số 3 (Dừng và khởi hành xe ngang dốc) hoặc toàn bài thi 11 sa hình
+       không thể hoàn thành chỉ trong vài giây. Nếu thời gian thi < thời gian tối thiểu
+       cho phép, tự động gắn cờ gian lận (FLAG_SUSPICIOUS) và hủy kết quả.
+1.2. Khống chế vận tốc tối đa của xe (Physics Velocity Clamp):
+     - Trong engine vật lý (`ExerciseRuntimeEngine`), luôn giới hạn vận tốc xe tối đa
+       (ví dụ: xe sát hạch trong sa hình không được vượt quá 30 km/h cho hạng B, 24 km/h
+       cho hạng C). Chặn đứng việc can thiệp biến vận tốc (speed multiplier).
+
+2. CHỐNG GIAN LẬN LƯỢT CHƠI & QUẢNG CÁO (AD FRAUD & PLAY LIMIT TAMPERING)
+--------------------------------------------------------------------------------
+2.1. Không lưu độc quyền lượt chơi ở LocalStorage:
+     - Kẻ gian có thể mở F12 DevTools sửa `remainingPlays = 9999`.
+     - Quy tắc: LocalStorage chỉ dùng để cache tạm hiển thị UI mượt mà. Quyền trừ lượt
+       chơi và xác thực lượt chơi phải được đối chiếu với bộ sưu tập `daily_usage` trên
+       Firestore. Khi số lượt hết, máy chủ sẽ từ chối ghi nhận bài thi mới.
+2.2. Chống giả mạo sự kiện xem xong video quảng cáo (Rewarded Ad Bypass):
+     - Chỉ cộng thêm lượt chơi khi nhận được tín hiệu callback hợp lệ từ Google AdSense AFG
+       (`adViewed` hoặc `beforeReward` do SDK Google phát ra).
+     - Không cho phép người dùng kích hoạt hàm nhận thưởng thông qua biến toàn cục `window`.
+2.3. Chống Brute-force mã kích hoạt VIP (VIP Redeem Throttling):
+     - Áp dụng cơ chế giới hạn số lần nhập mã VIP sai (tối đa 3 lần sai / 10 phút).
+     - Ngăn chặn các script tự động dò quét chuỗi mã VIP ngẫu nhiên.
+
+================================================================================
+PHẦN 5: ĐIỀU KHOẢN DỊCH VỤ & MIỄN TRỪ TRÁCH NHIỆM (TERMS OF SERVICE & DISCLAIMER)
+================================================================================
+(Cần công bố để bảo vệ pháp lý cho người phát triển ứng dụng)
+
+1. TÍNH CHẤT MÔ PHỎNG VÀ MIỄN TRỪ TRÁCH NHIỆM (DISCLAIMER)
+--------------------------------------------------------------------------------
+1.1. Mục đích học tập và tham khảo:
+     - Ứng dụng là phần mềm mô phỏng 3D phục vụ mục đích hỗ trợ học viên ghi nhớ bài thi,
+       vạch cảm biến và quy trình sát hạch trên sa hình theo quy chuẩn Việt Nam.
+     - Ứng dụng KHÔNG THAY THẾ cho việc đào tạo thực hành lái xe thực tế tại các trung tâm
+       đào tạo lái xe có thẩm quyền và cấp phép.
+1.2. Miễn trừ trách nhiệm kết quả thi thật:
+     - Ban Quản Trị không chịu bất kỳ trách nhiệm pháp lý hoặc vật chất nào đối với
+       kết quả thi sát hạch thực tế của học viên ngoài đời thực, cũng như các sự cố,
+       tai nạn giao thông phát sinh trong quá trình học viên điều khiển phương tiện giao thông.
+
+2. BẢN QUYỀN VÀ QUYỀN SỞ HỮU TRÍ TUỆ (INTELLECTUAL PROPERTY)
+--------------------------------------------------------------------------------
+2.1. Bảo vệ tài sản mô hình 3D và thuật toán:
+     - Toàn bộ mô hình 3D (xe ô tô, sân sa hình, biển báo, vỉa hè), âm thanh hướng dẫn,
+       và thuật toán chấm điểm sa hình thuộc quyền sở hữu trí tuệ của nhà phát triển.
+     - Nghiêm cấm mọi hành vi trích xuất (rip), sao chép, dịch ngược mã nguồn (reverse
+       engineering), hoặc phân phối lại tài nguyên 3D của ứng dụng cho mục đích thương mại
+       khi chưa có sự đồng ý bằng văn bản của tác giả.
+
+3. QUY ĐỊNH VỀ TÀI KHOẢN VÀ HỦY DỊCH VỤ (ACCOUNT TERMINATION)
+--------------------------------------------------------------------------------
+3.1. Hành vi bị nghiêm cấm:
+     - Sử dụng công cụ tự động, bot, script để tấn công, gây nghẽn máy chủ hoặc gian lận điểm số.
+     - Cố tình khai thác lỗ hổng kỹ thuật nhằm chiếm đoạt quyền Admin hoặc mã VIP.
+3.2. Quyền khóa tài khoản:
+     - Ban Quản Trị có toàn quyền tạm khóa hoặc xóa vĩnh viễn tài khoản vi phạm các quy định
+       trên mà không cần báo trước và không có nghĩa vụ hoàn trả chi phí.
+
+================================================================================
+PHẦN 6: QUY TẮC KIỂM SOÁT CHI PHÍ ĐÁM MÂY & ỨNG PHÓ SỰ CỐ (BUDGET & INCIDENT)
+================================================================================
+
+1. CHỐNG TẤN CÔNG ĐỘI HÓA ĐƠN ĐÁM MÂY (DENIAL OF WALLET / COST RUNAWAY ATTACK)
+--------------------------------------------------------------------------------
+1.1. Cài đặt cảnh báo ngân sách (Budget & Spending Alerts):
+     - Truy cập Google Cloud Console -> Billing -> Budgets & Alerts.
+     - Đặt ngưỡng cảnh báo tự động gửi email ngay khi chi phí đạt:
+       + Mức 1: Đạt 50% ngân sách tháng (ví dụ: 5$).
+       + Mức 2: Đạt 90% ngân sách tháng.
+       + Mức 3: Đạt 100% ngân sách tháng.
+1.2. Giới hạn số lượng truy vấn tối đa (Query Limit Caps):
+     - Trong mã nguồn Frontend, mọi câu truy vấn Firestore bắt buộc phải có `limit()`:
+       + Lấy lịch sử thi: `limit(10)` hoặc `limit(20)`. Cấm truy vấn không giới hạn số lượng.
+1.3. Cơ chế tự dọn dẹp dữ liệu cũ (TTL Cleanup Policy):
+     - Duy trì cơ chế tự động xóa bản ghi kết quả sát hạch cũ sau 3 giờ để dung lượng
+       Firestore luôn ở mức tối thiểu, tránh vượt quá hạn mức miễn phí (Spark Tier).
+
+2. QUY TRÌNH ỨNG PHÓ SỰ CỐ AN NINH (INCIDENT RESPONSE PLAN)
+--------------------------------------------------------------------------------
+2.1. Bước 1: Cách ly và cô lập nguồn rò rỉ (Containment):
+     - Nếu phát hiện API Key hoặc quy tắc Firestore bị hở: Lập tức cập nhật `firestore.rules`
+       khóa tạm thời bảng dữ liệu bị tấn công (`allow read, write: if false;`).
+2.2. Bước 2: Thu hồi và cấp lại thông tin xác thực (Revocation):
+     - Nếu lộ tài khoản quản trị: Đổi ngay mật khẩu, hủy toàn bộ token hiện có trong
+       Firebase Console -> Authentication.
+2.3. Bước 3: Đánh giá thiệt hại và sao lưu phục hồi (Recovery):
+     - Xuất dữ liệu Firestore ra Google Cloud Storage để đối chiếu và khôi phục trạng thái an toàn.
+
+================================================================================
+PHẦN 7: QUY TẮC QUẢN LÝ MÃ NGUỒN, SECRET KEYS & GIT (DEVOPS & SECRETS SAFETY)
+================================================================================
+
+1. QUY TẮC QUẢN LÝ BIẾN MÔI TRƯỜNG & KHÓA BÍ MẬT (.ENV & SECRETS)
+--------------------------------------------------------------------------------
+1.1. Cấu hình file `.gitignore` nghiêm ngặt:
+     - Bắt buộc kiểm tra các dòng sau luôn có mặt trong `.gitignore`:
+       ```
+       .env
+       .env.local
+       .env.*.local
+       *.pem
+       *.key
+       serviceAccountKey.json
+       ```
+1.2. Phân biệt rõ giữa Public Config và Private Secret:
+     - Firebase Web Config (`apiKey`, `authDomain`, `projectId`) là cấu hình công khai
+       được nhúng vào trình duyệt, KHÔNG PHẢI là bí mật. Độ an toàn của Firebase phụ thuộc
+       hoàn toàn vào **`firestore.rules`**.
+     - Các khóa tuyệt đối KHÔNG ĐƯỢC để ở Frontend:
+       + Firebase Admin SDK Service Account JSON.
+       + Cloudflare API Tokens, GitHub Personal Access Tokens.
+       + Khóa bí mật ngân hàng, cổng thanh toán.
+
+2. QUY TRÌNH KIỂM SOÁT PHIÊN BẢN (VERSION CONTROL)
+--------------------------------------------------------------------------------
+2.1. Không commit thư mục `dist/` hoặc build cache:
+     - Mã nguồn sạch sẽ, nhẹ nhàng, chỉ biên dịch khi deploy.
+2.2. Kiểm tra log commit trước khi push lên kho lưu trữ công khai:
+     - Chạy `git status` và `git diff` để đảm bảo không vô tình thêm dữ liệu nhạy cảm.
+
+================================================================================
+PHẦN 8: QUY TẮC BẢO VỆ TÀI NGUYÊN 3D & CHỐNG TRÀN BỘ NHỚ (THREE.JS MEMORY SAFETY)
+================================================================================
+
+1. THU HỒI TÀI NGUYÊN ĐỒ HỌA (RESOURCE DISPOSAL & GARBAGE COLLECTION)
+--------------------------------------------------------------------------------
+1.1. Giải phóng bộ nhớ GPU khi thoát màn hình lái xe:
+     - Khi unmount component 3D hoặc chuyển đổi bài thi, bắt buộc phải giải phóng
+       toàn bộ Geometry, Material và Texture để tránh lỗi "WebGL Context Lost" và crash tab:
+       ```javascript
+       mesh.geometry.dispose();
+       if (Array.isArray(mesh.material)) {
+         mesh.material.forEach(m => m.dispose());
+       } else {
+         mesh.material.dispose();
+       }
+       if (texture) texture.dispose();
+       ```
+1.2. Hủy bỏ WebGL Renderer:
+     - Gọi `renderer.dispose()` và `renderer.forceContextLoss()` khi kết thúc phiên.
+
+2. TỰ ĐỘNG TẠM DỪNG RENDER KHI ẨN TAB (PAGE VISIBILITY API)
+--------------------------------------------------------------------------------
+2.1. Tiết kiệm tài nguyên CPU/GPU và Pin thiết bị:
+     - Theo dõi sự kiện `visibilitychange`: Khi người dùng chuyển sang tab khác
+       (`document.hidden == true`), lập tức tạm dừng vòng lặp `requestAnimationFrame`.
+     - Ngăn ngừa tình trạng hao pin, nóng máy hoặc rò rỉ bộ nhớ ngầm.
+
+================================================================================
+PHẦN 9: BỘ QUY TẮC THƯƠNG MẠI ĐIỆN TỬ, THANH TOÁN TRỰC TUYẾN & ĐỔI TRẢ (E-COMMERCE & PAYMENTS)
+================================================================================
+(Áp dụng khi hệ thống mở rộng bán gói VIP, mã ôn luyện, mua lượt chơi hoặc đăng ký khóa học)
+
+1. TUÂN THỦ PHÁP LÝ THƯƠNG MẠI ĐIỆN TỬ TẠI VIỆT NAM (LEGAL E-COMMERCE COMPLIANCE)
+--------------------------------------------------------------------------------
+1.1. Nghĩa vụ Thông báo / Đăng ký với Bộ Công Thương:
+     - Căn cứ theo Nghị định 52/2013/NĐ-CP và Nghị định 85/2021/NĐ-CP:
+       Khi website/ứng dụng có tính năng đặt hàng, mua gói VIP hoặc thanh toán trực tuyến,
+       bắt buộc phải thực hiện thủ tục "Thông báo Website Thương Mại Điện Tử Bán Hàng"
+       hoặc "Đăng ký Sàn Giao Dịch TMĐT" với Bộ Công Thương (gắn logo xanh hoặc đỏ có link
+       dẫn về cổng thông tin online.gov.vn ở chân trang Footer).
+1.2. Công khai minh bạch thông tin thương nhân / chủ sở hữu ở chân trang:
+     - Tên doanh nghiệp / Hộ kinh doanh hoặc Tên cá nhân chủ thể sở hữu.
+     - Mã số thuế (MST) hoặc Số giấy chứng nhận đăng ký kinh doanh.
+     - Địa chỉ trụ sở hoạt động thực tế.
+     - Số điện thoại liên hệ và Email chăm sóc khách hàng.
+1.3. Minh bạch giá cả và thông tin dịch vụ:
+     - Giá niêm yết rõ ràng bằng Đồng Việt Nam (VNĐ), ghi rõ đã bao gồm thuế VAT hay chưa.
+     - Mô tả chi tiết quyền lợi của từng gói: Số ngày sử dụng VIP, số lượt sát hạch,
+       loại xe được mở khóa (Xe con hạng B, Xe tải hạng C), tính năng không quảng cáo.
+
+2. QUY TẮC BẢO MẬT THANH TOÁN TRỰC TUYẾN & CHUẨN PCI-DSS
+--------------------------------------------------------------------------------
+2.1. Tuyệt đối KHÔNG tự thu thập hay lưu trữ thông tin thẻ ngân hàng:
+     - CẤM lưu trữ Số thẻ tín dụng (PAN), Ngày hết hạn và Mã số bí mật CVV/CVC của thẻ
+       trên máy chủ Firestore, Cloud Functions hoặc LocalStorage của ứng dụng.
+     - Bắt buộc tích hợp qua Cổng thanh toán trung gian đã được Ngân hàng Nhà nước cấp phép
+       và đạt chuẩn bảo mật quốc tế PCI-DSS Level 1 (Ví dụ: VNPAY, MoMo, ZaloPay,
+       PayOS, Stripe, hoặc In-App Purchase của Apple/Google).
+2.2. Cơ chế xử lý Webhook / IPN (Instant Payment Notification) chống giả mạo:
+     - Khi cổng thanh toán gọi Webhook trả về kết quả giao dịch thành công:
+       + Bắt buộc xác minh chữ ký điện tử (Signature/Checksum) sử dụng thuật toán HMAC SHA-256
+         kèm Khóa bí mật (Secret Key) được lưu an toàn tại Backend (Cloud Functions).
+       + Kiểm tra đối chiếu số tiền thực trả (amount) có khớp chính xác 100% với đơn hàng gốc.
+       + Kiểm tra trạng thái đơn hàng: Chỉ kích hoạt gói VIP nếu đơn hàng đang ở trạng thái
+         chờ thanh toán (PENDING), tránh lỗi kích hoạt trùng lặp (Idempotency Key).
+       + CẤM kích hoạt gói VIP dựa trên phản hồi trực tiếp từ trình duyệt Frontend (Client-side),
+         vì người dùng có thể dễ dàng sửa response qua DevTools hoặc công cụ bắt gói tin.
+
+3. CHÍNH SÁCH BẢO HÀNH, ĐỔI TRẢ & HOÀN TIỀN (REFUND & RETURN POLICY)
+--------------------------------------------------------------------------------
+3.1. Đối với hàng hóa số / Dịch vụ kỹ thuật số (Digital Content & VIP Keys):
+     - Trường hợp mã VIP chưa kích hoạt: Khách hàng có quyền yêu cầu hủy giao dịch và
+       nhận lại 100% tiền trong vòng 24 giờ kể từ thời điểm thanh toán thành công.
+     - Trường hợp gói VIP đã kích hoạt hoặc đã sử dụng:
+       + Không áp dụng hoàn tiền đối với lý do cá nhân (đổi ý, không muốn học nữa).
+       + Hỗ trợ hoàn tiền hoặc gia hạn bù thời gian tương ứng nếu phát sinh lỗi kỹ thuật
+         từ phía hệ thống máy chủ (ví dụ: máy chủ sập hoặc gián đoạn dịch vụ liên tục > 24 giờ).
+3.2. Quy trình và thời hạn hoàn tiền:
+     - Khách hàng gửi yêu cầu hoàn tiền qua Email hỗ trợ kèm Mã đơn hàng và Biên lai thanh toán.
+     - Bộ phận CSKH tiếp nhận và xử lý trong vòng 24-48 giờ làm việc.
+     - Tiền sẽ được hoàn trả trực tiếp về đúng tài khoản ngân hàng hoặc ví điện tử mà khách
+       hàng đã sử dụng để thanh toán trong vòng 3 đến 7 ngày làm việc.
+
+4. NGHĨA VỤ XUẤT HÓA ĐƠN ĐIỆN TỬ & LƯU TRỮ CHỨNG TỪ KẾ TOÁN
+--------------------------------------------------------------------------------
+4.1. Hóa đơn điện tử (E-Invoice):
+     - Tuân thủ Nghị định 123/2020/NĐ-CP và Thông tư 78/2021/TT-BTC: Cung cấp hóa đơn
+       điện tử hợp pháp cho khách hàng cá nhân hoặc doanh nghiệp khi có yêu cầu.
+4.2. Thời hạn lưu trữ dữ liệu giao dịch tài chính:
+     - Dữ liệu hóa đơn, mã giao dịch (Transaction ID) và lịch sử thanh toán phải được
+       lưu trữ an toàn tối thiểu 5 năm theo quy định của Luật Kế toán.
+     - Tách biệt cơ sở dữ liệu tài chính với cơ sở dữ liệu bài thi tạm thời (không áp dụng
+       chính sách tự hủy 3 giờ đối với hóa đơn và chứng từ thanh toán).
+
+5. QUY TRÌNH TIẾP NHẬN & GIẢI QUYẾT KHIẾU NẠI KHÁCH HÀNG (CUSTOMER DISPUTES)
+--------------------------------------------------------------------------------
+5.1. Các kênh tiếp nhận phản ánh:
+     - Email hỗ trợ chính thức: phucnam995@gmail.com
+     - Hotline hỗ trợ kỹ thuật và giao dịch: (Cung cấp số hotline hoạt động giờ hành chính)
+5.2. Cam kết thời gian phản hồi:
+     - Phản hồi xác nhận tiếp nhận khiếu nại trong vòng tối đa 12 giờ.
+     - Đưa ra phương án giải quyết dứt điểm thỏa đáng trong vòng tối đa 72 giờ làm việc.
+
+================================================================================
+PHẦN 10: BỘ QUY TẮC LẬP TRÌNH WEB CHUẨN DÀNH CHO LẬP TRÌNH VIÊN ANDROID (WEB GUIDELINES FOR ANDROID DEVS)
+================================================================================
+(Được biên soạn đặc biệt để đối chiếu trực tiếp giữa tư duy Android Native và React/Web SPA)
+
+1. BẢNG TRA CỨU NHANH TƯ DUY ANDROID SANG WEB (CHEAT SHEET)
+--------------------------------------------------------------------------------
+- Activity/Fragment Lifecycle    --> React useEffect() + hàm return cleanup
+- ViewModel + StateFlow/LiveData --> React Context + useState / useReducer
+- Biến trạng thái không re-render --> useRef() (Cực kỳ quan trọng trong 3D game loop 60fps)
+- SharedPreferences / DataStore  --> localStorage (đồng bộ, 5MB) / sessionStorage
+- Room Database (SQLite)         --> IndexedDB (bất đồng bộ, lưu trữ lớn, hỗ trợ Blob)
+- XML Layout / Jetpack Compose   --> JSX + Tailwind CSS / Flexbox / Grid
+- dp, sp (Density pixel)         --> rem, em, px, vw, vh, clamp() (gốc 1rem = 16px)
+- OnTouchListener / MotionEvent  --> Pointer Events (pointerdown, pointermove, pointerup)
+- Coroutine (suspend, CoroutineScope) --> async / await, Promise (Event Loop)
+- Logcat (Log.d, Log.e)          --> console.log, console.error (phải drop sạch khi build)
+- ProGuard / R8 Obfuscation      --> Vite / Rolldown / Oxc Minifier
+
+2. QUY TẮC QUẢN LÝ VÒNG ĐỜI & TRẠNG THÁI (LIFECYCLE & STATE RULES)
+--------------------------------------------------------------------------------
+2.1. Phân biệt rõ `useState` và `useRef` (BẪY TỬ THẦN CHO DEV ANDROID LÀM GAME):
+     - Trong Android: Thay đổi biến trong ViewModel không tự vẽ lại toàn bộ View trừ khi observe.
+     - Trong React: Mỗi khi gọi hàm setter của `useState`, toàn bộ component sẽ re-render.
+     - QUY TẮC BẮT BUỘC TRONG GAME 3D:
+       + Tuyệt đối KHÔNG dùng `useState` để lưu tọa độ xe, góc lái, vận tốc hay phím bấm
+         trong vòng lặp 60 FPS (requestAnimationFrame). Việc này làm React re-render 60 lần/giây
+         gây sụt giảm FPS nghiêm trọng và đơ chuột/cảm ứng.
+       + BẮT BUỘC dùng `useRef`: `const carStateRef = useRef({ speed: 0, steer: 0, pos: [...] })`
+         vì cập nhật `useRef.current` diễn ra tức thì và KHÔNG kích hoạt re-render.
+       + CHỈ dùng `useState` cho dữ liệu cần render trực tiếp lên giao diện HTML (Điểm thi,
+         Tên học viên, Trạng thái mở/đóng Modal).
+2.2. Quy tắc Cleanup trong `useEffect` (Tương đương `onDestroy` / `onStop`):
+     - Mọi sự kiện lắng nghe (window resize, keydown, touch, requestAnimationFrame, interval)
+       đăng ký trong `useEffect` BẮT BUỘC phải có hàm return cleanup:
+       ```typescript
+       useEffect(() => {
+         const handleKeyDown = (e: KeyboardEvent) => { ... };
+         window.addEventListener('keydown', handleKeyDown);
+         return () => window.removeEventListener('keydown', handleKeyDown); // BẮT BUỘC
+       }, []);
+       ```
+     - Nếu quên return cleanup: Mỗi lần component mount/unmount sẽ tạo thêm listener ngầm,
+       gây rò rỉ bộ nhớ (Memory Leak) giống hệt lỗi rò rỉ Context/Listener trong Android.
+
+3. QUY TẮC TYPESCRIPT NGHIÊM NGẶT (STRICT TYPING - TƯ DUY KOTLIN TYPE-SAFETY)
+--------------------------------------------------------------------------------
+3.1. Tuyệt đối KHÔNG dùng kiểu `any`:
+     - Giống như Kotlin an toàn kiểu dữ liệu cao, cấm dùng `any` bừa bãi trong dự án.
+     - Luôn định nghĩa rõ ràng `interface` hoặc `type` cho Props, State và cấu trúc dữ liệu.
+3.2. Sử dụng Optional Chaining (`?.`) và Nullish Coalescing (`??`):
+     - Dùng cú pháp `user?.displayName ?? 'Học viên'` (tương đương `?.` và toán tử Elvis `?:` trong Kotlin).
+3.3. Xử lý an toàn khi Parse JSON từ LocalStorage:
+     - Dữ liệu trong `localStorage` có thể bị rỗng, null hoặc bị người dùng chỉnh sửa sai cú pháp.
+     - Luôn bọc `JSON.parse()` trong khối `try...catch` và gán giá trị mặc định an toàn.
+
+4. QUY TẮC GIAO DIỆN & CẢM ỨNG DI ĐỘNG (MOBILE WEB & TOUCH CONVENTIONS)
+--------------------------------------------------------------------------------
+4.1. Sử dụng Pointer Events thay vì Touch Events:
+     - Dùng `onPointerDown`, `onPointerUp`, `onPointerMove` thay vì `onTouchStart`/`onClick`.
+     - Pointer Events chạy mượt mà, đồng nhất trên màn hình cảm ứng điện thoại, chuột máy tính
+       và bút cảm ứng Stylus.
+4.2. Chặn các hành vi mặc định gây ức chế của trình duyệt di động:
+     - Chặn bôi đen chữ / chọn hình ảnh khi bấm giữ vô lăng/chân ga:
+       CSS: `user-select: none; -webkit-user-select: none;`
+     - Chặn cử chỉ kéo vuốt reload trang (Pull-to-refresh) làm gián đoạn bài thi lái xe:
+       CSS: `overscroll-behavior: none;`
+     - Chặn độ trễ click 300ms và thao tác phóng to màn hình khi nhấp đúp (Double-tap zoom):
+       CSS: `touch-action: none;` trên canvas 3D và cụm phím điều khiển.
+4.3. Xử lý vùng an toàn tai thỏ (Notch / Safe Area) trên iPhone & Android:
+     - Thêm `viewport-fit=cover` vào thẻ `<meta name="viewport">`.
+     - Áp dụng CSS Safe Area Inset cho các nút bấm điều khiển ở góc mép màn hình:
+       `padding-top: env(safe-area-inset-top);`
+       `padding-left: env(safe-area-inset-left);`
+       `padding-bottom: env(safe-area-inset-bottom);`
+       `padding-right: env(safe-area-inset-right);`
+
+5. QUY TẮC TỐI ƯU TÀI NGUYÊN & WEB VITALS (PERFORMANCE TUNING)
+--------------------------------------------------------------------------------
+5.1. Tải chậm các thành phần nặng (Code Splitting / Dynamic Import):
+     - Tương tự tính năng Dynamic Feature Module trên Android:
+     - Các Modal nặng hoặc chức năng phụ trợ (như Modal Đổi Hạng Xe, Bảng Hướng Dẫn Kỹ Thuật)
+       nên dùng `React.lazy()` và `Suspense` để giữ file JavaScript ban đầu tải cực nhanh.
+5.2. Tối ưu hóa Asset (Mô hình 3D & Âm thanh):
+     - Mô hình 3D: Dùng định dạng `.glb` nén bằng thuật toán Google DRACO hoặc Meshopt.
+     - Âm thanh sa hình: Dùng định dạng `.mp3` hoặc `.webm` với bitrate tối ưu (64-96 kbps)
+       thay vì file `.wav` dung lượng lớn.
+     - Hình ảnh minh họa: Dùng định dạng `.webp` hoặc SVG vector thay cho PNG/JPG.
+
+6. QUY TẮC TƯƠNG THÍCH ĐA NỀN TẢNG (CROSS-BROWSER & PWA READINESS)
+--------------------------------------------------------------------------------
+6.1. Hỗ trợ Progressive Web App (PWA):
+     - Cung cấp file `manifest.json` đầy đủ icon, tên app, màu nền, chế độ `display: standalone`.
+     - Giúp người dùng có thể "Thêm vào màn hình chính" (Add to Home Screen) và trải nghiệm
+       toàn màn hình như một ứng dụng Android Native thực thụ.
+6.2. Kiểm thử trên Safari WebKit:
+     - Không chỉ test trên Google Chrome (Blink Engine), luôn kiểm tra trên Safari iOS
+       (WebKit Engine) vì Safari có các quy tắc khắt khe về tự động phát âm thanh (AudioContext),
+       yêu cầu người dùng phải chạm tương tác vào màn hình trước khi phát tiếng hiệu lệnh sa hình.
+
+================================================================================
+KẾT THÚC BỘ TÀI LIỆU TOÀN DIỆN (10 PHẦN HOÀN CHỈNH)
+================================================================================

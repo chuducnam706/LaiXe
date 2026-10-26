@@ -32,7 +32,8 @@ export type UserRole = 0 | 1; // 0: Admin, 1: User
 export const ADMIN_EMAILS = ['phucnam995@gmail.com', 'admin@laixe.vn'];
 
 /**
- * Hàm băm mật khẩu chuẩn SHA-256 có Salt (Bảo vệ thông tin người dùng tối đa)
+ * Hàm băm mật khẩu chuẩn PBKDF2 (100,000 iterations) qua Web Crypto API
+ * Chuẩn bảo mật chống brute-force bằng GPU cao cấp cho web client
  */
 export const hashPassword = async (password: string): Promise<string> => {
   if (typeof window === 'undefined' || !window.crypto?.subtle) {
@@ -43,6 +44,39 @@ export const hashPassword = async (password: string): Promise<string> => {
     }
     return 'h_' + Math.abs(hash).toString(16);
   }
+  try {
+    const encoder = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveBits']
+    );
+    const salt = encoder.encode('laixe_salt_auth_2026_sec_v2');
+    const derivedBits = await window.crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      256
+    );
+    return Array.from(new Uint8Array(derivedBits))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return legacySha256Hash(password);
+  }
+};
+
+/**
+ * Hỗ trợ xác thực các tài khoản đã tạo bằng SHA-256 trước khi tự động nâng cấp lên PBKDF2
+ */
+export const legacySha256Hash = async (password: string): Promise<string> => {
+  if (typeof window === 'undefined' || !window.crypto?.subtle) return '';
   const encoder = new TextEncoder();
   const data = encoder.encode(password + '::laixe_salt_auth_2026');
   const buffer = await window.crypto.subtle.digest('SHA-256', data);
@@ -70,7 +104,6 @@ export interface StoredLocalUser {
   role: UserRole;
   createdAt: string;
   vipExpiresAt?: string;
-  pass?: string; // Hỗ trợ tương thích ngược tài khoản cũ
 }
 
 const LOCAL_USERS_KEY = 'local_registered_users_db';
@@ -78,21 +111,34 @@ const LOCAL_USERS_KEY = 'local_registered_users_db';
 export const getStoredLocalUsers = (): StoredLocalUser[] => {
   try {
     const raw = localStorage.getItem(LOCAL_USERS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const list: any[] = JSON.parse(raw);
+    let changed = false;
+    // BẢO MẬT: Loại bỏ triệt để mọi trường mật khẩu chưa băm (pass) còn sót lại trong LocalStorage
+    const sanitized: StoredLocalUser[] = list.map((u) => {
+      if ('pass' in u) {
+        delete u.pass;
+        changed = true;
+      }
+      return u as StoredLocalUser;
+    });
+    if (changed) {
+      localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(sanitized));
+    }
+    return sanitized;
   } catch {
     return [];
   }
 };
 
 export const saveStoredLocalUser = async (
-  user: Omit<StoredLocalUser, 'passHash'> & { pass?: string; passHash?: string }
+  user: StoredLocalUser
 ) => {
   const list = getStoredLocalUsers();
-  const passHash = user.passHash || (user.pass ? await hashPassword(user.pass) : '');
   const sanitizedUser: StoredLocalUser = {
     uid: user.uid,
     email: user.email,
-    passHash,
+    passHash: user.passHash,
     displayName: user.displayName,
     licenseClass: user.licenseClass,
     role: user.role,
@@ -108,6 +154,107 @@ export const saveStoredLocalUser = async (
     list.push(sanitizedUser);
   }
   localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(list));
+};
+
+// ============================================================
+// BẢO MẬT GIAI ĐOẠN 2: Session TTL & Login Rate Limiting
+// ============================================================
+
+/** Thời gian hết hạn phiên đăng nhập custom (24 giờ) */
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Số lần đăng nhập thất bại tối đa trước khi bị khóa tạm */
+const MAX_LOGIN_ATTEMPTS = 5;
+
+/** Thời gian khóa sau khi sai quá nhiều lần (5 phút) */
+const LOGIN_LOCKOUT_MS = 5 * 60 * 1000;
+
+const LOGIN_ATTEMPTS_KEY = 'auth_login_attempts';
+
+interface LoginAttemptData {
+  count: number;
+  firstAttemptAt: number;
+  lockedUntil: number | null;
+}
+
+/** Lưu custom_auth_session kèm TTL hạn sử dụng */
+const saveCustomSession = (user: any, profile: any) => {
+  localStorage.setItem(
+    'custom_auth_session',
+    JSON.stringify({
+      user,
+      profile,
+      expiresAt: Date.now() + SESSION_TTL_MS,
+    })
+  );
+};
+
+/** Đọc và kiểm tra session, trả null nếu đã hết hạn */
+const loadCustomSession = (): { user: any; profile: any } | null => {
+  try {
+    const raw = localStorage.getItem('custom_auth_session');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed.user || !parsed.profile) {
+      localStorage.removeItem('custom_auth_session');
+      return null;
+    }
+    // Kiểm tra hạn sử dụng
+    if (parsed.expiresAt && Date.now() > parsed.expiresAt) {
+      localStorage.removeItem('custom_auth_session');
+      return null;
+    }
+    return { user: parsed.user, profile: parsed.profile };
+  } catch {
+    localStorage.removeItem('custom_auth_session');
+    return null;
+  }
+};
+
+/** Lấy thông tin rate limit hiện tại */
+const getLoginAttempts = (): LoginAttemptData => {
+  try {
+    const raw = localStorage.getItem(LOGIN_ATTEMPTS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { count: 0, firstAttemptAt: 0, lockedUntil: null };
+};
+
+/** Ghi nhận 1 lần đăng nhập thất bại */
+const recordFailedLogin = () => {
+  const data = getLoginAttempts();
+  const now = Date.now();
+  // Reset bộ đếm nếu lần sai đầu tiên đã quá 15 phút trước
+  if (data.firstAttemptAt && now - data.firstAttemptAt > 15 * 60 * 1000) {
+    data.count = 0;
+    data.firstAttemptAt = 0;
+    data.lockedUntil = null;
+  }
+  data.count += 1;
+  if (!data.firstAttemptAt) data.firstAttemptAt = now;
+  if (data.count >= MAX_LOGIN_ATTEMPTS) {
+    data.lockedUntil = now + LOGIN_LOCKOUT_MS;
+  }
+  localStorage.setItem(LOGIN_ATTEMPTS_KEY, JSON.stringify(data));
+};
+
+/** Reset bộ đếm khi đăng nhập thành công */
+const clearLoginAttempts = () => {
+  localStorage.removeItem(LOGIN_ATTEMPTS_KEY);
+};
+
+/** Kiểm tra xem tài khoản có đang bị khóa hay không, throw lỗi nếu bị khóa */
+const checkLoginRateLimit = () => {
+  const data = getLoginAttempts();
+  if (data.lockedUntil && Date.now() < data.lockedUntil) {
+    const remainSec = Math.ceil((data.lockedUntil - Date.now()) / 1000);
+    const remainMin = Math.ceil(remainSec / 60);
+    const err: any = new Error(
+      `Bạn đã nhập sai quá ${MAX_LOGIN_ATTEMPTS} lần. Vui lòng chờ ${remainMin} phút trước khi thử lại.`
+    );
+    err.code = 'auth/too-many-requests';
+    throw err;
+  }
 };
 
 interface AuthContextType {
@@ -152,14 +299,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [retentionHours, setRetentionHours] = useState<number>(3);
   const [enableVipFeatures, setEnableVipFeatures] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const cached = localStorage.getItem('sys_enable_vip_features');
-    return cached !== null ? cached === 'true' : true;
+    return cached !== null ? cached === 'true' : false; // Mặc định VIP luôn là false
   });
   const [enableAds, setEnableAds] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     const cached = localStorage.getItem('sys_enable_ads');
-    return cached !== null ? cached === 'true' : true;
+    return cached !== null ? cached === 'true' : true; // Mặc định Ads luôn bật
   });
   const guestName = 'user';
   const [examHistory, setExamHistory] = useState<PracticeAttemptResult[]>([]);
@@ -183,26 +330,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Listen to Auth State and custom sessions
   useEffect(() => {
     // 1. Check local custom admin session or local user session first
-    const customSession = localStorage.getItem('custom_auth_session');
-    if (customSession) {
-      try {
-        const parsed = JSON.parse(customSession);
-        if (parsed.user && parsed.profile) {
-          setCurrentUser(parsed.user);
-          setUserProfile(parsed.profile);
-          loadUserExamHistory(parsed.user.uid).catch(() => {});
-          setLoading(false);
-          return;
-        }
-      } catch {
-        localStorage.removeItem('custom_auth_session');
-      }
+    const session = loadCustomSession();
+    if (session) {
+      setCurrentUser(session.user);
+      setUserProfile(session.profile);
+      loadUserExamHistory(session.user.uid).catch(() => {});
+      setLoading(false);
+      return;
     }
 
     // 2. Listen to Firebase Auth
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Don't overwrite active custom admin session
-      if (localStorage.getItem('custom_auth_session')) {
+      if (loadCustomSession()) {
         setLoading(false);
         return;
       }
@@ -419,10 +559,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setCurrentUser(fakeUser);
       setUserProfile(profileData);
-      localStorage.setItem(
-        'custom_auth_session',
-        JSON.stringify({ user: fakeUser, profile: profileData })
-      );
+      saveCustomSession(fakeUser, profileData);
 
       // Thử đồng bộ ngầm Firestore nếu mạng khả dụng
       setDoc(doc(db, 'users', localUid), profileData).catch(() => {});
@@ -445,16 +582,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (identifier: string, pass: string) => {
+    // BẢO MẬT: Kiểm tra rate limit trước khi xử lý bất kỳ logic nào
+    checkLoginRateLimit();
+
     const cleanId = identifier.trim().toLowerCase();
     const storedAdminHash = localStorage.getItem('system_admin_password_hash');
     const inputHash = await hashPassword(pass);
+    const legacyHash = await legacySha256Hash(pass);
     const isMasterAdminId = cleanId === 'admin' || cleanId === 'admin@laixe.vn' || cleanId === 'phucnam995@gmail.com';
     const isDefaultAdminPass = !storedAdminHash && pass === 'admin';
-    const isAdminMatch = isMasterAdminId && (storedAdminHash ? storedAdminHash === inputHash : isDefaultAdminPass);
+    const isAdminMatch = isMasterAdminId && (
+      storedAdminHash
+        ? (storedAdminHash === inputHash || storedAdminHash === legacyHash)
+        : isDefaultAdminPass
+    );
 
     // 1. Admin login check: tài khoản admin, mật khẩu admin đã băm bảo mật
     if (isAdminMatch) {
-      if (!storedAdminHash) {
+      if (!storedAdminHash || storedAdminHash === legacyHash) {
         localStorage.setItem('system_admin_password_hash', inputHash);
         localStorage.removeItem('system_admin_password');
       }
@@ -477,10 +622,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setCurrentUser(adminUser);
       setUserProfile(adminProfile);
-      localStorage.setItem(
-        'custom_auth_session',
-        JSON.stringify({ user: adminUser, profile: adminProfile })
-      );
+      saveCustomSession(adminUser, adminProfile);
+      clearLoginAttempts();
       loadUserExamHistory(adminUser.uid).catch(() => {});
       return;
     }
@@ -495,20 +638,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     if (matchedLocal) {
-      const isLegacyMatch = matchedLocal.pass && matchedLocal.pass === pass;
-      const isHashMatch = matchedLocal.passHash && matchedLocal.passHash === inputHash;
+      const isPbkdf2Match = matchedLocal.passHash && matchedLocal.passHash === inputHash;
+      const isLegacyShaMatch = matchedLocal.passHash && matchedLocal.passHash === legacyHash;
 
-      if (!isHashMatch && !isLegacyMatch) {
+      if (!isPbkdf2Match && !isLegacyShaMatch) {
+        recordFailedLogin();
         const err: any = new Error('Mật khẩu không chính xác!');
         err.code = 'auth/wrong-password';
         throw err;
       }
 
-      // Tự động nâng cấp tài khoản cũ lên mật khẩu băm SHA-256
-      if (isLegacyMatch && !matchedLocal.passHash) {
+      // Tự động nâng cấp tài khoản cũ lên mật khẩu băm PBKDF2 cao cấp
+      if (isLegacyShaMatch && !isPbkdf2Match) {
         matchedLocal.passHash = inputHash;
-        delete matchedLocal.pass;
-        localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(localUsers));
+        await saveStoredLocalUser(matchedLocal);
       }
 
       const fakeUser = {
@@ -531,10 +674,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setCurrentUser(fakeUser);
       setUserProfile(profile);
-      localStorage.setItem(
-        'custom_auth_session',
-        JSON.stringify({ user: fakeUser, profile })
-      );
+      saveCustomSession(fakeUser, profile);
+      clearLoginAttempts();
       loadUserExamHistory(matchedLocal.uid).catch(() => {});
       return;
     }
@@ -646,10 +787,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyAdminPassword = async (pass: string): Promise<boolean> => {
     const storedHash = localStorage.getItem('system_admin_password_hash');
     const inputHash = await hashPassword(pass);
+    const legacyHash = await legacySha256Hash(pass);
     if (!storedHash) {
       return pass === 'admin';
     }
-    return storedHash === inputHash;
+    const matched = storedHash === inputHash || storedHash === legacyHash;
+    if (matched && storedHash === legacyHash) {
+      localStorage.setItem('system_admin_password_hash', inputHash);
+    }
+    return matched;
   };
 
   const loginAsPresetRole = (role: UserRole) => {
@@ -678,7 +824,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setCurrentUser(user);
     setUserProfile(profile);
-    localStorage.setItem('custom_auth_session', JSON.stringify({ user, profile }));
+    saveCustomSession(user, profile);
   };
 
   const saveExamResult = async (result: PracticeAttemptResult) => {

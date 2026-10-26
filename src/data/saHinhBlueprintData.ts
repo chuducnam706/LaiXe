@@ -83,9 +83,9 @@ export interface BlueprintSolidLineSpec {
   z1: number;
   x2: number;
   z2: number;
-  kind: 'RAISED_CURB' | 'SENSOR_LINE' | 'SOLID_EDGE_LINE';
+  kind: 'RAISED_CURB' | 'SENSOR_LINE' | 'SOLID_EDGE_LINE' | 'SOLID_LINE' | 'DASHED_LINE';
   colorHex: number;
-  isPenaltySensor: boolean;
+  isPenaltySensor?: boolean;
   hasRedWhiteCurb?: boolean;
   curbNormalX?: number;
   curbNormalZ?: number;
@@ -145,12 +145,12 @@ export interface BlueprintZoneSpec {
 }
 
 export const COURSE_YARD_BOUNDS = {
-  minX: -82,
+  minX: -84,
   maxX: 82,
-  minZ: -56,
+  minZ: -61.5,
   maxZ: 54,
-  widthM: 164,
-  lengthM: 110,
+  widthM: 166,
+  lengthM: 115.5,
 };
 
 /**
@@ -278,7 +278,7 @@ export const BLUEPRINT_SCURVE_LANES: BlueprintSCurveLaneSpec[] = [
  * - South Perimeter Track (1. Xuất phát → 2. Đi bộ → 3. Dốc Cầu): Z = +50.0m, width 5.6m -> Z in [47.2 .. 52.8]
  * - East Perimeter Track (Lên 4. Hàng đinh & 8. Xe lửa): X = +76.5m, width 5.6m -> X in [73.7 .. 79.3]
  * - North Perimeter Track (9. Tăng tốc & lối vào 7. Đỗ xe): Z = -52.0m, width 5.6m -> Z in [-54.8 .. -49.2]
- * - West Perimeter Track (Đường xuống 10. Ghép ngang & 11. Kết thúc): X = -76.5m, width 5.6m -> X in [-79.3 .. -73.7]
+ * - West Perimeter Track (Đường xuống 10. Ghép ngang & 11. Kết thúc): X = -77.25m, width 7.10m -> X in [-80.80 .. -73.70]
  * - Central Vertical 2-Way Road (5. Ngã tư đèn đỏ): X = -6.5m, width 7.0m -> X in [-10.0 .. -3.0]
  * - Central Horizontal 2-Way Road (Qua 10. Ghép ngang & 5. Ngã tư): Z = +1.5m, width 7.0m -> Z in [-2.0 .. +5.0]
  * - South-West Finish Horizontal Road (Đường rẽ từ 5. Ngã tư ra 11. Kết thúc): Z = +17.0m, width 5.6m -> Z in [14.2 .. 19.8]
@@ -290,17 +290,17 @@ export const BLUEPRINT_GRASS_ISLANDS: BlueprintGrassIslandSpec[] = [
     nameVi: 'Đảo cỏ Tây-Bắc (Khu 7. Đỗ xe — Ghép xe dọc Hạng B & Hạng C)',
     minX: -73.7,
     maxX: -10.0,
-    minZ: -49.2,
+    minZ: -47.0, // Mở rộng đường Bắc thành 10.8m (3 làn rộng 3.6m mỗi làn)
     maxZ: -2.0,
     cornerRadiusM: 2.5,
   },
-  // 2. North-East Quadrant Island (Houses 6. Chữ S — Nhánh Hạng B & Nhánh Hạng C nối thông từ Z=-2.0m lên Z=-49.2m)
+  // 2. North-East Quadrant Island (Houses 6. Chữ S — Nhánh Hạng B & Nhánh Hạng C nối thông từ Z=-2.0m lên Z=-47.0m)
   {
     id: 'isl_ne_scurve',
     nameVi: 'Đảo cỏ Đông-Bắc (Khu 6. Chữ S — Đường vòng quanh co Hạng B & Hạng C)',
     minX: -3.0,
     maxX: 73.7,
-    minZ: -49.2,
+    minZ: -47.0,
     maxZ: -2.0,
     cornerRadiusM: 2.5,
   },
@@ -314,13 +314,13 @@ export const BLUEPRINT_GRASS_ISLANDS: BlueprintGrassIslandSpec[] = [
     maxZ: 47.2,
     cornerRadiusM: 2.5,
   },
-  // 3B. South Cul-de-Sac Cap of Central Vertical Spine (Locks South end of X = -6.5m below Làn B exit Z=37.92m)
+  // 3B. South Cul-de-Sac Cap of Central Vertical Spine (Locks South end of X = -6.5m flush with Làn B exit curb Z=38.14m)
   {
     id: 'isl_plug_south_spine',
-    nameVi: 'Đảo cỏ khóa đầu phía Nam trục dọc trung tâm (Sau lối ra Bài 4)',
+    nameVi: 'Đảo cỏ khóa đầu phía Nam trục dọc trung tâm (Sau lối ra Bài 4/5 Chữ Z)',
     minX: -10.0,
     maxX: -3.0,
-    minZ: 37.92,
+    minZ: 38.14,
     maxZ: 47.2,
     cornerRadiusM: 1.0,
   },
@@ -416,34 +416,34 @@ export const BLUEPRINT_PAVED_RECESSES: BlueprintPavedRecessSpec[] = [
   // ============================================================================
   {
     id: 'rec_bai6_b_entry_neck',
-    nameVi: 'Đoạn thoát ra phía Nam Chữ S Hạng B (X = +14.0m, miệng loe 4.8m)',
-    minX: 11.6,
-    maxX: 16.4,
+    nameVi: 'Đoạn thoát ra phía Nam Chữ S Hạng B (X = +14.0m, khớp chuẩn bó vỉa 11.755m .. 16.245m)',
+    minX: 11.755,
+    maxX: 16.245,
     minZ: -7.4,
-    maxZ: -1.75,
+    maxZ: -1.60,
   },
   {
     id: 'rec_bai6_b_exit_neck',
-    nameVi: 'Đoạn dẫn vào phía Bắc Chữ S Hạng B từ đường Bắc (X = +14.0m, miệng loe 4.8m)',
-    minX: 11.6,
-    maxX: 16.4,
-    minZ: -49.45,
+    nameVi: 'Đoạn dẫn vào phía Bắc Chữ S Hạng B từ đường Bắc (X = +14.0m, khớp chuẩn bó vỉa 11.755m .. 16.245m)',
+    minX: 11.755,
+    maxX: 16.245,
+    minZ: -47.40,
     maxZ: -43.6,
   },
   {
     id: 'rec_bai6_c_entry_neck',
-    nameVi: 'Đoạn thoát ra phía Nam Chữ S Hạng C (X = +36.0m, miệng loe 6.0m)',
-    minX: 33.0,
-    maxX: 39.0,
+    nameVi: 'Đoạn thoát ra phía Nam Chữ S Hạng C (X = +36.0m, khớp chuẩn bó vỉa 33.205m .. 38.795m)',
+    minX: 33.205,
+    maxX: 38.795,
     minZ: -7.4,
-    maxZ: -1.75,
+    maxZ: -1.60,
   },
   {
     id: 'rec_bai6_c_exit_neck',
-    nameVi: 'Đoạn dẫn vào phía Bắc Chữ S Hạng C từ đường Bắc (X = +36.0m, miệng loe 6.0m)',
-    minX: 33.0,
-    maxX: 39.0,
-    minZ: -49.45,
+    nameVi: 'Đoạn dẫn vào phía Bắc Chữ S Hạng C từ đường Bắc (X = +36.0m, khớp chuẩn bó vỉa 33.205m .. 38.795m)',
+    minX: 33.205,
+    maxX: 38.795,
+    minZ: -47.40,
     maxZ: -43.6,
   },
 
@@ -452,10 +452,10 @@ export const BLUEPRINT_PAVED_RECESSES: BlueprintPavedRecessSpec[] = [
   // ============================================================================
   {
     id: 'rec_bai7_alley_c',
-    nameVi: 'Đường dẫn vào nhà xe Hạng C (<- C mở từ đường Bắc Z = -49.2m xuống Z = -12.0m)',
+    nameVi: 'Đường dẫn vào nhà xe Hạng C (<- C mở từ đường Bắc Z = -47.0m xuống Z = -12.0m)',
     minX: -36.0,
     maxX: -25.0,
-    minZ: -49.45,
+    minZ: -47.25,
     maxZ: -12.0,
   },
   {
@@ -469,10 +469,10 @@ export const BLUEPRINT_PAVED_RECESSES: BlueprintPavedRecessSpec[] = [
   },
   {
     id: 'rec_bai7_alley_b',
-    nameVi: 'Đường dẫn vào nhà xe Hạng B (<- B mở từ đường Bắc Z = -49.2m xuống Z = -16.0m)',
+    nameVi: 'Đường dẫn vào nhà xe Hạng B (<- B mở từ đường Bắc Z = -47.0m xuống Z = -16.0m)',
     minX: -62.0,
     maxX: -53.0,
-    minZ: -49.45,
+    minZ: -47.25,
     maxZ: -16.0,
   },
   {
@@ -529,20 +529,20 @@ export const BLUEPRINT_DIAGONAL_HATCH_ZONES: BlueprintDiagonalHatchZoneSpec[] = 
     maxZ: 14.0,
   },
   {
-    id: 'hatch_central_top',
-    nameVi: 'Vạch chéo phân làn đầu Bắc trục dọc trung tâm',
-    minX: -7.0,
-    maxX: -6.0,
-    minZ: -49.2,
-    maxZ: -45.8,
+    id: 'hatch_central_below_ngatu',
+    nameVi: 'Vạch chéo kênh hóa dòng xe bên kia đường từ lối ra Bài 5 Hàng đinh vuông góc kéo dài hết Hạng C (X = -9.8m .. -6.65m, Z = 19.8m .. 38.0m)',
+    minX: -9.8,
+    maxX: -6.65,
+    minZ: 19.8,
+    maxZ: 38.0,
   },
   {
-    id: 'hatch_central_below_ngatu',
-    nameVi: 'Vạch chéo phân làn rẽ về 11. Kết thúc dưới Ngã tư 5',
-    minX: -9.8,
-    maxX: -6.5,
-    minZ: 19.8,
-    maxZ: 24.0,
+    id: 'hatch_north_t_junction_triangle',
+    nameVi: 'Vạch chéo tam giác ngã ba phân luồng đường Bắc (X = -8.5m .. -4.5m, Z = -55.15m .. -48.0m)',
+    minX: -8.5,
+    maxX: -4.5,
+    minZ: -55.15,
+    maxZ: -48.0,
   },
 ];
 
@@ -552,7 +552,7 @@ export const BLUEPRINT_DIAGONAL_HATCH_ZONES: BlueprintDiagonalHatchZoneSpec[] = 
 export const BLUEPRINT_ROAD_SEGMENTS: BlueprintRoadSegmentSpec[] = [
   {
     id: 'seg_south_start_hill',
-    nameVi: 'Đường phía Nam (1. Xuất phát → 2. Đi bộ → 3. Dốc Cầu, rộng 5.6m)',
+    nameVi: 'Đường phía Nam Bài 1, 2, 3 và đoạn nối sang góc Đông (Xuất phát → Đi bộ → Cầu dốc Bài 3 → Góc Đông X=76.5m, rộng 5.6m)',
     start: { x: -76.5, z: 50.0 },
     end: { x: 76.5, z: 50.0 },
     widthM: 5.6,
@@ -564,15 +564,15 @@ export const BLUEPRINT_ROAD_SEGMENTS: BlueprintRoadSegmentSpec[] = [
     start: { x: 76.5, z: 50.0 },
     end: { x: 76.5, z: 11.0 },
     widthM: 5.6,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: true, // Vạch nét đứt phân làn tới trước Bài 4
   },
   {
     id: 'seg_central_spine_ns',
     nameVi: 'Trục đường 2 chiều dọc trung tâm qua 5. Ngã tư (X = -6.5m, rộng 7.0m)',
     start: { x: -6.5, z: 36.0 },
-    end: { x: -6.5, z: -49.2 },
+    end: { x: -6.5, z: -52.0 },
     widthM: 7.0,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: false, // Vạch nét liền phân làn (Bài 4, 5)
   },
   {
     id: 'seg_central_ew',
@@ -580,47 +580,47 @@ export const BLUEPRINT_ROAD_SEGMENTS: BlueprintRoadSegmentSpec[] = [
     start: { x: -76.5, z: 1.5 },
     end: { x: 76.5, z: 1.5 },
     widthM: 7.0,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: false, // Vạch nét liền phân làn (Bài 5, 10)
   },
   {
     id: 'seg_east_outer_railway',
     nameVi: 'Đường phía Đông trên qua 8. Xe lửa (X = +76.5m, rộng 5.6m)',
     start: { x: 76.5, z: 1.5 },
-    end: { x: 76.5, z: -52.0 },
+    end: { x: 76.5, z: -55.15 },
     widthM: 5.6,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: false, // Vạch nét liền phân làn (Bài 8)
   },
   {
     id: 'seg_north_accel_gear',
-    nameVi: 'Đường phía Bắc qua 9. Tăng tốc & lối vào 7. Đỗ xe (Z = -52.0m, rộng 5.6m)',
-    start: { x: 76.5, z: -52.0 },
-    end: { x: -76.5, z: -52.0 },
-    widthM: 5.6,
-    hasCenterDashedLine: true,
+    nameVi: 'Đường phía Bắc qua 9. Tăng tốc & lối vào 7. Đỗ xe (Z = -53.75m, rộng 13.5m đa làn)',
+    start: { x: 76.5, z: -53.75 },
+    end: { x: -76.5, z: -53.75 },
+    widthM: 13.5,
+    hasCenterDashedLine: false, // Phân làn thực tế bằng vạch vàng nét liền và vạch trắng nét đứt
   },
   {
     id: 'seg_west_upper_to_bai10',
-    nameVi: 'Đường phía Tây trên (Từ cuối 9. Tăng tốc xuống lối rẽ 10. Ghép xe ngang, X = -76.5m)',
-    start: { x: -76.5, z: -52.0 },
-    end: { x: -76.5, z: 1.5 },
-    widthM: 5.6,
-    hasCenterDashedLine: true,
+    nameVi: 'Đường phía Tây trên (Từ cuối 9. Tăng tốc xuống lối rẽ 10. Ghép xe ngang, X = -77.25m)',
+    start: { x: -77.25, z: -55.15 },
+    end: { x: -77.25, z: 1.5 },
+    widthM: 7.1,
+    hasCenterDashedLine: false, // Vạch nét liền phân làn (Bài 10)
   },
   {
     id: 'seg_finish_road_ew',
     nameVi: 'Đường ngang về đích (Từ 5. Ngã tư sang đường bao Tây 11. Kết thúc, Z = +17.0m)',
     start: { x: -6.5, z: 17.0 },
-    end: { x: -76.5, z: 17.0 },
+    end: { x: -77.25, z: 17.0 },
     widthM: 5.6,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: false, // Vạch nét liền phân làn (Bài 11)
   },
   {
     id: 'seg_west_lower_finish',
-    nameVi: 'Đường phía Tây dưới qua vạch 11. Kết thúc (X = -76.5m, Z = +17.0m..+50.0m)',
-    start: { x: -76.5, z: 17.0 },
-    end: { x: -76.5, z: 50.0 },
-    widthM: 5.6,
-    hasCenterDashedLine: true,
+    nameVi: 'Đường phía Tây dưới qua vạch 11. Kết thúc (X = -77.25m, Z = +17.0m..+50.0m)',
+    start: { x: -77.25, z: 17.0 },
+    end: { x: -77.25, z: 50.0 },
+    widthM: 7.1,
+    hasCenterDashedLine: false, // Vạch nét liền phân làn (Bài 11)
   },
   {
     id: 'seg_bai7_alley_c',
@@ -628,7 +628,7 @@ export const BLUEPRINT_ROAD_SEGMENTS: BlueprintRoadSegmentSpec[] = [
     start: { x: -30.5, z: -47.5 },
     end: { x: -30.5, z: -13.5 },
     widthM: 11.0,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: false,
   },
   {
     id: 'seg_bai7_alley_b',
@@ -636,59 +636,68 @@ export const BLUEPRINT_ROAD_SEGMENTS: BlueprintRoadSegmentSpec[] = [
     start: { x: -57.5, z: -47.5 },
     end: { x: -57.5, z: -17.5 },
     widthM: 9.0,
-    hasCenterDashedLine: true,
+    hasCenterDashedLine: false,
   },
 ];
 
 /**
- * Unbroken Sequential Route Polyline matching the 2D Reference Image (① → ② → ③ → ④ → ⑤ → ⑥ → ⑦ → ⑤ Đèn Đỏ → ⑧ → ⑨ → ⑩ → ⑤ → ⑪)
+ * Sequential Route Sections matching the 2D Reference Image
+ * (Divided into sections so Bài 6 Đường vòng quanh co remains empty without the blue route line)
  */
-export const BLUEPRINT_CONTINUOUS_ROUTE_POINTS: Array<{ x: number; z: number; label?: string }> = [
-  { x: -65.0, z: 50.0, label: 'Xuất phát' },
-  { x: -56.0, z: 50.0, label: '①' },
-  { x: -29.0, z: 50.0, label: '②' },
-  { x: 2.0, z: 50.0, label: '③' },
-  { x: 26.0, z: 50.0 },
-  { x: 76.5, z: 50.0 },
-  { x: 76.5, z: 23.5 },
-  { x: 64.0, z: 23.5, label: '④' },
-  { x: 47.5, z: 23.5 },
-  { x: 25.0, z: 23.5 },
-  { x: 25.0, z: 36.0 },
-  { x: -4.75, z: 36.0 },
-  { x: -4.75, z: 10.0, label: '⑤' },
-  { x: -4.75, z: -52.0 },
-  { x: 14.0, z: -52.0 },
-  { x: 14.0, z: -46.0, label: '⑥' },
-  ...BLUEPRINT_SCURVE_LANES[0].centerPoints,
-  { x: 14.0, z: -0.25 },
-  { x: -75.1, z: -0.25 },
-  { x: -75.1, z: -50.6 },
-  { x: -57.5, z: -50.6 },
-  { x: -57.5, z: -32.0, label: '⑦' },
-  { x: -57.5, z: -26.0 },
-  { x: -49.3, z: -26.0 },
-  { x: -57.5, z: -26.0 },
-  { x: -57.5, z: -50.6 },
-  { x: -8.25, z: -50.6 },
-  { x: -8.25, z: -6.5 },
-  { x: -8.25, z: 3.25 },
-  { x: 76.5, z: 3.25 },
-  { x: 76.5, z: -21.0, label: '⑧' },
-  { x: 76.5, z: -52.0 },
-  { x: 58.0, z: -52.0, label: '⑨' },
-  { x: 22.0, z: -52.0 },
-  { x: -15.0, z: -52.0 },
-  { x: -76.5, z: -52.0 },
-  { x: -76.5, z: 3.25 },
-  { x: -55.0, z: 3.25, label: '⑩' },
-  { x: -55.0, z: 6.5 },
-  { x: -49.5, z: 3.25 },
-  { x: -8.25, z: 3.25 },
-  { x: -8.25, z: 17.0 },
-  { x: -76.5, z: 17.0 },
-  { x: -76.5, z: 36.0, label: '⑪' },
+export const BLUEPRINT_CONTINUOUS_ROUTE_SECTIONS: Array<Array<{ x: number; z: number; label?: string }>> = [
+  // Đoạn 1: Xuất phát (①) -> Đi bộ (②) -> Dốc cầu (③) -> Hàng đinh vuông góc (④) -> Ngã tư (⑤) -> Cửa vào Bài 6 (⑥)
+  [
+    { x: -65.0, z: 50.0, label: 'Xuất phát' },
+    { x: -56.0, z: 50.0, label: '①' },
+    { x: -29.0, z: 50.0, label: '②' },
+    { x: 2.0, z: 50.0, label: '③' },
+    { x: 26.0, z: 50.0 },
+    { x: 76.5, z: 50.0 },
+    { x: 76.5, z: 23.5 },
+    { x: 64.0, z: 23.5, label: '④' },
+    { x: 47.5, z: 23.5 },
+    { x: 25.0, z: 23.5 },
+    { x: 25.0, z: 36.0 },
+    { x: -4.75, z: 36.0 },
+    { x: -4.75, z: 10.0, label: '⑤' },
+    { x: -4.75, z: -52.0 },
+    { x: 14.0, z: -52.0 },
+    { x: 14.0, z: -46.0, label: '⑥' },
+  ],
+  // Đoạn 2: Cửa ra Bài 6 -> Bài 7 Đỗ xe (⑦) -> Ngã tư Đèn đỏ ⑤ -> Bài 8 Đường sắt (⑧) -> Bài 9 Tăng tốc (⑨) -> Bài 10 Ghép ngang (⑩) -> Ngã tư ⑤ -> Bài 11 Kết thúc (⑪)
+  [
+    { x: 14.0, z: -0.25 },
+    { x: -75.1, z: -0.25 },
+    { x: -75.1, z: -49.04 },
+    { x: -57.5, z: -49.04 },
+    { x: -57.5, z: -32.0, label: '⑦' },
+    { x: -57.5, z: -26.0 },
+    { x: -49.3, z: -26.0 },
+    { x: -57.5, z: -26.0 },
+    { x: -57.5, z: -49.04 },
+    { x: -8.25, z: -49.04 },
+    { x: -8.25, z: -6.5 },
+    { x: -8.25, z: 3.25 },
+    { x: 76.5, z: 3.25 },
+    { x: 76.5, z: -21.0, label: '⑧' },
+    { x: 76.5, z: -57.00 },
+    { x: 58.0, z: -57.00, label: '⑨' },
+    { x: 22.0, z: -57.00 },
+    { x: -15.0, z: -57.00 },
+    { x: -77.25, z: -57.00 },
+    { x: -77.25, z: 3.25 },
+    { x: -55.0, z: 3.25, label: '⑩' },
+    { x: -55.0, z: 6.5 },
+    { x: -49.5, z: 3.25 },
+    { x: -8.25, z: 3.25 },
+    { x: -8.25, z: 17.0 },
+    { x: -77.25, z: 17.0 },
+    { x: -77.25, z: 36.0, label: '⑪' },
+  ],
 ];
+
+export const BLUEPRINT_CONTINUOUS_ROUTE_POINTS: Array<{ x: number; z: number; label?: string }> =
+  BLUEPRINT_CONTINUOUS_ROUTE_SECTIONS.flat();
 
 /**
  * Build continuous S-Curve Solid Boundary Lines + Raised Red-White Curb Flags ("chắn tường đỏ trắng")
@@ -698,13 +707,60 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
   const lines: BlueprintSolidLineSpec[] = [];
   for (const lane of BLUEPRINT_SCURVE_LANES) {
     const hw = lane.halfWidthM;
-    // Straight North exit neck walls (Z = -49.2 to minZ = -44.0)
+
+    // Compute smooth continuous mitered curb vertices for left edge (outward normal: -dz, dx)
+    const leftCurbPts: Array<{ x: number; z: number }> = [];
+    const numL = lane.leftEdgePoints.length;
+    for (let i = 0; i < numL; i++) {
+      let dx: number;
+      let dz: number;
+      if (i === 0) {
+        dx = lane.leftEdgePoints[1].x - lane.leftEdgePoints[0].x;
+        dz = lane.leftEdgePoints[1].z - lane.leftEdgePoints[0].z;
+      } else if (i === numL - 1) {
+        dx = lane.leftEdgePoints[numL - 1].x - lane.leftEdgePoints[numL - 2].x;
+        dz = lane.leftEdgePoints[numL - 1].z - lane.leftEdgePoints[numL - 2].z;
+      } else {
+        dx = lane.leftEdgePoints[i + 1].x - lane.leftEdgePoints[i - 1].x;
+        dz = lane.leftEdgePoints[i + 1].z - lane.leftEdgePoints[i - 1].z;
+      }
+      const len = Math.hypot(dx, dz) || 1;
+      leftCurbPts.push({
+        x: lane.leftEdgePoints[i].x - (dz / len) * 0.22,
+        z: lane.leftEdgePoints[i].z + (dx / len) * 0.22,
+      });
+    }
+
+    // Compute smooth continuous mitered curb vertices for right edge (outward normal: dz, -dx)
+    const rightCurbPts: Array<{ x: number; z: number }> = [];
+    const numR = lane.rightEdgePoints.length;
+    for (let i = 0; i < numR; i++) {
+      let dx: number;
+      let dz: number;
+      if (i === 0) {
+        dx = lane.rightEdgePoints[1].x - lane.rightEdgePoints[0].x;
+        dz = lane.rightEdgePoints[1].z - lane.rightEdgePoints[0].z;
+      } else if (i === numR - 1) {
+        dx = lane.rightEdgePoints[numR - 1].x - lane.rightEdgePoints[numR - 2].x;
+        dz = lane.rightEdgePoints[numR - 1].z - lane.rightEdgePoints[numR - 2].z;
+      } else {
+        dx = lane.rightEdgePoints[i + 1].x - lane.rightEdgePoints[i - 1].x;
+        dz = lane.rightEdgePoints[i + 1].z - lane.rightEdgePoints[i - 1].z;
+      }
+      const len = Math.hypot(dx, dz) || 1;
+      rightCurbPts.push({
+        x: lane.rightEdgePoints[i].x + (dz / len) * 0.22,
+        z: lane.rightEdgePoints[i].z - (dx / len) * 0.22,
+      });
+    }
+
+    // Straight North exit neck walls (Z = -47.0 to minZ = -44.0)
     lines.push(
       {
         id: `sensor_b6_${lane.category.toLowerCase()}_exit_left`,
         nameVi: `Vạch biên đầu ra phía Bắc Đường chữ S (Hạng ${lane.category})`,
         x1: lane.baseCenterX - hw,
-        z1: -49.2,
+        z1: -47.0,
         x2: lane.leftEdgePoints[0].x,
         z2: lane.leftEdgePoints[0].z,
         kind: 'SENSOR_LINE',
@@ -714,15 +770,15 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
         curbNormalX: -1,
         curbNormalZ: 0,
         curbX1: lane.baseCenterX - hw - 0.22,
-        curbZ1: -49.0,
-        curbX2: lane.leftEdgePoints[0].x - 0.22,
-        curbZ2: lane.leftEdgePoints[0].z,
+        curbZ1: -46.78,
+        curbX2: leftCurbPts[0].x,
+        curbZ2: leftCurbPts[0].z,
       },
       {
         id: `sensor_b6_${lane.category.toLowerCase()}_exit_right`,
         nameVi: `Vạch biên đầu ra phía Bắc Đường chữ S (Hạng ${lane.category})`,
         x1: lane.baseCenterX + hw,
-        z1: -49.2,
+        z1: -47.0,
         x2: lane.rightEdgePoints[0].x,
         z2: lane.rightEdgePoints[0].z,
         kind: 'SENSOR_LINE',
@@ -732,18 +788,15 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
         curbNormalX: 1,
         curbNormalZ: 0,
         curbX1: lane.baseCenterX + hw + 0.22,
-        curbZ1: -49.0,
-        curbX2: lane.rightEdgePoints[0].x + 0.22,
-        curbZ2: lane.rightEdgePoints[0].z,
+        curbZ1: -46.78,
+        curbX2: rightCurbPts[0].x,
+        curbZ2: rightCurbPts[0].z,
       }
     );
 
     for (let i = 0; i < lane.leftEdgePoints.length - 1; i++) {
       const pL0 = lane.leftEdgePoints[i];
       const pL1 = lane.leftEdgePoints[i + 1];
-      const dxL = pL1.x - pL0.x;
-      const dzL = pL1.z - pL0.z;
-      const lenL = Math.hypot(dxL, dzL) || 1;
       lines.push({
         id: `sensor_b6_${lane.category.toLowerCase()}_left_${i}`,
         nameVi: `Vạch kẻ cứng cảm biến biên Tây Đường chữ S (Hạng ${lane.category})`,
@@ -755,15 +808,14 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
         colorHex: 0xf8fafc,
         isPenaltySensor: true,
         hasRedWhiteCurb: true,
-        curbNormalX: -dzL / lenL,
-        curbNormalZ: dxL / lenL,
+        curbX1: leftCurbPts[i].x,
+        curbZ1: leftCurbPts[i].z,
+        curbX2: leftCurbPts[i + 1].x,
+        curbZ2: leftCurbPts[i + 1].z,
       });
 
       const pR0 = lane.rightEdgePoints[i];
       const pR1 = lane.rightEdgePoints[i + 1];
-      const dxR = pR1.x - pR0.x;
-      const dzR = pR1.z - pR0.z;
-      const lenR = Math.hypot(dxR, dzR) || 1;
       lines.push({
         id: `sensor_b6_${lane.category.toLowerCase()}_right_${i}`,
         nameVi: `Vạch kẻ cứng cảm biến biên Đông Đường chữ S (Hạng ${lane.category})`,
@@ -775,8 +827,10 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
         colorHex: 0xf8fafc,
         isPenaltySensor: true,
         hasRedWhiteCurb: true,
-        curbNormalX: dzR / lenR,
-        curbNormalZ: -dxR / lenR,
+        curbX1: rightCurbPts[i].x,
+        curbZ1: rightCurbPts[i].z,
+        curbX2: rightCurbPts[i + 1].x,
+        curbZ2: rightCurbPts[i + 1].z,
       });
     }
 
@@ -796,8 +850,8 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
         hasRedWhiteCurb: true,
         curbNormalX: -1,
         curbNormalZ: 0,
-        curbX1: lane.leftEdgePoints[lastIdx].x - 0.22,
-        curbZ1: lane.leftEdgePoints[lastIdx].z,
+        curbX1: leftCurbPts[lastIdx].x,
+        curbZ1: leftCurbPts[lastIdx].z,
         curbX2: lane.baseCenterX - hw - 0.22,
         curbZ2: -1.90,
       },
@@ -814,8 +868,8 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
         hasRedWhiteCurb: true,
         curbNormalX: 1,
         curbNormalZ: 0,
-        curbX1: lane.rightEdgePoints[lastIdx].x + 0.22,
-        curbZ1: lane.rightEdgePoints[lastIdx].z,
+        curbX1: rightCurbPts[lastIdx].x,
+        curbZ1: rightCurbPts[lastIdx].z,
         curbX2: lane.baseCenterX + hw + 0.22,
         curbZ2: -1.90,
       }
@@ -828,6 +882,130 @@ function buildSCurveSolidBoundaryLines(): BlueprintSolidLineSpec[] {
  * VẠCH KẺ CỨNG, ỐNG HƠI CẢM BIẾN & TƯỜNG CHẮN ĐỎ TRẮNG (Solid White Boundary Lines + Pneumatic Tubes + Red-White Curbs)
  */
 export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
+  // ============================================================================
+  // VẠCH NÉT LIỀN MÀU VÀNG PHÂN LÀN CHO CÁC BÀI 5, 7, 8, 9, 10, 11 (Vạch tim đường nét liền bắt đầu sau khi ra khỏi Bài 4)
+  // ============================================================================
+  {
+    id: 'solid_line_spine_south_bai5',
+    nameVi: 'Vạch vàng nét liền phân làn trục dọc từ cửa ra Bài 4 lên Bài 5 Ngã tư (X = -6.5m, Z = 38.0m .. 8.8m)',
+    x1: -6.5,
+    z1: 38.0,
+    x2: -6.5,
+    z2: 8.8,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'solid_line_spine_north_bai5',
+    nameVi: 'Vạch vàng nét liền phân làn trục dọc từ Bài 5 Ngã tư lên đảo tam giác đường Bắc Bài 6/Bài 7 (X = -6.5m, Z = -5.8m .. -48.0m)',
+    x1: -6.5,
+    z1: -5.8,
+    x2: -6.5,
+    z2: -48.0,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'solid_line_central_ew_west',
+    nameVi: 'Vạch vàng nét liền trục ngang trung tâm phía Tây qua Bài 10 (Z = 1.5m, X = -77.25m .. -13.8m)',
+    x1: -77.25,
+    z1: 1.5,
+    x2: -13.8,
+    z2: 1.5,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'solid_line_central_ew_east',
+    nameVi: 'Vạch vàng nét liền trục ngang trung tâm phía Đông sang Bài 8 (Z = 1.5m, X = 0.8m .. 76.5m)',
+    x1: 0.8,
+    z1: 1.5,
+    x2: 76.5,
+    z2: 1.5,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'solid_line_east_railway_south',
+    nameVi: 'Vạch vàng nét liền đường phía Đông qua Bài 8 xe lửa đoạn dưới (X = 76.5m, Z = 1.5m .. -22.0m)',
+    x1: 76.5,
+    z1: 1.5,
+    x2: 76.5,
+    z2: -22.0,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'solid_line_east_railway_north',
+    nameVi: 'Vạch vàng nét liền đường phía Đông qua Bài 8 xe lửa đoạn trên (X = 76.5m, z = -27.0m .. -55.15m)',
+    x1: 76.5,
+    z1: -27.0,
+    x2: 76.5,
+    z2: -55.15,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'solid_line_north_accel_gear',
+    nameVi: 'Vạch vàng nét liền phân cách làn Bài 9 Tăng tốc & đường vào Bài 7 (Z = -55.15m, X = 76.5m .. -77.25m, thu hẹp làn Bài 9 bớt 1/5 còn 3.75m)',
+    x1: 76.5,
+    z1: -55.15,
+    x2: -77.25,
+    z2: -55.15,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'dashed_line_north_turn_b7_west',
+    nameVi: 'Vạch trắng nét đứt phân làn đường Bắc nhánh Tây (Z = -51.075m chính giữa lòng đường, X = -12.0m .. -77.25m, Vạch 1 nét dài)',
+    x1: -12.0,
+    z1: -51.075,
+    x2: -77.25,
+    z2: -51.075,
+    kind: 'DASHED_LINE',
+    colorHex: 0xf8fafc,
+  },
+  {
+    id: 'dashed_line_north_turn_b7_east',
+    nameVi: 'Vạch trắng nét đứt phân làn đường Bắc nhánh Đông (Z = -51.075m chính giữa lòng đường, X = -1.0m .. +76.5m)',
+    x1: -1.0,
+    z1: -51.075,
+    x2: 76.5,
+    z2: -51.075,
+    kind: 'DASHED_LINE',
+    colorHex: 0xf8fafc,
+  },
+  {
+    id: 'solid_line_west_upper_to_bai10',
+    nameVi: 'Vạch vàng nét liền đường phía Tây trên nối xuống Bài 10 (X = -77.25m, Z = -55.15m .. 1.5m)',
+    x1: -77.25,
+    z1: -55.15,
+    x2: -77.25,
+    z2: 1.5,
+    kind: 'SOLID_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'dashed_line_b7_b_entry_yellow',
+    nameVi: 'Vạch vàng nét đứt qua miệng Chuồng B Bài 7 (Z = -47.22m, X = -62.22m .. -52.78m)',
+    x1: -62.22,
+    z1: -47.22,
+    x2: -52.78,
+    z2: -47.22,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'dashed_line_b7_c_entry_yellow',
+    nameVi: 'Vạch vàng nét đứt qua miệng Chuồng C Bài 7 (Z = -47.22m, X = -36.22m .. -24.78m)',
+    x1: -36.22,
+    z1: -47.22,
+    x2: -24.78,
+    z2: -47.22,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+
   // ============================================================================
   // 1A. LÀN HẠNG B (NẰM DƯỚI/NAM — QCVN 40 RỘNG 3.85m = 2.2b: Z = 23.5m -> X = 25.0m -> Z = 36.0m)
   // ============================================================================
@@ -942,7 +1120,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
   // Two parallel Pneumatic Wheel-Track Sensor Lines ("Đôi đũa" Vệt bánh xe Làn Hạng B: Z = 22.20m & Z = 22.68m, rộng 0.48m × dài 4.5m)
   {
     id: 'sensor_b4_b_nail_outer',
-    nameVi: 'Vạch trắng giới hạn ngoài vệt bánh xe Làn Hạng B (QCVN 40: Rộng 0.48m × Dài 4.5m)',
+    nameVi: 'Vạch trắng giới hạn ngoài vệt bánh xe "đôi đũa" Làn Hạng B (QCVN 40: Rộng 0.48m × Dài 4.5m)',
     x1: 45.5,
     z1: 22.20,
     x2: 50.0,
@@ -953,7 +1131,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
   },
   {
     id: 'sensor_b4_b_nail_inner',
-    nameVi: 'Vạch vàng giới hạn trong vệt bánh xe Làn Hạng B (QCVN 40: Rộng 0.48m × Dài 4.5m)',
+    nameVi: 'Vạch vàng giới hạn trong vệt bánh xe "đôi đũa" Làn Hạng B (QCVN 40: Rộng 0.48m × Dài 4.5m)',
     x1: 45.5,
     z1: 22.68,
     x2: 50.0,
@@ -961,6 +1139,36 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     kind: 'SENSOR_LINE',
     colorHex: 0xfacc15,
     isPenaltySensor: true,
+  },
+  {
+    id: 'sensor_b4_b_entry_dashed',
+    nameVi: 'Vạch vàng nét đứt nhận bài vào vệt bánh xe "đôi đũa" Làn Hạng B (X = 59.0m, Z = 21.58m .. 25.42m)',
+    x1: 59.0,
+    z1: 21.58,
+    x2: 59.0,
+    z2: 25.42,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b5_b_entry_dashed',
+    nameVi: 'Vạch vàng nét đứt nhận bài vào đường hẹp vuông góc chữ Z Làn Hạng B (X = 39.5m, Z = 21.58m .. 25.42m)',
+    x1: 39.5,
+    z1: 21.58,
+    x2: 39.5,
+    z2: 25.42,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b5_b_exit_dashed',
+    nameVi: 'Vạch vàng nét đứt kết thúc bài đường hẹp vuông góc chữ Z Làn Hạng B (X = 3.5m, Z = 34.08m .. 37.92m)',
+    x1: 3.5,
+    z1: 34.08,
+    x2: 3.5,
+    z2: 37.92,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
   },
 
   // ============================================================================
@@ -1077,7 +1285,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
   // Two parallel Pneumatic Wheel-Track Sensor Lines ("Đôi đũa" Vệt bánh xe Làn Hạng C: QCVN 40: rộng Bvb = 0.50m × dài Lvb = 8.0m)
   {
     id: 'sensor_b4_c_nail_outer',
-    nameVi: 'Vạch trắng giới hạn ngoài vệt bánh xe Làn Hạng C (QCVN 40: Rộng 0.50m × Dài 8.0m)',
+    nameVi: 'Vạch trắng giới hạn ngoài vệt bánh xe "đôi đũa" Làn Hạng C (QCVN 40: Rộng 0.50m × Dài 8.0m)',
     x1: 43.8,
     z1: 12.29,
     x2: 51.8,
@@ -1088,7 +1296,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
   },
   {
     id: 'sensor_b4_c_nail_inner',
-    nameVi: 'Vạch vàng giới hạn trong vệt bánh xe Làn Hạng C (QCVN 40: Rộng 0.50m × Dài 8.0m)',
+    nameVi: 'Vạch vàng giới hạn trong vệt bánh xe "đôi đũa" Làn Hạng C (QCVN 40: Rộng 0.50m × Dài 8.0m)',
     x1: 43.8,
     z1: 12.79,
     x2: 51.8,
@@ -1097,11 +1305,82 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     colorHex: 0xfacc15,
     isPenaltySensor: true,
   },
+  {
+    id: 'sensor_b4_c_entry_dashed',
+    nameVi: 'Vạch vàng nét đứt nhận bài vào vệt bánh xe "đôi đũa" Làn Hạng C (X = 59.0m, Z = 11.02m .. 15.98m)',
+    x1: 59.0,
+    z1: 11.02,
+    x2: 59.0,
+    z2: 15.98,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b5_c_entry_dashed',
+    nameVi: 'Vạch vàng nét đứt nhận bài vào đường hẹp vuông góc chữ Z Làn Hạng C (X = 38.5m, Z = 11.02m .. 15.98m)',
+    x1: 38.5,
+    z1: 11.02,
+    x2: 38.5,
+    z2: 15.98,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b5_c_exit_dashed',
+    nameVi: 'Vạch vàng nét đứt kết thúc bài đường hẹp vuông góc chữ Z Làn Hạng C (X = 2.5m, Z = 24.02m .. 28.98m)',
+    x1: 2.5,
+    z1: 24.02,
+    x2: 2.5,
+    z2: 28.98,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
 
   // ============================================================================
   // 2. BÀI 6 (6. CHỮ S — CHẮN TƯỜNG ĐỎ TRẮNG NỐI TỪ Z=-2.0m LÊN Z=-49.2m)
   // ============================================================================
   ...buildSCurveSolidBoundaryLines(),
+  // Vạch vàng nét đứt bắt đầu và kết thúc Bài 6 (Đường vòng quanh co Chữ S)
+  {
+    id: 'sensor_b6_b_entry_dashed',
+    nameVi: 'Vạch vàng nét đứt nhận bài vào Đường vòng quanh co Chữ S Làn Hạng B (Z = -45.5m)',
+    x1: 12.075,
+    z1: -45.5,
+    x2: 15.925,
+    z2: -45.5,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b6_b_exit_dashed',
+    nameVi: 'Vạch vàng nét đứt kết thúc Đường vòng quanh co Chữ S Làn Hạng B (Z = -6.5m)',
+    x1: 12.075,
+    z1: -6.5,
+    x2: 15.925,
+    z2: -6.5,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b6_c_entry_dashed',
+    nameVi: 'Vạch vàng nét đứt nhận bài vào Đường vòng quanh co Chữ S Làn Hạng C (Z = -45.5m)',
+    x1: 33.525,
+    z1: -45.5,
+    x2: 38.475,
+    z2: -45.5,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_b6_c_exit_dashed',
+    nameVi: 'Vạch vàng nét đứt kết thúc Đường vòng quanh co Chữ S Làn Hạng C (Z = -6.5m)',
+    x1: 33.525,
+    z1: -6.5,
+    x2: 38.475,
+    z2: -6.5,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
 
   // ============================================================================
   // 3A. BÀI 7 — NHÀ XE HẠNG C (<- C: ĐƯỜNG DẪN X=-36.0..-25.0m, CHUỒNG 7 BÊN VÁCH ĐÔNG X=-25.0..-18.5m, Z=-27.8..-24.2m)
@@ -1110,7 +1389,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     id: 'sensor_b7_c_alley_west',
     nameVi: 'Vạch giới hạn biên Tây đường dẫn nhà xe Hạng C (Bài 7)',
     x1: -36.0,
-    z1: -49.2,
+    z1: -47.0,
     x2: -36.0,
     z2: -12.0,
     kind: 'SENSOR_LINE',
@@ -1120,7 +1399,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     curbNormalX: -1,
     curbNormalZ: 0,
     curbX1: -36.22,
-    curbZ1: -49.0,
+    curbZ1: -46.8,
     curbX2: -36.22,
     curbZ2: -11.88,
   },
@@ -1146,7 +1425,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     id: 'sensor_b7_c_shoulder_north',
     nameVi: 'Vạch giới hạn vai trên cửa Chuồng 7 Hạng C',
     x1: -25.0,
-    z1: -49.2,
+    z1: -47.0,
     x2: -25.0,
     z2: -27.45,
     kind: 'SENSOR_LINE',
@@ -1156,7 +1435,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     curbNormalX: 1,
     curbNormalZ: 0,
     curbX1: -24.78,
-    curbZ1: -49.0,
+    curbZ1: -46.8,
     curbX2: -24.78,
     curbZ2: -27.57,
   },
@@ -1168,33 +1447,43 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -16.0,
     z2: -27.45,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 0,
     curbNormalZ: -1,
     curbX1: -24.88,
-    curbZ1: -27.67,
+    curbZ1: -27.73,
     curbX2: -15.68,
-    curbZ2: -27.67,
+    curbZ2: -27.73,
   },
   {
     id: 'sensor_b7_bay_c_back_curb',
-    nameVi: 'Vạch giới hạn đáy Chuồng Dọc 7 Hạng C (QCVN 40: Rộng 2.9m × Sâu 9.0m)',
+    nameVi: 'Vạch giới hạn thành đáy Chuồng Dọc 7 Hạng C (QCVN 40: Rộng 2.9m × Sâu 9.0m)',
     x1: -16.0,
     z1: -27.45,
     x2: -16.0,
     z2: -24.55,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 1,
     curbNormalZ: 0,
-    curbX1: -15.78,
+    curbX1: -15.72,
     curbZ1: -27.57,
-    curbX2: -15.78,
+    curbX2: -15.72,
     curbZ2: -24.43,
+  },
+  {
+    id: 'sensor_b7_bay_c_chip_yellow',
+    nameVi: 'Vạch vàng nét đứt nhận bài Chuồng Dọc 7 Hạng C (cách đáy 2.60m: X = -18.60m)',
+    x1: -18.60,
+    z1: -27.40,
+    x2: -18.60,
+    z2: -24.60,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
   },
   {
     id: 'sensor_b7_bay_c_south_curb',
@@ -1204,7 +1493,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -16.0,
     z2: -24.55,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 0,
@@ -1240,7 +1529,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     id: 'sensor_b7_b_alley_west',
     nameVi: 'Vạch giới hạn biên Tây đường dẫn nhà xe Hạng B (Bài 7)',
     x1: -62.0,
-    z1: -49.2,
+    z1: -47.0,
     x2: -62.0,
     z2: -16.0,
     kind: 'SENSOR_LINE',
@@ -1250,7 +1539,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     curbNormalX: -1,
     curbNormalZ: 0,
     curbX1: -62.22,
-    curbZ1: -49.0,
+    curbZ1: -46.8,
     curbX2: -62.22,
     curbZ2: -15.88,
   },
@@ -1276,7 +1565,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     id: 'sensor_b7_b_shoulder_north',
     nameVi: 'Vạch giới hạn vai trên cửa Chuồng 7 Hạng B',
     x1: -53.0,
-    z1: -49.2,
+    z1: -47.0,
     x2: -53.0,
     z2: -27.2,
     kind: 'SENSOR_LINE',
@@ -1286,7 +1575,7 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     curbNormalX: 1,
     curbNormalZ: 0,
     curbX1: -52.78,
-    curbZ1: -49.0,
+    curbZ1: -46.8,
     curbX2: -52.78,
     curbZ2: -27.32,
   },
@@ -1298,33 +1587,43 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -47.5,
     z2: -27.2,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 0,
     curbNormalZ: -1,
     curbX1: -52.88,
-    curbZ1: -27.42,
+    curbZ1: -27.48,
     curbX2: -47.18,
-    curbZ2: -27.42,
+    curbZ2: -27.48,
   },
   {
     id: 'sensor_b7_bay_b_back_curb',
-    nameVi: 'Vạch giới hạn đáy Chuồng Dọc 7 Hạng B (QCVN 40: Rộng 2.4m × Sâu 5.5m)',
+    nameVi: 'Vạch giới hạn thành đáy Chuồng Dọc 7 Hạng B (QCVN 40: Rộng 2.4m × Sâu 5.5m)',
     x1: -47.5,
     z1: -27.2,
     x2: -47.5,
     z2: -24.8,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 1,
     curbNormalZ: 0,
-    curbX1: -47.28,
+    curbX1: -47.22,
     curbZ1: -27.32,
-    curbX2: -47.28,
+    curbX2: -47.22,
     curbZ2: -24.68,
+  },
+  {
+    id: 'sensor_b7_bay_b_chip_yellow',
+    nameVi: 'Vạch vàng nét đứt nhận bài Chuồng Dọc 7 Hạng B (cách đáy 1.80m: X = -49.30m)',
+    x1: -49.30,
+    z1: -27.15,
+    x2: -49.30,
+    z2: -24.85,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
   },
   {
     id: 'sensor_b7_bay_b_south_curb',
@@ -1334,15 +1633,15 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -47.5,
     z2: -24.8,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 0,
     curbNormalZ: 1,
     curbX1: -52.88,
-    curbZ1: -24.58,
+    curbZ1: -24.52,
     curbX2: -47.18,
-    curbZ2: -24.58,
+    curbZ2: -24.52,
   },
   {
     id: 'sensor_b7_b_shoulder_south',
@@ -1364,7 +1663,14 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
   },
 
   // ============================================================================
+  // ============================================================================
   // 4. BÀI 10: 2 Ô GHÉP XE NGANG (NẰM BÊN PHẢI ĐƯỜNG NGANG TRƯỚC NGÃ TƯ 5: Z = +5.0m..+7.2m)
+  // Chuẩn 100% theo ảnh thực tế sân sát hạch:
+  // - Bó vỉa bê tông phẳng vuông góc 90 độ chuẩn chỉ (không thò, không lệch)
+  // - Vạch vàng thành chuồng chữ U chạy dọc 3 cạnh có bo cong tròn mềm mại ở 2 góc đáy
+  // - Ống hơi cảm biến đè vạch chạy dọc theo vạch vàng
+  // - Vạch vàng nét đứt ngoài cửa chuồng (Z = 5.0m)
+  // - Vạch vàng nét đứt ngang chuồng giao với vạch cửa tạo thành ngã ba dấu cộng (+)
   // ============================================================================
   {
     id: 'sensor_parallel_b_west',
@@ -1374,33 +1680,53 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -58.9,
     z2: 7.2,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: -1,
     curbNormalZ: 0,
-    curbX1: -59.12,
-    curbZ1: 5.10,
-    curbX2: -59.12,
-    curbZ2: 7.42,
+    curbX1: -59.18,
+    curbZ1: 5.00,
+    curbX2: -59.18,
+    curbZ2: 7.38,
   },
   {
     id: 'sensor_parallel_b_back',
-    nameVi: 'Vạch giới hạn đáy trong (Nam) Ô 10 Ghép Xe Ngang Hạng B (QCVN 40: Dài 7.4m × Rộng 2.2m)',
+    nameVi: 'Vạch giới hạn thành đáy trong Ô 10 Ghép Xe Ngang Hạng B (QCVN 40: Dài 7.4m × Rộng 2.2m)',
     x1: -58.9,
     z1: 7.2,
     x2: -51.5,
     z2: 7.2,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 0,
     curbNormalZ: 1,
-    curbX1: -59.02,
-    curbZ1: 7.42,
-    curbX2: -51.38,
-    curbZ2: 7.42,
+    curbX1: -59.18,
+    curbZ1: 7.38,
+    curbX2: -51.18,
+    curbZ2: 7.38,
+  },
+  {
+    id: 'sensor_parallel_b_mouth_dashed',
+    nameVi: 'Vạch vàng nét đứt ngoài cửa Ô 10 Ghép Xe Ngang Hạng B (Z = 5.0m: 2 bánh đè lên vạch mới tính đậu)',
+    x1: -58.9,
+    z1: 5.0,
+    x2: -51.5,
+    z2: 5.0,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_parallel_b_transverse_dashed',
+    nameVi: 'Vạch vàng nét đứt ngang Ô 10 Ghép Xe Ngang Hạng B (X = -56.5m: Chuẩn thực tế theo ảnh 2)',
+    x1: -56.5,
+    z1: 5.0,
+    x2: -56.5,
+    z2: 7.2,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
   },
   {
     id: 'sensor_parallel_b_east',
@@ -1410,15 +1736,15 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -51.5,
     z2: 7.2,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 1,
     curbNormalZ: 0,
-    curbX1: -51.28,
-    curbZ1: 5.10,
-    curbX2: -51.28,
-    curbZ2: 7.42,
+    curbX1: -51.18,
+    curbZ1: 5.00,
+    curbX2: -51.18,
+    curbZ2: 7.38,
   },
   // Ô Ghép Xe Ngang 10 số 2 (Phía Đông: X = -38.0..-30.0m, Z = +5.0..+8.1m)
   {
@@ -1429,33 +1755,53 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -38.0,
     z2: 8.1,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: -1,
     curbNormalZ: 0,
-    curbX1: -38.22,
-    curbZ1: 5.10,
-    curbX2: -38.22,
-    curbZ2: 8.32,
+    curbX1: -38.28,
+    curbZ1: 5.00,
+    curbX2: -38.28,
+    curbZ2: 8.28,
   },
   {
     id: 'sensor_parallel_c_back',
-    nameVi: 'Vạch giới hạn đáy trong Ô 10 Ghép Xe Ngang số 2',
+    nameVi: 'Vạch giới hạn thành đáy trong Ô 10 Ghép Xe Ngang số 2',
     x1: -38.0,
     z1: 8.1,
     x2: -30.0,
     z2: 8.1,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 0,
     curbNormalZ: 1,
-    curbX1: -38.12,
-    curbZ1: 8.32,
-    curbX2: -29.88,
-    curbZ2: 8.32,
+    curbX1: -38.28,
+    curbZ1: 8.28,
+    curbX2: -30.00,
+    curbZ2: 8.28,
+  },
+  {
+    id: 'sensor_parallel_c_mouth_dashed',
+    nameVi: 'Vạch vàng nét đứt ngoài cửa Ô 10 Ghép Xe Ngang số 2 (Z = 5.0m: 2 bánh đè lên vạch mới tính đậu)',
+    x1: -38.0,
+    z1: 5.0,
+    x2: -30.0,
+    z2: 5.0,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
+  },
+  {
+    id: 'sensor_parallel_c_transverse_dashed',
+    nameVi: 'Vạch vàng nét đứt ngang Ô 10 Ghép Xe Ngang số 2 (X = -35.2m)',
+    x1: -35.2,
+    z1: 5.0,
+    x2: -35.2,
+    z2: 8.1,
+    kind: 'DASHED_LINE',
+    colorHex: 0xfacc15,
   },
   {
     id: 'sensor_parallel_c_east',
@@ -1465,15 +1811,15 @@ export const BLUEPRINT_SOLID_LINES: BlueprintSolidLineSpec[] = [
     x2: -30.0,
     z2: 8.1,
     kind: 'SENSOR_LINE',
-    colorHex: 0xf8fafc,
+    colorHex: 0xfacc15,
     isPenaltySensor: true,
     hasRedWhiteCurb: true,
     curbNormalX: 1,
     curbNormalZ: 0,
-    curbX1: -29.78,
-    curbZ1: 5.10,
-    curbX2: -29.78,
-    curbZ2: 8.32,
+    curbX1: -30.00,
+    curbZ1: 5.00,
+    curbX2: -30.00,
+    curbZ2: 8.28,
   },
 ];
 
@@ -1486,7 +1832,7 @@ export const BLUEPRINT_ZEBRA_CROSSINGS: BlueprintZebraCrossingSpec[] = [
     nameVi: 'Vạch người đi bộ Bài 2 (X = -25.0m, Z = +50.0m — cách vạch dừng trắng 2.8m)',
     x: -25.0,
     z: 50.0,
-    widthM: 5.0,
+    widthM: 5.2,
     depthM: 2.4,
     orientation: 'NS',
   },
@@ -1495,7 +1841,7 @@ export const BLUEPRINT_ZEBRA_CROSSINGS: BlueprintZebraCrossingSpec[] = [
     nameVi: 'Vạch người đi bộ Bắc Ngã tư trung tâm',
     x: -6.5,
     z: -4.2,
-    widthM: 6.2,
+    widthM: 6.4,
     depthM: 2.2,
     orientation: 'EW',
   },
@@ -1504,7 +1850,7 @@ export const BLUEPRINT_ZEBRA_CROSSINGS: BlueprintZebraCrossingSpec[] = [
     nameVi: 'Vạch người đi bộ Nam Ngã tư trung tâm',
     x: -6.5,
     z: 7.2,
-    widthM: 6.2,
+    widthM: 6.4,
     depthM: 2.2,
     orientation: 'EW',
   },
@@ -1513,7 +1859,7 @@ export const BLUEPRINT_ZEBRA_CROSSINGS: BlueprintZebraCrossingSpec[] = [
     nameVi: 'Vạch người đi bộ Tây Ngã tư trung tâm',
     x: -12.2,
     z: 1.5,
-    widthM: 6.2,
+    widthM: 6.4,
     depthM: 2.2,
     orientation: 'NS',
   },
@@ -1522,7 +1868,7 @@ export const BLUEPRINT_ZEBRA_CROSSINGS: BlueprintZebraCrossingSpec[] = [
     nameVi: 'Vạch người đi bộ Đông Ngã tư trung tâm',
     x: -0.8,
     z: 1.5,
-    widthM: 6.2,
+    widthM: 6.4,
     depthM: 2.2,
     orientation: 'NS',
   },
@@ -1553,34 +1899,25 @@ export const BLUEPRINT_ROAD_ARROWS: BlueprintRoadArrowSpec[] = [
   { x: 75.1, z: 18.0, yawDeg: 90, type: 'LEFT' }, // Rẽ trái vào Nhánh C (trên)
   { x: 77.9, z: 18.0, yawDeg: 90, type: 'LEFT' },
 
-  // 3A. Bài 4 Hàng đinh, chữ Z — Làn Hạng B (Dưới: Z = 23.5m -> X = 25.0m -> Z = 36.0m)
-  { x: 60.0, z: 23.5, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 32.0, z: 23.5, yawDeg: 180, type: 'LEFT' },
-  { x: 25.0, z: 30.0, yawDeg: -90, type: 'RIGHT' },
-  { x: 4.5, z: 36.0, yawDeg: 180, type: 'RIGHT' },
-
-  // 3B. Bài 4 Hàng đinh, chữ Z — Làn Hạng C (Trên: Z = 13.5m -> X = 13.0m -> Z = 26.5m)
-  { x: 60.0, z: 13.5, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 22.0, z: 13.5, yawDeg: 180, type: 'LEFT' },
-  { x: 13.0, z: 20.0, yawDeg: -90, type: 'RIGHT' },
-  { x: 4.5, z: 26.5, yawDeg: 180, type: 'RIGHT' },
-
-  // 4. Central Vertical 2-Lane Road (West lane X = -8.25m, East lane X = -4.75m):
-  //    • Đoạn Nam Ngã tư 5 (Z = 24..35m): Cả 2 làn dẫn từ cửa ra Bài 4 đi thẳng hướng Bắc lên Ngã tư 5
-  //    • Cửa Nam Ngã tư 5 (Z = 11.6..18.0m): Làn phải (X = -4.75m) đi thẳng qua Ngã tư 5 lên Bắc; Làn trái (X = -8.25m) từ Ngã tư 5 đi xuống rẽ phải (mũi tên ↲) vào đường Kết thúc (Z = 17.0m)
-  //    • Đoạn Bắc Ngã tư 5 (Z = -44..-8.8m): Làn phải (X = -4.75m) đi lên Bắc rồi rẽ phải (↱) vào đầu trên Bài 6 Chữ S hoặc rẽ trái (↰) sang Bài 7 Đỗ xe; Làn trái (X = -8.25m) từ Bài 7 đi xuống Đèn đỏ Ngã tư 5 rồi rẽ trái (↳) sang Bài 8
-  { x: -8.25, z: 31.0, yawDeg: 90, type: 'STRAIGHT' },
+  // 4. Central Vertical 2-Lane Road (West side is hatched buffer zone Z=19.8..38m, East driving lane X = -4.75m):
   { x: -4.75, z: 31.0, yawDeg: 90, type: 'STRAIGHT' },
-  { x: -4.75, z: 18.0, yawDeg: 90, type: 'STRAIGHT' },
-  { x: -4.75, z: 11.6, yawDeg: 90, type: 'STRAIGHT' },
-  { x: -8.25, z: 11.6, yawDeg: -90, type: 'RIGHT' },
   { x: -4.75, z: -11.5, yawDeg: 90, type: 'STRAIGHT' },
   { x: -8.25, z: -11.5, yawDeg: -90, type: 'LEFT' },
   { x: -4.75, z: -26.0, yawDeg: 90, type: 'STRAIGHT' },
   { x: -8.25, z: -26.0, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -4.75, z: -40.5, yawDeg: 90, type: 'RIGHT' },
-  { x: -4.75, z: -46.2, yawDeg: 90, type: 'RIGHT' },
-  { x: -8.25, z: -42.5, yawDeg: -90, type: 'STRAIGHT' },
+  { x: -4.75, z: -41.5, yawDeg: 90, type: 'RIGHT' }, // Làn phải: Rẽ phải sang Bài 6 (Khớp ảnh 1)
+  { x: -8.25, z: -41.5, yawDeg: 90, type: 'LEFT' },  // Làn trái: Rẽ trái sang Bài 7 (Khớp ảnh 1)
+
+  // 4B. Bài 6 (Đường vòng quanh co Chữ S):
+  //     • Lối rẽ vào phía Bắc từ đường Bắc:
+  { x: 14.0, z: -50.6, yawDeg: 0, type: 'RIGHT' }, // Rẽ phải từ đường Bắc vào Bài 6 Chữ S Hạng B
+  { x: 36.0, z: -50.6, yawDeg: 0, type: 'RIGHT' }, // Rẽ phải từ đường Bắc vào Bài 6 Chữ S Hạng C
+  //     • Miệng vào bài thi hướng Nam:
+  { x: 14.0, z: -46.5, yawDeg: -90, type: 'STRAIGHT' },
+  { x: 36.0, z: -46.5, yawDeg: -90, type: 'STRAIGHT' },
+  //     • Miệng ra phía Nam rẽ phải hướng Tây ra đường ngang:
+  { x: 14.0, z: -4.5, yawDeg: -90, type: 'RIGHT' }, // Đầu ra Bài 6 Hạng B rẽ phải
+  { x: 36.0, z: -4.5, yawDeg: -90, type: 'RIGHT' }, // Đầu ra Bài 6 Hạng C rẽ phải
 
   // 5. Central Horizontal 2-Lane Road East of 5. Ngã tư (North lane Z = -0.25m, South lane Z = +3.25m):
   //    • Làn trên (Z = -0.25m, hướng Tây 180): Từ cửa thoát phía dưới Bài 6 Chữ S chạy thẳng qua Ngã tư 5 sang đường bao Tây để lên Bài 7 Ghép dọc
@@ -1589,82 +1926,50 @@ export const BLUEPRINT_ROAD_ARROWS: BlueprintRoadArrowSpec[] = [
   { x: 5.2, z: 3.25, yawDeg: 0, type: 'STRAIGHT' },
   { x: 25.0, z: -0.25, yawDeg: 180, type: 'STRAIGHT' },
   { x: 25.0, z: 3.25, yawDeg: 0, type: 'STRAIGHT' },
-  { x: 50.0, z: -0.25, yawDeg: 0, type: 'STRAIGHT' },
+  { x: 50.0, z: -0.25, yawDeg: 180, type: 'STRAIGHT' },
   { x: 50.0, z: 3.25, yawDeg: 0, type: 'STRAIGHT' },
-  { x: 68.5, z: -0.25, yawDeg: 0, type: 'LEFT' },
   { x: 68.5, z: 3.25, yawDeg: 0, type: 'LEFT' },
 
-  // 6. Bài 6 Chữ S (VÀO TỪ ĐẦU TRÊN B, C TẠI Z = -49.2m ĐI XUỐNG NAM, RA Ở ĐẦU DƯỚI Z = -2.0m RẼ PHẢI MŨI TÊN J ↲ CHẠY THẲNG QUA NGÃ TƯ 5):
-  { x: 14.0, z: -46.5, yawDeg: -90, type: 'STRAIGHT' },
-  { x: 36.0, z: -46.5, yawDeg: -90, type: 'STRAIGHT' },
-  { x: 14.0, z: -5.2, yawDeg: -90, type: 'RIGHT' },
-  { x: 36.0, z: -5.2, yawDeg: -90, type: 'RIGHT' },
-
-  // 7. Bài 7 Đỗ xe (Ghép xe dọc — Mỗi đường dẫn có 2 làn: Làn trái đi xuống Nam -90, Làn phải đi lên Bắc +90 rồi rẽ phải ra đường Bắc):
-  { x: -33.2, z: -35.0, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -27.8, z: -35.0, yawDeg: 90, type: 'RIGHT' },
-  { x: -33.2, z: -19.5, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -27.8, z: -19.5, yawDeg: 90, type: 'STRAIGHT' },
-  { x: -59.8, z: -35.0, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -55.2, z: -35.0, yawDeg: 90, type: 'RIGHT' },
-  { x: -59.8, z: -20.5, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -55.2, z: -20.5, yawDeg: 90, type: 'STRAIGHT' },
-
-  // 8. East Outer 2-Lane Track Northbound through 8. Xe lửa (Left lane X = 75.1m, Right lane X = 77.9m, driving North -Z -> yawDeg = 90)
-  { x: 75.1, z: -8.5, yawDeg: 90, type: 'STRAIGHT' },
+  // 8. East Outer 2-Lane Track Northbound through 8. Xe lửa (Làn xe chạy hướng Bắc X = 77.9m, driving North -Z -> yawDeg = 90):
   { x: 77.9, z: -8.5, yawDeg: 90, type: 'STRAIGHT' },
-  { x: 75.1, z: -34.0, yawDeg: 90, type: 'STRAIGHT' },
   { x: 77.9, z: -34.0, yawDeg: 90, type: 'STRAIGHT' },
-  { x: 75.1, z: -45.5, yawDeg: 90, type: 'LEFT' },
   { x: 77.9, z: -45.5, yawDeg: 90, type: 'LEFT' },
 
-  // 9. North Outer 2-Lane Track:
-  //    • Làn ngoài (Z = -53.4m, hướng Tây yawDeg = 180): Chạy Bài 9 Tăng tốc từ Đông sang Tây
-  //    • Làn trong (Z = -50.6m, hướng Đông yawDeg = 0): Đúng Ảnh 3 — Đi từ Tây sang Đông rẽ phải (↱) vào Bài 7 Ghép dọc (B tại X=-57.5m, C tại X=-30.5m) và rẽ phải vào Bài 6 Chữ S
-  { x: 64.0, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 64.0, z: -50.6, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 43.0, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 43.0, z: -50.6, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 25.0, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 25.0, z: -50.6, yawDeg: 0, type: 'RIGHT' }, // Rẽ phải xuống đầu trên Bài 6 Chữ S (Nhánh C)
-  { x: 6.5, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: 6.5, z: -50.6, yawDeg: 0, type: 'STRAIGHT_RIGHT' }, // Từ trục Bắc rẽ phải vào Bài 6 (Nhánh B) hoặc đi thẳng sang Nhánh C
-  { x: -13.5, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: -13.5, z: -50.6, yawDeg: 0, type: 'RIGHT' }, // Từ Bài 7 đi sang Đông rẽ phải xuống trục dọc về Đèn đỏ Ngã tư 5
-  { x: -36.5, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: -36.5, z: -50.6, yawDeg: 0, type: 'STRAIGHT_RIGHT' }, // Đúng hướng Ảnh 3: Đi hướng Đông rẽ phải vào đường dẫn 7 Hạng C (X = -30.5m)
-  { x: -48.0, z: -53.4, yawDeg: 180, type: 'STRAIGHT' },
-  { x: -48.0, z: -50.6, yawDeg: 0, type: 'STRAIGHT' },
-  { x: -64.0, z: -53.4, yawDeg: 180, type: 'LEFT' },
-  { x: -64.0, z: -50.6, yawDeg: 0, type: 'STRAIGHT_RIGHT' }, // Đúng hướng Ảnh 3: Đi hướng Đông rẽ phải vào đường dẫn 7 Hạng B (X = -57.5m)
+  // 9. North Road Lanes:
+  //    • Làn trong (Z = -49.04m chính giữa làn, hướng Tây): Dẫn vào Bài 7 Đỗ xe (mặt đường phẳng thoáng sạch)
+  //    • Làn giữa (Z = -53.11m chính giữa làn, hướng Tây yawDeg = 180): Làn phân cách/lưu thông hướng Tây từ đường Đông
+  { x: 64.0, z: -53.11, yawDeg: 180, type: 'STRAIGHT' },
+  { x: 43.0, z: -53.11, yawDeg: 180, type: 'STRAIGHT' },
+  { x: -64.0, z: -53.11, yawDeg: 180, type: 'LEFT' }, // Cuối đường Bắc rẽ trái (hướng Nam) xuống đường bao Tây
 
   // 10. West Upper 2-Lane Track & Central West 2-Lane Road:
   //    • Đường ngang Tây (Làn Bắc Z = -0.25m, hướng Tây yawDeg = 180): Từ Bài 6 chạy thẳng qua Ngã tư 5 sang Tây rồi rẽ phải (↱) lên Bắc
   //    • Đường ngang Tây (Làn Nam Z = +3.25m, hướng Đông yawDeg = 0): Qua 10. Ghép xe ngang tiến về Ngã tư 5
-  //    • Đường bao Tây trên (Làn trong X = -75.1m, hướng Bắc yawDeg = 90): Dẫn lên đường Bắc vào Bài 7 đúng hướng Ảnh 3
-  //    • Đường bao Tây trên (Làn ngoài X = -77.9m, hướng Nam yawDeg = -90): Từ cuối Bài 9 Tăng tốc đi xuống Bài 10 Ghép ngang
-  { x: -77.9, z: -32.0, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -75.1, z: -32.0, yawDeg: 90, type: 'STRAIGHT' },
-  { x: -77.9, z: -6.5, yawDeg: -90, type: 'LEFT' },
-  { x: -75.1, z: -45.5, yawDeg: 90, type: 'RIGHT' },
+  //    • Đường bao Tây trên (Làn trong X = -75.5m, hướng Bắc yawDeg = 90): Dẫn lên đường Bắc vào Bài 7 đúng hướng Ảnh 3
+  //    • Đường bao Tây trên (Làn ngoài X = -79.0m, hướng Nam yawDeg = -90): Từ cuối Bài 9 Tăng tốc đi xuống Bài 10 Ghép ngang
+  { x: -79.0, z: -32.0, yawDeg: -90, type: 'STRAIGHT' },
+  { x: -75.5, z: -32.0, yawDeg: 90, type: 'STRAIGHT' },
+  { x: -79.0, z: -6.5, yawDeg: -90, type: 'LEFT' },
+  { x: -75.5, z: -45.5, yawDeg: 90, type: 'RIGHT' },
   { x: -68.0, z: -0.25, yawDeg: 180, type: 'RIGHT' },
   { x: -64.0, z: 3.25, yawDeg: 0, type: 'STRAIGHT' },
+  { x: -56.8, z: 3.25, yawDeg: 0, type: 'STRAIGHT_RIGHT' },
   { x: -44.0, z: -0.25, yawDeg: 180, type: 'STRAIGHT' },
   { x: -44.0, z: 3.25, yawDeg: 0, type: 'STRAIGHT' },
   { x: -22.5, z: -0.25, yawDeg: 180, type: 'STRAIGHT' },
   { x: -22.5, z: 3.25, yawDeg: 0, type: 'RIGHT' }, // Tới đèn đỏ Ngã tư 5 rẽ phải xuống đường Kết thúc
 
-  // 11. Finish Road 2-Lane Westbound (North lane Z = 15.6m, South lane Z = 18.4m) -> Far West 2-Lane Track Southbound across 11. Kết thúc (Outer lane X = -77.9m, Inner lane X = -75.1m)
+  // 11. Finish Road 2-Lane Westbound (North lane Z = 15.6m, South lane Z = 18.4m) -> Far West 2-Lane Track Southbound across 11. Kết thúc (Outer lane X = -79.0m, Inner lane X = -75.5m)
   { x: -24.0, z: 15.6, yawDeg: 180, type: 'STRAIGHT' },
   { x: -24.0, z: 18.4, yawDeg: 180, type: 'STRAIGHT' },
   { x: -52.0, z: 15.6, yawDeg: 180, type: 'STRAIGHT' },
   { x: -52.0, z: 18.4, yawDeg: 180, type: 'STRAIGHT' },
   { x: -69.5, z: 15.6, yawDeg: 180, type: 'LEFT' },
   { x: -69.5, z: 18.4, yawDeg: 180, type: 'LEFT' },
-  { x: -77.9, z: 26.0, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -75.1, z: 26.0, yawDeg: -90, type: 'STRAIGHT' },
-  { x: -77.9, z: 43.0, yawDeg: -90, type: 'LEFT' },
-  { x: -75.1, z: 43.0, yawDeg: -90, type: 'LEFT' },
+  { x: -79.0, z: 26.0, yawDeg: -90, type: 'STRAIGHT' },
+  { x: -75.5, z: 26.0, yawDeg: -90, type: 'STRAIGHT' },
+  { x: -79.0, z: 43.0, yawDeg: -90, type: 'LEFT' },
+  { x: -75.5, z: 43.0, yawDeg: -90, type: 'LEFT' },
 ];
 
 /**
@@ -1780,10 +2085,11 @@ export const SA_HINH_BLUEPRINT_ZONES: BlueprintZoneSpec[] = [
     titleVi: '6. Đường vòng quanh co — Chữ S (⑥)',
     linkedExerciseId: 'ex_06_s_curve',
     applicableCategories: ['B', 'C1', 'C'],
-    boundsM: { minX: 8.0, maxX: 43.0, minZ: -49.2, maxZ: -2.0 },
-    entryPointM: { x: 14.0, z: -49.2, headingDeg: 180 },
+    boundsM: { minX: 8.0, maxX: 43.0, minZ: -47.0, maxZ: -2.0 },
+    entryPointM: { x: 14.0, z: -47.0, headingDeg: 180 },
     checkpointPointM: { x: 25.0, z: -25.5 },
-    formulaLabelVi: 'Vào từ đầu trên Bắc (Z=-49.2m tại chữ B / C) đi xuống đầu dưới Nam (Z=-2.0m): Nhánh B (X=14m) · Nhánh C (X=36m)',
+    formulaLabelVi:
+      'Vào từ đầu trên Bắc (Z=-47.0m tại chữ B / C) đi xuống đầu dưới Nam (Z=-2.0m): Nhánh B (X=14m) · Nhánh C (X=36m)',
     calculatedDimensionLabelVi: 'Thoát cửa dưới Chữ S theo mũi tên ↲ rẽ phải về Ngã tư 5 rồi lên Bài 7 Đỗ xe (<- C / <- B)',
     verificationStatus: 'VERIFIED_FORMULA_QCVN40',
     penaltySummaryVi: [
@@ -1820,7 +2126,7 @@ export const SA_HINH_BLUEPRINT_ZONES: BlueprintZoneSpec[] = [
     boundsM: { minX: 73.7, maxX: 79.3, minZ: -38.0, maxZ: -6.0 },
     entryPointM: { x: 76.5, z: -6.0, headingDeg: 0 },
     checkpointPointM: { x: 76.5, z: -21.0 },
-    formulaLabelVi: 'Vạch vàng nhận bài (Z = -15.2m) → Vạch dừng trắng đường sắt (Z = -21.0m)',
+    formulaLabelVi: 'Vạch vàng nét đứt nhận bài (Z = -15.2m) → Vạch dừng trắng đường sắt (Z = -21.0m)',
     calculatedDimensionLabelVi: 'Vạch dừng trắng ⑧ tại X = +76.5m, Z = -21.0m (Trước đường ray Z = -25.5m)',
     verificationStatus: 'VERIFIED_FORMULA_QCVN40',
     penaltySummaryVi: [
@@ -1836,10 +2142,11 @@ export const SA_HINH_BLUEPRINT_ZONES: BlueprintZoneSpec[] = [
     titleVi: '9. Thay đổi số trên đường thẳng — Tăng tốc (⑨)',
     linkedExerciseId: 'ex_09_acceleration_gear',
     applicableCategories: ['B', 'C1', 'C'],
-    boundsM: { minX: -20.0, maxX: 65.0, minZ: -54.8, maxZ: -49.2 },
-    entryPointM: { x: 66.0, z: -52.0, headingDeg: -90 },
-    checkpointPointM: { x: 58.0, z: -52.0 },
-    formulaLabelVi: 'Đường thẳng phía Bắc (Z = -52.0m): Vạch 9 Bắt đầu (X=+58m) → 9.Tăng tốc (X=+22m) → 9 Kết thúc (X=-15m)',
+    boundsM: { minX: -20.0, maxX: 65.0, minZ: -58.9, maxZ: -49.2 },
+    entryPointM: { x: 66.0, z: -57.00, headingDeg: -90 },
+    checkpointPointM: { x: 58.0, z: -57.00 },
+    formulaLabelVi:
+      'Đường thẳng phía Bắc (Z = -57.00m): Vạch 9 Bắt đầu (X=+58m) → 9.Tăng tốc (X=+22m) → 9 Kết thúc (X=-15m)',
     calculatedDimensionLabelVi: 'Lên Số 2 & đạt tốc độ > 20 km/h, sau đó giảm tốc & về Số 1 trước vạch 9 cuối',
     verificationStatus: 'VERIFIED_FORMULA_QCVN40',
     penaltySummaryVi: [
@@ -1873,10 +2180,10 @@ export const SA_HINH_BLUEPRINT_ZONES: BlueprintZoneSpec[] = [
     titleVi: '11. Kết thúc (⑪)',
     linkedExerciseId: 'ex_10_finish',
     applicableCategories: ['B', 'C1', 'C'],
-    boundsM: { minX: -79.3, maxX: -73.7, minZ: 17.0, maxZ: 45.0 },
+    boundsM: { minX: -80.8, maxX: -73.7, minZ: 17.0, maxZ: 45.0 },
     entryPointM: { x: -52.0, z: 17.0, headingDeg: -90 },
-    checkpointPointM: { x: -76.5, z: 36.0 },
-    formulaLabelVi: 'Đúng sơ đồ 2D: Từ Ngã tư 5 rẽ xuống đường Z=+17m sang Tây rồi rẽ trái xuống vạch 11 Kết thúc (X=-76.5m, Z=+36.0m)',
+    checkpointPointM: { x: -77.25, z: 36.0 },
+    formulaLabelVi: 'Đúng sơ đồ 2D: Từ Ngã tư 5 rẽ xuống đường Z=+17m sang Tây rồi rẽ trái xuống vạch 11 Kết thúc (X=-77.25m, Z=+36.0m)',
     calculatedDimensionLabelVi: 'Bật đèn xi-nhan phải (Phím X) trước khi xe qua vạch 11 KẾT THÚC trên đường bao Tây',
     verificationStatus: 'VERIFIED_FORMULA_QCVN40',
     penaltySummaryVi: [
@@ -2013,8 +2320,9 @@ export function sampleBlueprintGroundAt(
   }
 
   // 2. Check if wheel is mounting any Raised Red-White Concrete Curb ("chắn tường đỏ trắng" / vỉa hè bài thi)
+  // Curb width is 0.20m (half-width 0.10m). Only the physical raised concrete block itself triggers OFF_TRACK.
   const curbOffsetDist = 0.22;
-  const curbHalfWidth = 0.28;
+  const curbHalfWidth = 0.11;
   for (const sLine of BLUEPRINT_SOLID_LINES) {
     if (!sLine.hasRedWhiteCurb) continue;
     const nx = sLine.curbNormalX ?? 0;
@@ -2082,14 +2390,17 @@ export function sampleBlueprintGroundAt(
   }
 
   // 4. Check if inside any Paved Exercise Recess or its Entrance/Exit Corner Cutout (Bài 4/5 Hạng B & C, Bài 6 necks, Bài 7 T-garages, Bài 10 Parallel Bays)
-  const recessEntryMargin = 0.24;
+  const recessEntryMargin = 0.25;
   for (const rec of BLUEPRINT_PAVED_RECESSES) {
-    if (
-      x >= rec.minX - recessEntryMargin &&
-      x <= rec.maxX + recessEntryMargin &&
-      z >= rec.minZ - recessEntryMargin &&
-      z <= rec.maxZ + recessEntryMargin
-    ) {
+    let zMin = rec.minZ - recessEntryMargin;
+    let zMax = rec.maxZ + recessEntryMargin;
+    let xMin = rec.minX - recessEntryMargin;
+    let xMax = rec.maxX + recessEntryMargin;
+    // Mouths of Bài 10 bays open North into central East-West road (Z <= 5.0m)
+    if (rec.id === 'rec_bai_parallel_b' || rec.id === 'rec_bai_parallel_c') {
+      zMin = 4.2;
+    }
+    if (x >= xMin && x <= xMax && z >= zMin && z <= zMax) {
       return {
         heightY: 0,
         normalX: 0,
@@ -2102,6 +2413,68 @@ export function sampleBlueprintGroundAt(
   // 5. Check if on any Island or its Red-White Concrete Curb Lip (vỉa hè có bậc leo vỉa vật lý 12cm tại mép bó vỉa đỏ-trắng)
   const curbLip = 0.25;
   for (const isl of BLUEPRINT_GRASS_ISLANDS) {
+    // Skip parking bay recess cutouts inside isl_sw_upper (Bài 10 Bay 1 & Bay 2)
+    if (isl.id === 'isl_sw_upper') {
+      const inBay1 = x >= -59.20 && x <= -51.20 && z <= 7.35;
+      const inBay2 = x >= -38.30 && x <= -29.70 && z <= 8.25;
+      if (inBay1 || inBay2) continue;
+    }
+    // Skip parking alley & bay recess cutouts inside isl_nw_parking (Bài 7 Chuồng B & C)
+    if (isl.id === 'isl_nw_parking') {
+      const inAlleyB = x >= -62.30 && x <= -52.70 && z >= -47.50 && z <= -15.50;
+      const inBayB = x >= -53.30 && x <= -47.20 && z >= -27.50 && z <= -24.50;
+      const inAlleyC = x >= -36.30 && x <= -24.70 && z >= -47.50 && z <= -11.50;
+      const inBayC = x >= -25.30 && x <= -15.70 && z >= -27.80 && z <= -24.20;
+      if (inAlleyB || inBayB || inAlleyC || inBayC) continue;
+    }
+
+    // Skip cut-off corner at North T-junction for isl_ne_scurve (Arc R=2.0m centered at (-1.0, -45.0))
+    if (isl.id === 'isl_ne_scurve' && x <= -1.0 && z <= -45.0) {
+      const d = Math.hypot(x - (-1.0), z - (-45.0));
+      // Outside curb arc (d > 2.05m): 100% asphalt road! Neither elevated nor off-track.
+      if (d > 2.05) continue;
+      if (d >= 1.85) {
+        const climbT = Math.sin(((2.05 - d) / 0.20) * Math.PI);
+        const nx = (x - (-1.0)) / d;
+        const nz = (z - (-45.0)) / d;
+        return {
+          heightY: 0.03 + 0.095 * climbT,
+          normalX: nx * 0.28,
+          normalZ: nz * 0.28,
+          surface: 'OFF_TRACK',
+        };
+      }
+      return {
+        heightY: 0.015,
+        normalX: 0,
+        normalZ: 0,
+        surface: 'OFF_TRACK',
+      };
+    }
+
+    // Skip cut-off corner at North T-junction for isl_nw_parking (Arc R=2.0m centered at (-12.0, -45.0))
+    if (isl.id === 'isl_nw_parking' && x >= -12.0 && z <= -45.0) {
+      const d = Math.hypot(x - (-12.0), z - (-45.0));
+      if (d > 2.05) continue;
+      if (d >= 1.85) {
+        const climbT = Math.sin(((2.05 - d) / 0.20) * Math.PI);
+        const nx = (x - (-12.0)) / d;
+        const nz = (z - (-45.0)) / d;
+        return {
+          heightY: 0.03 + 0.095 * climbT,
+          normalX: nx * 0.28,
+          normalZ: nz * 0.28,
+          surface: 'OFF_TRACK',
+        };
+      }
+      return {
+        heightY: 0.015,
+        normalX: 0,
+        normalZ: 0,
+        surface: 'OFF_TRACK',
+      };
+    }
+
     if (
       x >= isl.minX - curbLip &&
       x <= isl.maxX + curbLip &&
@@ -2138,7 +2511,7 @@ export function sampleBlueprintGroundAt(
     }
   }
 
-  // 6. Outer Perimeter Concrete Curbs & Sidewalks (South Z >= 52.68, North Z <= -54.68, West X <= -79.18, East X >= 79.18)
+  // 6. Outer Perimeter Concrete Curbs & Sidewalks (South Z >= 52.68, North Z <= -58.90, West X <= -79.18, East X >= 79.18)
   const isOnRampSpan = z >= 45.0 && z <= 55.0 && x >= -14.25 && x <= 23.25;
   if (!isOnRampSpan) {
     if (z >= 52.68) {
@@ -2151,8 +2524,8 @@ export function sampleBlueprintGroundAt(
         surface: 'OFF_TRACK',
       };
     }
-    if (z <= -54.68) {
-      const d = -54.68 - z;
+    if (z <= -58.90) {
+      const d = -58.90 - z;
       const onCurb = d < 0.42;
       return {
         heightY: onCurb ? 0.12 : 0.015,
@@ -2161,8 +2534,8 @@ export function sampleBlueprintGroundAt(
         surface: 'OFF_TRACK',
       };
     }
-    if (x <= -79.18) {
-      const d = -79.18 - x;
+    if (x <= -80.80) {
+      const d = -80.80 - x;
       const onCurb = d < 0.42;
       return {
         heightY: onCurb ? 0.12 : 0.015,

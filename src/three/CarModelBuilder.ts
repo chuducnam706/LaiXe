@@ -37,6 +37,7 @@ export interface RealisticCarVisualRig {
   truckModelHolder: THREE.Group;
   roofSignGroup: THREE.Group;
   cockpitGroup: THREE.Group;
+  rearViewMirrorGroup: THREE.Group;
   activeProfileId: string;
   isProceduralTruckActive: boolean;
   carPaintMat: THREE.MeshPhysicalMaterial;
@@ -1189,7 +1190,7 @@ export function buildRealisticTrainingCar(
   // 3D. Interior Center Rearview Mirror at top-center of windshield (with housing bezel, stalk & live rear reflection plane)
   const rearViewMirrorGroup = new THREE.Group();
   rearViewMirrorGroup.name = 'InteriorRearViewMirrorAssembly';
-  rearViewMirrorGroup.position.set(-0.02, 0.515, -0.62);
+  rearViewMirrorGroup.position.set(-0.02, 0.70, -0.60);
   rearViewMirrorGroup.rotation.y = -0.14; // Angled slightly toward left-hand driver seat
 
   const rearViewMirrorBezel = new THREE.Mesh(
@@ -1197,11 +1198,11 @@ export function buildRealisticTrainingCar(
     satinBlackTrimMat
   );
   const rearViewMirrorStalk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.008, 0.01, 0.075, 10),
+    new THREE.CylinderGeometry(0.008, 0.01, 0.055, 10),
     satinBlackTrimMat
   );
-  rearViewMirrorStalk.position.set(0.02, 0.048, -0.015);
-  rearViewMirrorStalk.rotation.x = 0.35;
+  rearViewMirrorStalk.position.set(0.02, 0.038, -0.012);
+  rearViewMirrorStalk.rotation.x = -0.30;
 
   const rearViewMirrorGlass = new THREE.Mesh(
     createMirroredPlaneGeometry(0.232, 0.050),
@@ -1330,6 +1331,7 @@ export function buildRealisticTrainingCar(
     truckModelHolder,
     roofSignGroup,
     cockpitGroup,
+    rearViewMirrorGroup,
     activeProfileId: 'vn_cat_b_sedan_1500',
     isProceduralTruckActive: false,
     carPaintMat,

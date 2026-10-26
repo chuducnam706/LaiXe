@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { fetchDailyPlayLimit, fetchGuestTrialMinutes, db } from '../firebase';
+import { fetchDailyPlayLimit, fetchGuestTrialMinutes, fetchRewardBonusPlays, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface DailyPlayLimitContextType {
   dailyLimit: number;
   guestTrialMinutes: number;
   playsUsed: number;
+  bonusPlays: number;
+  rewardBonusPlaysCount: number;
+  effectiveDailyLimit: number;
   playsRemaining: number;
   isUnlimited: boolean;
   canPlay: boolean;
   consumePlay: () => boolean;
+  addBonusPlays: (count?: number) => Promise<number>;
   timeUntilMidnightVi: string;
   isOutOfPlaysModalOpen: boolean;
   setIsOutOfPlaysModalOpen: (open: boolean) => void;
@@ -30,23 +34,27 @@ function getLocalDateKey(): string {
 
 export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isAdmin, isVip, enableVipFeatures } = useAuth();
-  const [dailyLimit, setDailyLimit] = useState<number>(5);
+  const [dailyLimit, setDailyLimit] = useState<number>(3);
   const [guestTrialMinutes, setGuestTrialMinutes] = useState<number>(3);
   const [playsUsed, setPlaysUsed] = useState<number>(0);
+  const [bonusPlays, setBonusPlays] = useState<number>(0);
+  const [rewardBonusPlaysCount, setRewardBonusPlaysCount] = useState<number>(3);
   const [isOutOfPlaysModalOpen, setIsOutOfPlaysModalOpen] = useState<boolean>(false);
   const [timeUntilMidnightVi, setTimeUntilMidnightVi] = useState<string>('');
 
   const todayKey = getLocalDateKey();
 
-  // 1. Fetch remote config limit and guest trial duration on mount
+  // 1. Fetch remote config limit, guest trial duration, and rewarded ad bonus plays on mount
   const refreshLimitFromRemoteConfig = useCallback(async () => {
     try {
-      const [limit, trialMins] = await Promise.all([
+      const [limit, trialMins, rewardPlays] = await Promise.all([
         fetchDailyPlayLimit(),
         fetchGuestTrialMinutes(),
+        fetchRewardBonusPlays(),
       ]);
       setDailyLimit(limit);
       setGuestTrialMinutes(trialMins);
+      setRewardBonusPlaysCount(rewardPlays);
     } catch (err) {
       console.warn('Error fetching remote config values:', err);
     }
@@ -56,26 +64,36 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
     refreshLimitFromRemoteConfig();
   }, [refreshLimitFromRemoteConfig]);
 
-  // 2. Load plays used for today
+  // 2. Load plays used and bonus plays for today
   useEffect(() => {
     const loadUsage = async () => {
       if (currentUser) {
         // User logged in: load from localStorage first for instant response, then Firestore
         const localKey = `play_usage_${currentUser.uid}_${todayKey}`;
+        const bonusKey = `play_bonus_${currentUser.uid}_${todayKey}`;
         const cached = localStorage.getItem(localKey);
+        const cachedBonus = localStorage.getItem(bonusKey);
         if (cached !== null) {
           setPlaysUsed(parseInt(cached, 10) || 0);
+        }
+        if (cachedBonus !== null) {
+          setBonusPlays(parseInt(cachedBonus, 10) || 0);
         }
 
         try {
           const docRef = doc(db, 'users', currentUser.uid, 'daily_usage', todayKey);
           const snap = await getDoc(docRef);
           if (snap.exists()) {
-            const count = snap.data().playsUsed || 0;
+            const data = snap.data();
+            const count = data.playsUsed || 0;
+            const bPlays = data.bonusPlays || 0;
             setPlaysUsed(count);
+            setBonusPlays(bPlays);
             localStorage.setItem(localKey, String(count));
+            localStorage.setItem(bonusKey, String(bPlays));
           } else if (cached === null) {
             setPlaysUsed(0);
+            setBonusPlays(0);
           }
         } catch (e) {
           console.warn('Could not sync daily usage from Firestore:', e);
@@ -83,8 +101,11 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
       } else {
         // Guest user: load from localStorage
         const guestKey = `guest_play_usage_${todayKey}`;
+        const guestBonusKey = `guest_play_bonus_${todayKey}`;
         const count = parseInt(localStorage.getItem(guestKey) || '0', 10);
+        const bPlays = parseInt(localStorage.getItem(guestBonusKey) || '0', 10);
         setPlaysUsed(count);
+        setBonusPlays(bPlays);
       }
     };
 
@@ -128,8 +149,9 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
     const localKey = `play_usage_${currentUser.uid}_${todayKey}`;
     const storedCount = parseInt(localStorage.getItem(localKey) || '0', 10);
     const currentCount = Math.max(playsUsed, storedCount);
+    const effectiveLimit = dailyLimit + bonusPlays;
 
-    if (currentCount >= dailyLimit) {
+    if (currentCount >= effectiveLimit) {
       setIsOutOfPlaysModalOpen(true);
       return false;
     }
@@ -147,10 +169,36 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     return true;
-  }, [playsUsed, dailyLimit, currentUser, todayKey, isAdmin, isVip, enableVipFeatures]);
+  }, [playsUsed, dailyLimit, bonusPlays, currentUser, todayKey, isAdmin, isVip, enableVipFeatures]);
+
+  // 5. Cộng thêm lượt thi khi xem xong quảng cáo có thưởng (Rewarded Ad)
+  const addBonusPlays = useCallback(async (count?: number): Promise<number> => {
+    const added = typeof count === 'number' && count > 0 ? count : rewardBonusPlaysCount;
+    const newBonus = bonusPlays + added;
+    setBonusPlays(newBonus);
+
+    if (currentUser) {
+      const bonusKey = `play_bonus_${currentUser.uid}_${todayKey}`;
+      localStorage.setItem(bonusKey, String(newBonus));
+      try {
+        const docRef = doc(db, 'users', currentUser.uid, 'daily_usage', todayKey);
+        await setDoc(docRef, { bonusPlays: newBonus, updatedAt: new Date().toISOString() }, { merge: true });
+      } catch (err) {
+        console.warn('Failed to update bonusPlays in Firestore:', err);
+      }
+    } else {
+      const guestBonusKey = `guest_play_bonus_${todayKey}`;
+      localStorage.setItem(guestBonusKey, String(newBonus));
+    }
+
+    // Tự động đóng modal hết lượt để học viên vào thi ngay
+    setIsOutOfPlaysModalOpen(false);
+    return newBonus;
+  }, [bonusPlays, rewardBonusPlaysCount, currentUser, todayKey]);
 
   const isUnlimited = isAdmin || isVip || enableVipFeatures;
-  const playsRemaining = isUnlimited ? dailyLimit : Math.max(0, dailyLimit - playsUsed);
+  const effectiveDailyLimit = dailyLimit + bonusPlays;
+  const playsRemaining = isUnlimited ? dailyLimit : Math.max(0, effectiveDailyLimit - playsUsed);
   const canPlay = isUnlimited || playsRemaining > 0;
 
   useEffect(() => {
@@ -165,10 +213,14 @@ export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = (
         dailyLimit,
         guestTrialMinutes,
         playsUsed,
+        bonusPlays,
+        rewardBonusPlaysCount,
+        effectiveDailyLimit,
         playsRemaining,
         isUnlimited,
         canPlay,
         consumePlay,
+        addBonusPlays,
         timeUntilMidnightVi,
         isOutOfPlaysModalOpen,
         setIsOutOfPlaysModalOpen,

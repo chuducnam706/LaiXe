@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Camera,
   ChevronDown,
@@ -32,6 +32,7 @@ import {
   Lock,
   Clock,
   ShieldCheck,
+  Tv,
 } from 'lucide-react';
 import { VehiclePhysicsEngine } from './physics/VehiclePhysicsEngine';
 import { ExerciseRuntimeEngine } from './course/ExerciseRuntimeEngine';
@@ -47,6 +48,7 @@ import {
 } from './data/courseDefinitions';
 import {
   BLUEPRINT_CONTINUOUS_ROUTE_POINTS,
+  BLUEPRINT_CONTINUOUS_ROUTE_SECTIONS,
   BLUEPRINT_DIAGONAL_HATCH_ZONES,
   BLUEPRINT_GRASS_ISLANDS,
   BLUEPRINT_PAVED_RECESSES,
@@ -54,6 +56,7 @@ import {
   BLUEPRINT_ROAD_SEGMENTS,
   BLUEPRINT_SCURVE_LANES,
   BLUEPRINT_SOLID_LINES,
+  BLUEPRINT_ZEBRA_CROSSINGS,
   COURSE_YARD_BOUNDS,
   SA_HINH_BLUEPRINT_ZONES,
 } from './data/saHinhBlueprintData';
@@ -183,6 +186,8 @@ export default function App() {
     dailyLimit,
     guestTrialMinutes,
     playsRemaining,
+    bonusPlays,
+    rewardBonusPlaysCount,
     isUnlimited,
     consumePlay,
     isOutOfPlaysModalOpen,
@@ -838,6 +843,36 @@ export default function App() {
     isRoleModalOpen ||
     completedAttemptResult !== null;
 
+  const handleVehicleAssetLoaded = useCallback((meta: VehicleAssetMetadata) => {
+    setVehicleAssetMeta(meta);
+  }, []);
+
+  const handleCollision = useCallback((impulse: number, labelVi: string) => {
+    const objName =
+      labelVi ||
+      physicsRef.current.lastCollisionObjectVi ||
+      'Chướng ngại vật / Vỉa hè';
+    if (crashNoticeTimerRef.current) {
+      clearTimeout(crashNoticeTimerRef.current);
+    }
+    setCrashNotice({
+      objectNameVi: objName,
+      timestamp: Date.now(),
+    });
+    crashNoticeTimerRef.current = setTimeout(() => {
+      setCrashNotice(null);
+      crashNoticeTimerRef.current = null;
+    }, 5000);
+  }, []);
+
+  const handleTelemetryUpdate = useCallback(
+    (snap: VehicleTelemetryState, exSnap: ActiveExerciseRuntimeState) => {
+      setTelemetry(snap);
+      setExerciseState(exSnap);
+    },
+    []
+  );
+
   return (
     <div
       className="overflow-hidden bg-slate-950 select-none"
@@ -878,28 +913,9 @@ export default function App() {
         showRearviewMirrors={showRearviewMirrors}
         isCssRotated90={isCssRotated90}
         customGlbUpload={customGlbUpload}
-        onVehicleAssetLoaded={(meta) => setVehicleAssetMeta(meta)}
-        onCollision={(impulse, labelVi) => {
-          const objName =
-            labelVi ||
-            physicsRef.current.lastCollisionObjectVi ||
-            'Chướng ngại vật / Vỉa hè';
-          if (crashNoticeTimerRef.current) {
-            clearTimeout(crashNoticeTimerRef.current);
-          }
-          setCrashNotice({
-            objectNameVi: objName,
-            timestamp: Date.now(),
-          });
-          crashNoticeTimerRef.current = setTimeout(() => {
-            setCrashNotice(null);
-            crashNoticeTimerRef.current = null;
-          }, 5000);
-        }}
-        onTelemetryUpdate={(snap, exSnap) => {
-          setTelemetry(snap);
-          setExerciseState(exSnap);
-        }}
+        onVehicleAssetLoaded={handleVehicleAssetLoaded}
+        onCollision={handleCollision}
+        onTelemetryUpdate={handleTelemetryUpdate}
       />
 
       {/* Hidden File Input for Custom .GLB / .GLTF Vehicle Asset Import */}
@@ -927,12 +943,12 @@ export default function App() {
 
       {/* 2. Landscape-Optimized Title Screen Overlay */}
       {isTitleScreen && (
-        <div className="absolute inset-0 z-30 flex flex-col justify-between p-3 sm:p-6 md:p-10 bg-gradient-to-t from-slate-950/92 via-slate-950/45 to-slate-950/75 pointer-events-auto">
+        <div className="absolute inset-0 z-30 flex flex-col justify-between pl-safe pr-safe pt-safe pb-safe p-2.5 sm:p-5 md:p-8 bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-slate-950/80 pointer-events-auto overflow-y-auto sm:overflow-hidden select-none">
           {/* Top Navigation Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 shrink-0">
             <div className="flex items-center gap-2">
               {/* Home Vị trí 1: Banner Header Top (468x60 / 320x50) */}
-              <div className="hidden sm:block">
+              <div className="hidden md:block">
                 <AdBanner format="header_top" closable />
               </div>
 
@@ -940,14 +956,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setAutoLandscapeLock((prev) => !prev)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-colors ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
                     autoLandscapeLock
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-sm'
                       : 'bg-slate-900/90 text-slate-300 border-slate-700'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5 rotate-90" />
-                  {autoLandscapeLock ? 'Màn Hình Ngang: BẬT' : 'Xoay Ngang'}
+                  {autoLandscapeLock ? 'Xoay Ngang: BẬT' : 'Xoay Ngang'}
                 </button>
               )}
             </div>
@@ -955,26 +971,26 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setIsCourseModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/90 text-white hover:bg-emerald-500 shadow transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <MapIcon className="w-3.5 h-3.5" />
-                Chọn Bài
+                <span>Chọn Bài</span>
               </button>
 
               <button
                 onClick={() => setIsTheoryModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/90 text-sky-300 border border-slate-700 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cockpit-glass text-sky-300 hover:text-white transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                600 Câu Lý Thuyết
+                <span className="hidden sm:inline">600 Câu</span> Lý Thuyết
               </button>
 
               <button
                 onClick={() => setIsTutorialModalOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold cockpit-glass text-slate-200 hover:text-white transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-                Hướng Dẫn
+                <span className="hidden sm:inline">Hướng Dẫn</span>
               </button>
 
               <button
@@ -982,11 +998,11 @@ export default function App() {
                   setPolicyDefaultTab('privacy');
                   setIsPolicyModalOpen(true);
                 }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-300 border border-slate-700 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold cockpit-glass text-slate-300 hover:text-white transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
                 title="Chính sách quyền riêng tư & Điều khoản sử dụng"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
-                Chính Sách
+                <span className="hidden sm:inline">Chính Sách</span>
               </button>
 
               <UserAccountButton
@@ -997,17 +1013,22 @@ export default function App() {
             </div>
           </div>
 
-
-          {/* Center-Bottom Horizontal Landscape Hero Panel */}
-          <div className="my-auto flex flex-col lg:flex-row lg:items-end justify-between gap-4 bg-slate-950/75 backdrop-blur-md border border-slate-800/90 rounded-2xl p-4 sm:p-5 shadow-2xl">
-            <div className="space-y-2.5 max-w-xl">
-              <h1 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight">
+          {/* Center-Bottom Landscape Hero Panel */}
+          <div className="my-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-5 cockpit-glass rounded-3xl p-3.5 sm:p-5 shadow-2xl">
+            <div className="space-y-1.5 sm:space-y-2.5 max-w-xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-400/30">
+                  MÔ PHỎNG 3D SA HÌNH
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">11 BÀI SÁT HẠCH</span>
+              </div>
+              <h1 className="text-lg sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
                 Mô Phỏng Sát Hạch Lái Xe Sa Hình 3D
               </h1>
 
               {/* Vehicle Category Selector */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="text-xs text-slate-400 font-medium">Hạng xe:</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-xs text-slate-400 font-semibold mr-1">Hạng:</span>
                 {(['B', 'C1', 'C'] as const).map((catCode) => {
                   const vehProfile = SELECTABLE_VEHICLE_PROFILES.find(
                     (v) => v.category === catCode
@@ -1027,12 +1048,12 @@ export default function App() {
                         }
                         handleUpdateProfile(vehProfile);
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                         isLockedForGuest
                           ? 'bg-slate-900/60 text-slate-400 border-slate-800 hover:border-amber-500/50 hover:text-amber-300'
                           : isActiveCat
-                          ? 'bg-amber-500 text-slate-950 border-amber-300 shadow'
-                          : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
+                          ? 'bg-amber-500 text-slate-950 border-amber-300 shadow-md font-extrabold scale-[1.02]'
+                          : 'cockpit-glass text-slate-300 hover:text-white'
                       }`}
                       title={isLockedForGuest ? `Xe tải Hạng ${catCode} chỉ dành cho học viên có tài khoản. Bấm để đăng nhập!` : undefined}
                     >
@@ -1049,16 +1070,15 @@ export default function App() {
               </div>
             </div>
 
-            {/* Primary Launch Buttons & Prominent Daily Plays Indicator */}
-            <div className="flex flex-col items-start lg:items-end gap-2 shrink-0">
-              {/* Prominent Daily Plays Indicator (chỉ hiển thị cho người dùng đã đăng nhập) */}
+            {/* Primary Action Buttons & Daily Plays */}
+            <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
               {currentUser && (
                 isUnlimited ? (
                   <div
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium shadow-md select-none bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-300 border-amber-500/50 cursor-default pointer-events-none"
+                    className="flex items-center gap-2 px-3 py-1 rounded-xl border text-xs font-medium shadow-md select-none bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-300 border-amber-500/50 cursor-default pointer-events-none"
                   >
                     <Crown className="w-4 h-4 text-amber-400" />
-                    <span className="text-amber-300 font-bold">Lượt thi VIP:</span>
+                    <span className="text-amber-300 font-bold">VIP:</span>
                     <span className="font-mono text-base font-black text-amber-300 leading-none">∞</span>
                     <span className="text-[10px] text-amber-300/80 font-normal">(Vô hạn)</span>
                   </div>
@@ -1066,23 +1086,30 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setIsOutOfPlaysModalOpen(true)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-md cursor-pointer ${
+                    className={`flex items-center gap-2 px-3 py-1 rounded-xl border text-xs font-medium transition-all shadow-md cursor-pointer ${
                       playsRemaining === 0
                         ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 hover:bg-rose-500/30'
                         : playsRemaining <= 1
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                        : 'bg-slate-900/95 text-slate-200 border-slate-700 hover:bg-slate-800 hover:border-sky-500/50'
+                        : 'cockpit-glass text-slate-200 hover:border-sky-500/50'
                     }`}
                     title="Số lượt thi thực hành sa hình hôm nay"
                   >
                     <Ticket className={`w-4 h-4 ${playsRemaining === 0 ? 'text-rose-400' : playsRemaining <= 1 ? 'text-amber-400' : 'text-sky-400'}`} />
-                    <span className="text-slate-300 font-medium">Lượt thi hôm nay:</span>
+                    <span className="text-slate-300 font-medium">Lượt hôm nay:</span>
                     <span className="font-mono text-sm font-extrabold text-white">
-                      {playsRemaining}/{dailyLimit}
+                      {playsRemaining}/{dailyLimit + bonusPlays}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      (Reset 00:00)
-                    </span>
+                    {playsRemaining === 0 ? (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-400/50 text-[10px] font-black animate-pulse">
+                        <Tv className="w-3 h-3 text-amber-300" />
+                        <span>Xem Ads +{rewardBonusPlaysCount}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        (Reset 00:00)
+                      </span>
+                    )}
                   </button>
                 )
               )}
@@ -1090,10 +1117,16 @@ export default function App() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => handleStartSimulation('MANUAL')}
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold bg-sky-500 text-slate-950 hover:bg-sky-400 shadow-[0_0_20px_rgba(14,165,233,0.45)] transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl text-xs sm:text-sm font-black bg-gradient-to-r from-sky-400 to-sky-500 text-slate-950 hover:from-sky-300 hover:to-sky-400 shadow-[0_0_24px_rgba(14,165,233,0.5)] transition-all active:scale-95 whitespace-nowrap cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  Vào Lái Số Sàn (MT)
+                  <span>VÀO LÁI SỐ SÀN (MT)</span>
+                  {currentUser && !isUnlimited && playsRemaining === 0 && (
+                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-950/80 text-amber-300 border border-amber-400/40 text-[10px] font-black uppercase">
+                      <Tv className="w-3 h-3 text-amber-300" />
+                      <span>Ads</span>
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -1104,10 +1137,10 @@ export default function App() {
                     }
                     handleStartSimulation('AUTOMATIC');
                   }}
-                  className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold transition-all active:scale-95 whitespace-nowrap cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 rounded-2xl text-xs sm:text-sm font-black transition-all active:scale-95 whitespace-nowrap cursor-pointer ${
                     !currentUser
-                      ? 'bg-slate-900/90 text-slate-400 border border-slate-700/80 hover:border-amber-500/50 hover:text-amber-300'
-                      : 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.35)]'
+                      ? 'cockpit-glass text-slate-400 hover:border-amber-500/50 hover:text-amber-300'
+                      : 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 hover:from-amber-300 hover:to-amber-400 shadow-[0_0_24px_rgba(245,158,11,0.4)]'
                   }`}
                   title={!currentUser ? 'Xe số tự động (AT) chỉ dành cho học viên đã đăng ký tài khoản' : 'Vào Lái Số Tự Động (AT)'}
                 >
@@ -1122,7 +1155,13 @@ export default function App() {
                   ) : (
                     <>
                       <Play className="w-4 h-4 fill-current" />
-                      <span>Vào Lái Số Tự Động (AT)</span>
+                      <span>VÀO LÁI TỰ ĐỘNG (AT)</span>
+                      {!isUnlimited && playsRemaining === 0 && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-950/80 text-amber-300 border border-amber-400/40 text-[10px] font-black uppercase">
+                          <Tv className="w-3 h-3 text-amber-300" />
+                          <span>Ads</span>
+                        </span>
+                      )}
                     </>
                   )}
                 </button>
@@ -1139,23 +1178,23 @@ export default function App() {
 
       {/* 3. Active Simulation Perimeter HUD (Optimized for Landscape Phone & Clear Road View) */}
       {!isTitleScreen && (
-        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-1.5 sm:p-2.5">
+        <div className="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between pt-safe pl-safe pr-safe p-1.5 sm:p-2.5">
           {/* Top Bar: Single-Row Sleek Status & Action Strip */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-1.5">
               {/* Top-Left: Exit, Score, Timer theo đúng quy định */}
-              <div className="pointer-events-auto flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-950/88 backdrop-blur-md border border-slate-800/90 shadow-lg min-w-0">
+              <div className="pointer-events-auto flex items-center gap-2 px-2.5 py-1 rounded-2xl cockpit-glass shadow-lg min-w-0">
                 <button
                   onClick={handleReturnHome}
-                  className="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer active:scale-95"
                   title="Thoát ra màn hình chính (Reset về Bài 1)"
                 >
                   ← Thoát
                 </button>
 
-                <div className="flex items-center gap-2 font-mono text-xs tabular-nums shrink-0 pl-2 border-l border-slate-800">
+                <div className="flex items-center gap-2 font-mono text-xs tabular-nums shrink-0 pl-2 border-l border-white/10">
                   <strong
-                    className={`text-sm font-extrabold ${
+                    className={`text-sm sm:text-base font-black ${
                       exerciseState.currentScore >= exerciseState.passingScore
                         ? 'text-emerald-400'
                         : 'text-rose-400'
@@ -1177,12 +1216,12 @@ export default function App() {
                 {/* Guest Trial Timer Indicator */}
                 {!currentUser && guestSecondsRemaining !== null && (
                   <div
-                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-mono font-bold transition-all shrink-0 pl-1.5 border-l border-slate-800 ${
+                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[11px] font-mono font-bold transition-all shrink-0 pl-1.5 border-l border-white/10 ${
                       guestSecondsRemaining <= 30
                         ? 'bg-rose-500/25 text-rose-300 border-rose-500/60 animate-pulse'
                         : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                     }`}
-                    title="Thời gian lái thử cho chế độ khách (Cấu hình bởi Firebase Remote Config)"
+                    title="Thời gian lái thử cho chế độ khách"
                   >
                     <span>
                       {guestSecondsRemaining <= 30 ? 'Hết giờ: ' : 'Lái thử: '}
@@ -1197,7 +1236,7 @@ export default function App() {
                     onClick={() =>
                       setShowViolationLogDrawer((prev) => !prev)
                     }
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/90 text-rose-300 border border-rose-700/70 hover:bg-rose-900/80 transition-colors shrink-0"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-rose-950/90 text-rose-300 border border-rose-500/50 hover:bg-rose-900 transition-colors shrink-0 shadow-sm"
                   >
                     <ShieldAlert className="w-3 h-3 text-rose-400" />
                     Lỗi: {exerciseState.violations.length}
@@ -1205,18 +1244,44 @@ export default function App() {
                 )}
               </div>
 
+              {/* In-Game Center Cyber Telemetry HUD (Shown prominently on mobile touch mode) */}
+              {isMobileTouchEnabled && (
+                <div className="pointer-events-auto flex items-center gap-2 px-3 py-1 rounded-2xl cockpit-glass-pill shadow-lg font-mono tabular-nums">
+                  <div className="flex items-baseline gap-0.5">
+                    <span className="text-base sm:text-lg font-black text-white leading-none">
+                      {Math.round(telemetry.speedKmh)}
+                    </span>
+                    <span className="text-[9px] text-slate-400">km/h</span>
+                  </div>
+                  <span className="text-slate-600">|</span>
+                  <span
+                    className={`text-xs font-black ${
+                      telemetry.currentGear === -1
+                        ? 'text-rose-400'
+                        : telemetry.currentGear === 0
+                        ? 'text-amber-400'
+                        : 'text-sky-400'
+                    }`}
+                  >
+                    Số {telemetry.gearLabel}
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span className="text-[10px] text-slate-300">
+                    {telemetry.engineRpm} RPM
+                  </span>
+                </div>
+              )}
+
               {/* Top-Right: Streamlined Controls Strip */}
               <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto max-w-full no-scrollbar">
                 <button
                   onClick={() => setIsCourseModalOpen(true)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/90 text-white hover:bg-emerald-500 shadow transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
                   title="Chọn bài thi sát hạch (Phím B)"
                 >
                   <MapIcon className="w-3.5 h-3.5" />
                   <span>Chọn Bài</span>
                 </button>
-
-
 
                 <button
                   onClick={() =>
@@ -1232,7 +1297,7 @@ export default function App() {
                         : 'CHASE'
                     )
                   }
-                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/90 text-slate-200 border border-slate-700 hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold cockpit-glass text-slate-200 hover:text-white transition-all active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
                   title="Đổi góc nhìn Camera (Phím C)"
                 >
                   <Camera className="w-3.5 h-3.5 text-sky-400" />
@@ -1251,10 +1316,10 @@ export default function App() {
 
                 <button
                   onClick={() => setShowRearviewMirrors((prev) => !prev)}
-                  className={`px-2 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 cursor-pointer active:scale-95 ${
                     showRearviewMirrors
-                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/50'
-                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
+                      ? 'bg-sky-500/25 text-sky-300 border border-sky-400/50 shadow-sm'
+                      : 'cockpit-glass text-slate-300 hover:text-white'
                   }`}
                   title="Bật/Tắt Gương Chiếu Hậu (Phím G)"
                 >
@@ -1263,7 +1328,7 @@ export default function App() {
 
                 <button
                   onClick={handleRetryCurrent}
-                  className="p-1.5 rounded-lg bg-slate-900/90 text-amber-400 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+                  className="p-2 rounded-xl cockpit-glass text-amber-400 hover:text-amber-300 transition-all shrink-0 cursor-pointer active:scale-95"
                   title="Đặt lại bài tập hiện tại (Phím R)"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -1271,10 +1336,10 @@ export default function App() {
 
                 <button
                   onClick={() => setIsMobileTouchEnabled((prev) => !prev)}
-                  className={`p-1.5 rounded-lg border transition-colors shrink-0 cursor-pointer ${
+                  className={`p-2 rounded-xl transition-all shrink-0 cursor-pointer active:scale-95 ${
                     isMobileTouchEnabled
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-400/50'
-                      : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
+                      ? 'bg-amber-500/25 text-amber-300 border border-amber-400/50 shadow-sm'
+                      : 'cockpit-glass text-slate-300 hover:text-white'
                   }`}
                   title="Chuyển đổi giao diện ĐT Ngang / PC"
                 >
@@ -1287,7 +1352,7 @@ export default function App() {
 
                 <button
                   onClick={handleToggleMute}
-                  className="p-1.5 rounded-lg bg-slate-900/90 text-slate-300 border border-slate-700 hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+                  className="p-2 rounded-xl cockpit-glass text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer active:scale-95"
                   title={isMuted ? 'Bật âm thanh' : 'Tắt âm thanh'}
                 >
                   {isMuted ? (
@@ -1296,8 +1361,6 @@ export default function App() {
                     <Volume2 className="w-3.5 h-3.5 text-sky-400" />
                   )}
                 </button>
-
-
               </div>
             </div>
 
@@ -1614,7 +1677,11 @@ export default function App() {
                     }
                     strokeWidth={sLine.colorHex === 0xfacc15 ? '0.65' : '0.52'}
                     strokeDasharray={
-                      sLine.hasRedWhiteCurb ? '1.1 0.9' : undefined
+                      sLine.hasRedWhiteCurb
+                        ? '1.1 0.9'
+                        : sLine.kind === 'DASHED_LINE'
+                        ? '1.5 1.2'
+                        : undefined
                     }
                   />
                 ))}
@@ -1634,19 +1701,46 @@ export default function App() {
                   />
                 ))}
 
-                {BLUEPRINT_DIAGONAL_HATCH_ZONES.map((hz) => (
-                  <rect
-                    key={hz.id}
-                    x={hz.minX}
-                    y={hz.minZ}
-                    width={hz.maxX - hz.minX}
-                    height={hz.maxZ - hz.minZ}
-                    fill="#94a3b8"
-                    fillOpacity="0.45"
-                    stroke="#f8fafc"
-                    strokeWidth="0.3"
+                {BLUEPRINT_ZEBRA_CROSSINGS.map((zc) => (
+                  <line
+                    key={`mm_${zc.id}`}
+                    x1={zc.orientation === 'NS' ? zc.x : zc.x - zc.widthM / 2}
+                    y1={zc.orientation === 'NS' ? zc.z - zc.widthM / 2 : zc.z}
+                    x2={zc.orientation === 'NS' ? zc.x : zc.x + zc.widthM / 2}
+                    y2={zc.orientation === 'NS' ? zc.z + zc.widthM / 2 : zc.z}
+                    stroke="#ffffff"
+                    strokeWidth={zc.depthM}
+                    strokeDasharray="0.45 0.45"
                   />
                 ))}
+
+                {BLUEPRINT_DIAGONAL_HATCH_ZONES.map((hz) => {
+                  if (hz.id === 'hatch_north_t_junction_triangle') {
+                    return (
+                      <polygon
+                        key={hz.id}
+                        points="-6.5,-48.0 -8.5,-55.15 -4.5,-55.15"
+                        fill="#334155"
+                        fillOpacity="0.75"
+                        stroke="#f8fafc"
+                        strokeWidth="0.25"
+                      />
+                    );
+                  }
+                  return (
+                    <rect
+                      key={hz.id}
+                      x={hz.minX}
+                      y={hz.minZ}
+                      width={hz.maxX - hz.minX}
+                      height={hz.maxZ - hz.minZ}
+                      fill="#94a3b8"
+                      fillOpacity="0.45"
+                      stroke="#f8fafc"
+                      strokeWidth="0.3"
+                    />
+                  );
+                })}
 
                 {BLUEPRINT_ROAD_ARROWS.map((arr, idx) => (
                   <g
@@ -1709,16 +1803,17 @@ export default function App() {
                   </g>
                 ))}
 
-                <polyline
-                  points={BLUEPRINT_CONTINUOUS_ROUTE_POINTS.map(
-                    (pt) => `${pt.x},${pt.z}`
-                  ).join(' ')}
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="0.55"
-                  strokeDasharray="1.8 1.2"
-                  opacity="0.85"
-                />
+                {BLUEPRINT_CONTINUOUS_ROUTE_SECTIONS.map((sec, idx) => (
+                  <polyline
+                    key={idx}
+                    points={sec.map((pt) => `${pt.x},${pt.z}`).join(' ')}
+                    fill="none"
+                    stroke="#38bdf8"
+                    strokeWidth="0.55"
+                    strokeDasharray="1.8 1.2"
+                    opacity="0.85"
+                  />
+                ))}
 
                 {SA_HINH_BLUEPRINT_ZONES.map((z) => {
                   const isActiveStation =

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ticket, Crown } from 'lucide-react';
+import { Ticket, Crown, Tv } from 'lucide-react';
 import { useDailyPlayLimit } from '../context/DailyPlayLimitContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,8 +9,14 @@ interface DailyPlaysBadgeProps {
 }
 
 export const DailyPlaysBadge: React.FC<DailyPlaysBadgeProps> = ({ className = '', onClick }) => {
-  const { currentUser, isVip, vipRemainingText, isAdmin } = useAuth();
-  const { dailyLimit, playsRemaining, isUnlimited } = useDailyPlayLimit();
+  const { currentUser, isVip, isAdmin } = useAuth();
+  const {
+    dailyLimit,
+    playsRemaining,
+    isUnlimited,
+    bonusPlays,
+    rewardBonusPlaysCount,
+  } = useDailyPlayLimit();
 
   // Khách không hiển thị số lượt chơi
   if (!currentUser) return null;
@@ -57,12 +63,24 @@ export const DailyPlaysBadge: React.FC<DailyPlaysBadgeProps> = ({ className = ''
           ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
           : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
       } ${className}`}
-      title={`Lượt thi sa hình hôm nay: Còn ${playsRemaining}/${dailyLimit} lượt`}
+      title={
+        isOut
+          ? `Đã hết lượt thi hôm nay! Bấm để xem video nhận thêm +${rewardBonusPlaysCount} lượt`
+          : `Lượt thi sa hình hôm nay: Còn ${playsRemaining}/${dailyLimit + bonusPlays} lượt`
+      }
     >
       <Ticket className={`w-3.5 h-3.5 ${isOut ? 'text-rose-400' : isLow ? 'text-amber-400' : 'text-sky-400'}`} />
       <span className="font-mono text-[11px] font-bold">
-        {playsRemaining}/{dailyLimit} lượt
+        {playsRemaining}/{dailyLimit + bonusPlays} lượt
       </span>
+
+      {/* Icon Ads nhỏ báo hiệu xem video nhận thêm lượt khi hết 5 lượt */}
+      {isOut && (
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-300 border border-amber-400/50 text-[10px] font-black animate-pulse shadow-sm shadow-amber-500/20">
+          <Tv className="w-3 h-3 text-amber-300" />
+          <span>Ads +{rewardBonusPlaysCount}</span>
+        </span>
+      )}
     </button>
   );
 };

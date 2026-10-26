@@ -795,65 +795,66 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col pointer-events-auto">
-      {/* Top App Bar */}
-      <div className="px-4 sm:px-6 py-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
-            <BookOpen className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 bg-slate-950/97 backdrop-blur-md flex flex-col pointer-events-auto">
+      {/* Top App Bar - compact on mobile */}
+      <div className="px-3 sm:px-6 py-2 sm:py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
-          <h2 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
+          <h2 className="text-xs sm:text-base font-extrabold text-white tracking-tight whitespace-nowrap">
             600 Câu Lý Thuyết
           </h2>
         </div>
 
-        {/* Vị trí 2: Header Top Ad Banner */}
+        {/* Vị trí 2: Header Top Ad Banner - only on large screens */}
         <div className="hidden lg:flex flex-1 justify-center max-w-[440px] mx-2">
           <AdBanner format="header_top" closable />
         </div>
 
         {/* Mode Switcher Tabs */}
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-800">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex rounded-lg bg-slate-950 p-0.5 sm:p-1 border border-slate-800">
             <button
               type="button"
               onClick={() => setActiveTab('PRACTICE')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-colors ${
                 activeTab === 'PRACTICE'
                   ? 'bg-sky-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              Ôn tập
+              <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span>Ôn tập</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('EXAM')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-colors ${
                 activeTab === 'EXAM'
                   ? 'bg-amber-500 text-slate-950 shadow'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <Award className="w-3.5 h-3.5" />
-              Thi thử ({selectedLicenseClass})
+              <Award className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="hidden xs:inline">Thi thử ({selectedLicenseClass})</span>
+              <span className="xs:hidden">Thi ({selectedLicenseClass})</span>
             </button>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-colors"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[10px] sm:text-xs font-bold transition-colors"
           >
-            <X className="w-4 h-4" />
-            Đóng
+            <X className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Đóng</span>
           </button>
         </div>
       </div>
 
-      {/* Main Content Body */}
+      {/* Main Content Body - flex-row on landscape phone, flex-col stacked on portrait */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {isLoading ? (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-300">
@@ -867,9 +868,10 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
           </div>
         ) : activeTab === 'PRACTICE' ? (
           /* ================= 1. CHẾ ĐỘ ÔN TẬP 600 CÂU ================= */
-          <div className="h-full grid grid-cols-1 lg:grid-cols-12">
+          <div className="h-full flex flex-col sm:flex-row lg:grid lg:grid-cols-12">
             {/* Left Sidebar: Chapter Filter + Search + 600 Question Grid */}
-            <div className="lg:col-span-4 xl:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-800 bg-slate-900/50 flex flex-col min-h-0 max-h-64 lg:max-h-none">
+            {/* Mobile landscape: fixed 38% width panel; portrait: fixed height 38% top panel */}
+            <div className="flex flex-col min-h-0 border-b sm:border-b-0 sm:border-r border-slate-800 bg-slate-900/50 h-[38%] sm:h-full sm:w-[38%] lg:w-auto lg:col-span-4 xl:col-span-4">
               {/* Chapter & Search Controls */}
               <div className="p-3 space-y-2 border-b border-slate-800 shrink-0">
                 {/* Progress Summary */}
@@ -1006,7 +1008,7 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
             </div>
 
             {/* Right Main Panel: Active Question & Explanation */}
-            <div className="lg:col-span-8 xl:col-span-8 p-4 sm:p-6 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 sm:h-full lg:col-span-8 xl:col-span-8 p-3 sm:p-4 lg:p-6 min-h-0 flex flex-col overflow-hidden">
               {currentPracticeQuestion ? (
                 renderQuestionView(
                   currentPracticeQuestion,
@@ -1307,7 +1309,7 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
                 </div>
 
                 {/* Right Column: Active Exam Question */}
-                <div className="lg:col-span-8 p-4 sm:p-6 min-h-0 flex flex-col overflow-hidden">
+                <div className="flex-1 sm:h-full lg:col-span-8 p-3 sm:p-4 lg:p-6 min-h-0 flex flex-col overflow-hidden">
                   {examQuestions[examIndex] &&
                     renderQuestionView(
                       examQuestions[examIndex],
