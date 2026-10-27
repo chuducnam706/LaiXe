@@ -227,20 +227,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {tab === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-medium text-slate-300">
-                    Email hoặc Tên tài khoản
-                  </label>
-                  <span className="text-[11px] text-slate-400">
-                    Admin: <span className="text-sky-400 font-mono">admin / admin</span>
-                  </span>
-                </div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Email hoặc Tên tài khoản
+                </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                   <input
                     type="text"
                     required
-                    placeholder="Email học viên hoặc admin"
+                    placeholder="Email hoặc tên tài khoản"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"

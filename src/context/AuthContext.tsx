@@ -308,7 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cached = localStorage.getItem('sys_enable_ads');
     return cached !== null ? cached === 'true' : true; // Mặc định Ads luôn bật
   });
-  const guestName = 'user';
+  const guestName = 'User';
   const [examHistory, setExamHistory] = useState<PracticeAttemptResult[]>([]);
 
   // Sync Remote Config enable_vip_features

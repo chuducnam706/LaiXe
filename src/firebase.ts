@@ -120,49 +120,50 @@ export async function fetchEnableVipFeatures(): Promise<boolean> {
 }
 
 /**
- * Fetches and activates the latest Ads toggle from Remote Config (default fallback: 1 / true).
+ * Lấy cấu hình Bật/Tắt quảng cáo:
+ * Kiểm tra cả Firestore ("system_config/ads" -> field "enableAds" hoặc "enable_ads")
+ * và Remote Config ("enable_ads").
  * 1 (hoặc true) => Bật quảng cáo.
- * 0 (hoặc false) => Tắt quảng cáo hoàn toàn.
+ * 0 (hoặc false) => Tắt quảng cáo hoàn toàn (cả web thật lẫn localhost đều nhận 0 ads).
  */
 export async function fetchEnableAds(): Promise<boolean> {
-  if (!remoteConfig) return true;
-  await syncRemoteConfig();
+  // 1. Kiểm tra Firestore (system_config/ads)
   try {
-    const isLocalhost =
-      typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.startsWith('192.168.'));
+    const snap = await getDoc(doc(db, "system_config", "ads"));
+    if (snap.exists()) {
+      const data = snap.data();
+      const val = data?.enableAds ?? data?.enable_ads;
+      if (val === false || val === 0 || val === "false" || val === "0" || val === "off") {
+        return false;
+      }
+      if (val === true || val === 1 || val === "true" || val === "1" || val === "on") {
+        return true;
+      }
+    }
+  } catch {}
 
-    const valStr = getString(remoteConfig, "enable_ads").trim().toLowerCase();
-    if (valStr === "0" || valStr === "false" || valStr === "off") {
-      if (isLocalhost) {
-        console.log('[RemoteConfig] enable_ads trên Firebase là 0, nhưng chế độ test localhost luôn BẬT quảng cáo.');
+  // 2. Kiểm tra Remote Config
+  if (remoteConfig) {
+    try {
+      await syncRemoteConfig();
+      const valStr = getString(remoteConfig, "enable_ads").trim().toLowerCase();
+      if (valStr === "0" || valStr === "false" || valStr === "off") {
+        return false;
+      }
+      if (valStr === "1" || valStr === "true" || valStr === "on") {
         return true;
       }
-      return false;
+      const valNum = getNumber(remoteConfig, "enable_ads");
+      if (valNum === 0) return false;
+      if (valNum === 1) return true;
+      const valBool = getBoolean(remoteConfig, "enable_ads");
+      if (valBool === false) return false;
+    } catch (e) {
+      console.warn("fetchEnableAds parse error:", e);
     }
-    if (valStr === "1" || valStr === "true" || valStr === "on") return true;
-    const valNum = getNumber(remoteConfig, "enable_ads");
-    if (valNum === 0) {
-      if (isLocalhost) {
-        console.log('[RemoteConfig] enable_ads trên Firebase là 0, nhưng chế độ test localhost luôn BẬT quảng cáo.');
-        return true;
-      }
-      return false;
-    }
-    const valBool = getBoolean(remoteConfig, "enable_ads");
-    if (valBool === false) {
-      if (isLocalhost) {
-        console.log('[RemoteConfig] enable_ads trên Firebase là false, nhưng chế độ test localhost luôn BẬT quảng cáo.');
-        return true;
-      }
-      return false;
-    }
-  } catch (e) {
-    console.warn("fetchEnableAds parse error:", e);
   }
-  return true; // Mặc định luôn bật
+
+  return true; // Mặc định bật nếu không cấu hình tắt
 }
 
 /**
@@ -194,5 +195,44 @@ export async function fetchRewardBonusPlays(): Promise<number> {
 
   // 3. Mặc định 3 lượt
   return 3;
+}
+
+/**
+ * Lấy số lượng câu hỏi lý thuyết cần chuyển tiếp trước khi reload quảng cáo mới.
+ * Bạn có thể điều chỉnh linh hoạt trên Firebase:
+ *  - Remote Config: key "theory_questions_per_ad" (number: ví dụ 5, 10, 3...)
+ *  - HOẶC Firestore: collection "system_config", document "ads" (hoặc "ad_rewards"), field "theoryQuestionsPerAd" (number: 5, 10, 3...)
+ * Mặc định trả về 5 câu nếu không cấu hình.
+ */
+export async function fetchTheoryQuestionsPerAd(): Promise<number> {
+  // 1. Kiểm tra Remote Config
+  if (remoteConfig) {
+    try {
+      await syncRemoteConfig();
+      const val = getNumber(remoteConfig, "theory_questions_per_ad");
+      if (val > 0) return val;
+      const valCamel = getNumber(remoteConfig, "theoryQuestionsPerAd");
+      if (valCamel > 0) return valCamel;
+    } catch {}
+  }
+
+  // 2. Kiểm tra Firestore (system_config/ads hoặc system_config/ad_rewards)
+  try {
+    const snap = await getDoc(doc(db, "system_config", "ads"));
+    if (snap.exists()) {
+      const data = snap.data();
+      const val = data?.theoryQuestionsPerAd ?? data?.theory_questions_per_ad;
+      if (typeof val === "number" && val > 0) return val;
+    }
+    const snap2 = await getDoc(doc(db, "system_config", "ad_rewards"));
+    if (snap2.exists()) {
+      const data2 = snap2.data();
+      const val2 = data2?.theoryQuestionsPerAd ?? data2?.theory_questions_per_ad;
+      if (typeof val2 === "number" && val2 > 0) return val2;
+    }
+  } catch {}
+
+  // 3. Mặc định 5 câu
+  return 5;
 }
 

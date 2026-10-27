@@ -57,7 +57,7 @@ export const FirstTimeTutorialModal: React.FC<FirstTimeTutorialModalProps> = ({
         </div>
 
         {/* Banner Quảng Cáo Top */}
-        <div className="px-4 py-1.5 bg-slate-950/90 border-b border-slate-800/80 flex justify-center">
+        <div className="px-4 py-1.5 flex justify-center bg-transparent border-0">
           <AdBanner
             format="header_top"
             slotId="tutorial_modal_top_banner"
@@ -274,7 +274,7 @@ export const FirstTimeTutorialModal: React.FC<FirstTimeTutorialModalProps> = ({
         </div>
 
         {/* Banner Quảng Cáo Bottom */}
-        <div className="px-4 py-2 bg-slate-950 border-t border-slate-800/80 flex justify-center">
+        <div className="px-4 py-2 flex justify-center bg-transparent border-0">
           <AdBanner
             format="horizontal_leaderboard"
             slotId="tutorial_modal_bottom_banner"

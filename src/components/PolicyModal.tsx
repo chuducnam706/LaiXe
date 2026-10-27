@@ -99,9 +99,9 @@ export const PolicyModal: React.FC<PolicyModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <h3 className="text-sm font-bold text-white">3. Quảng cáo Google AdSense & Cookie</h3>
+                <h3 className="text-sm font-bold text-white">3. Dịch vụ Quảng cáo & Cookie</h3>
                 <p className="text-slate-400">
-                  Trang web hợp tác với Google AdSense để hiển thị quảng cáo. Google và các đối tác bên thứ ba sử dụng cookie để phục vụ quảng cáo dựa trên các lượt truy cập trang web trước đây. Học viên có thể tắt quảng cáo cá nhân hóa tại <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" className="text-sky-300 underline">Cài đặt quảng cáo Google</a>.
+                  Trang web hợp tác với các đối tác mạng lưới quảng cáo trực tuyến nhằm duy trì hệ thống máy chủ và cung cấp nền tảng ôn luyện sa hình hoàn toàn miễn phí cho học viên. Các đối tác quảng cáo có thể sử dụng cookie hoặc bộ nhớ ẩn danh trên trình duyệt để hiển thị nội dung phù hợp. Học viên có thể tùy chọn xóa cookie trong cài đặt trình duyệt hoặc nâng cấp tài khoản VIP để tắt toàn bộ quảng cáo trên hệ thống.
                 </p>
               </div>
 

@@ -87,9 +87,6 @@ export const UserAccountButton: React.FC<UserAccountButtonProps> = ({
                   Chưa đăng nhập
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Lái thử tối đa 3 phút/lượt. Đăng nhập để thi đầy đủ và lưu kết quả.
-              </p>
             </div>
 
             <div className="p-1.5 space-y-1">

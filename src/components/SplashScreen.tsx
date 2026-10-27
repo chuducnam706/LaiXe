@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { SoundEngine } from '../audio/SoundEngine';
 import { AdBanner } from './AdBanner';
+import { preloadAppConfigAndData } from '../services/appConfig';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -34,6 +35,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [isReady, setIsReady] = useState<boolean>(false);
   const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
   const [secondsRemaining, setSecondsRemaining] = useState<number>(8);
+  const [stageText, setStageText] = useState<string>('');
   const hasExitedRef = useRef<boolean>(false);
 
   const handleStart = () => {
@@ -55,7 +57,24 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     }, 500);
   };
 
-  // 1. Realistic loading progress filling to 100% over ~4 seconds
+  // 1. Tải trước toàn bộ cấu hình Firebase + dữ liệu 600 câu hỏi song song ngay từ Splash
+  useEffect(() => {
+    preloadAppConfigAndData((pct, msg) => {
+      setProgress((prev) => Math.max(prev, pct));
+      if (msg) setStageText(msg);
+    })
+      .then(() => {
+        setProgress(100);
+        setIsReady(true);
+        setStageText('Hệ thống hoàn tất! Sẵn sàng xuất phát.');
+      })
+      .catch(() => {
+        setProgress(100);
+        setIsReady(true);
+      });
+  }, []);
+
+  // 2. Realistic loading progress filling to 100% over ~3-4 seconds (dự phòng animation mượt mà)
   useEffect(() => {
     const progressTimer = setInterval(() => {
       setProgress((prev) => {
@@ -76,7 +95,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     return () => clearInterval(progressTimer);
   }, [isAssetLoaded]);
 
-  // 2. Strict 8-second auto-transition: automatically enters after 8 seconds without stalling!
+  // 3. Strict 8-second auto-transition: automatically enters after 8 seconds without stalling!
   useEffect(() => {
     const countdownTimer = setInterval(() => {
       setSecondsRemaining((prev) => {
@@ -93,6 +112,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   }, []);
 
   const currentStageText =
+    stageText ||
     LOADING_STAGES.find((s) => progress <= s.progress)?.text ||
     'Sẵn sàng xuất phát!';
 
@@ -211,7 +231,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       {/* Banner Quảng Cáo Adsterra Ở Đáy Màn Hình Splash */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative z-20 w-full max-w-4xl mx-auto pt-2 border-t border-slate-900/70 flex items-center justify-center shrink-0 cursor-default"
+        className="relative z-20 w-full max-w-4xl mx-auto pt-2 flex items-center justify-center shrink-0 cursor-default"
       >
         <AdBanner
           format="header_top"

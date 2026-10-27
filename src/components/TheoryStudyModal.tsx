@@ -8,17 +8,20 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
-  Search,
   Award,
   Flame,
   FileText,
   X,
-  Eye,
   Sparkles,
   Check,
   Filter,
 } from 'lucide-react';
 import { AdBanner } from './AdBanner';
+import {
+  getTheoryQuestionsPerAd,
+  getCachedTheoryDataset,
+  setCachedTheoryDataset,
+} from '../services/appConfig';
 
 export interface TheoryAnswer {
   id: number;
@@ -254,8 +257,10 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
   onClose,
   defaultCategory = 'B',
 }) => {
-  const [dataset, setDataset] = useState<TheoryDataset | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Dữ liệu 600 câu hỏi và cấu hình số câu đổi ads được nạp tức thì từ Splash (0ms độ trễ)
+  const cachedData = getCachedTheoryDataset();
+  const [dataset, setDataset] = useState<TheoryDataset | null>(() => cachedData);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !cachedData);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Top-level tab: 'PRACTICE' (Ôn tập) | 'EXAM' (Thi thử)
@@ -265,7 +270,6 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
   const [selectedChapter, setSelectedChapter] = useState<
     'all' | 'critical' | 'wrong' | number
   >('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [practiceIndex, setPracticeIndex] = useState<number>(0);
   const [practiceAnswers, setPracticeAnswers] = useState<
     Record<number, number>
@@ -277,9 +281,9 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
       return {};
     }
   });
-  const [instantRevealAnswer, setInstantRevealAnswer] =
-    useState<boolean>(false);
-  const [autoNextOnSelect, setAutoNextOnSelect] = useState<boolean>(false);
+
+  // Tần suất đổi quảng cáo theo số câu hỏi (Đã nạp sẵn từ Splash, 0ms, mặc định 5 câu)
+  const [questionsPerAd] = useState<number>(() => getTheoryQuestionsPerAd());
 
   // Exam state
   const [selectedLicenseClass, setSelectedLicenseClass] =
@@ -308,9 +312,15 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
     }
   }, [defaultCategory]);
 
-  // Fetch 600 questions JSON once when modal opens
+  // Dự phòng: chỉ nạp qua mạng nếu chưa có sẵn từ Splash
   useEffect(() => {
     if (!isOpen || dataset) return;
+    const cached = getCachedTheoryDataset();
+    if (cached) {
+      setDataset(cached);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setLoadError(null);
     fetch('/data/questions600.json')
@@ -320,6 +330,7 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
       })
       .then((data: TheoryDataset) => {
         setDataset(data);
+        setCachedTheoryDataset(data);
         setIsLoading(false);
       })
       .catch((err) => {
@@ -359,33 +370,13 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
       list = list.filter((q) => q.chapter === selectedChapter);
     }
 
-    const trimmed = searchQuery.trim().toLowerCase();
-    if (trimmed) {
-      const numMatch = trimmed.replace(/^câu\s*/i, '');
-      const exactNum = Number(numMatch);
-      if (!Number.isNaN(exactNum) && exactNum >= 1 && exactNum <= 600) {
-        list = list.filter(
-          (q) =>
-            q.number === exactNum ||
-            q.questionText.toLowerCase().includes(trimmed)
-        );
-      } else {
-        list = list.filter(
-          (q) =>
-            q.questionText.toLowerCase().includes(trimmed) ||
-            q.explanation.toLowerCase().includes(trimmed) ||
-            q.answers.some((a) => a.text.toLowerCase().includes(trimmed))
-        );
-      }
-    }
-
     return list;
-  }, [dataset, selectedChapter, searchQuery, practiceAnswers]);
+  }, [dataset, selectedChapter, practiceAnswers]);
 
   // Clamp practiceIndex when filter changes
   useEffect(() => {
     setPracticeIndex(0);
-  }, [selectedChapter, searchQuery]);
+  }, [selectedChapter]);
 
   const currentPracticeQuestion =
     filteredPracticeQuestions[practiceIndex] || null;
@@ -645,30 +636,6 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
                   `Chương ${question.chapter}`}
               </span>
             </div>
-
-            {activeTab === 'PRACTICE' && (
-              <div className="flex items-center gap-3 text-xs">
-                <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={instantRevealAnswer}
-                    onChange={(e) => setInstantRevealAnswer(e.target.checked)}
-                    className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
-                  />
-                  <span>Hiện đáp án</span>
-                </label>
-
-                <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={autoNextOnSelect}
-                    onChange={(e) => setAutoNextOnSelect(e.target.checked)}
-                    className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
-                  />
-                  <span>Tự qua câu</span>
-                </label>
-              </div>
-            )}
           </div>
 
           {/* Question Prompt Text */}
@@ -790,6 +757,18 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Banner Quảng Cáo Tự Đổi Cứ Mỗi N Câu Hỏi (Mặc định 5 câu hoặc theo cấu hình Firebase) */}
+        <div className="pt-2 flex justify-center shrink-0">
+          <div className="w-full max-w-[468px] overflow-hidden flex justify-center scale-90 sm:scale-100 origin-center">
+            <AdBanner
+              key={`theory_q_ad_batch_${Math.floor((displayIndex - 1) / (questionsPerAd || 5))}`}
+              format="header_top"
+              closable
+              slotId={`theory_q_slot_${Math.floor((displayIndex - 1) / (questionsPerAd || 5))}`}
+            />
+          </div>
+        </div>
       </div>
     );
   };
@@ -807,9 +786,13 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
           </h2>
         </div>
 
-        {/* Vị trí 2: Header Top Ad Banner - only on large screens */}
+        {/* Vị trí 2: Header Top Ad Banner - tự đổi sau mỗi N câu */}
         <div className="hidden lg:flex flex-1 justify-center max-w-[440px] mx-2">
-          <AdBanner format="header_top" closable />
+          <AdBanner
+            key={`theory_header_ad_batch_${activeTab === 'PRACTICE' ? Math.floor(practiceIndex / (questionsPerAd || 5)) : Math.floor(examIndex / (questionsPerAd || 5))}`}
+            format="header_top"
+            closable
+          />
         </div>
 
         {/* Mode Switcher Tabs */}
@@ -935,27 +918,6 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
                     <option value="5">Chương 5: Báo hiệu đường bộ (185)</option>
                     <option value="6">Chương 6: Sa hình & Tình huống (115)</option>
                   </select>
-
-                  {/* Search Input */}
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm số câu hoặc từ khóa..."
-                      className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -1015,23 +977,12 @@ export const TheoryStudyModal: React.FC<TheoryStudyModalProps> = ({
                   practiceIndex + 1,
                   filteredPracticeQuestions.length,
                   practiceAnswers[currentPracticeQuestion.id],
-                  instantRevealAnswer ||
-                    practiceAnswers[currentPracticeQuestion.id] !== undefined,
+                  practiceAnswers[currentPracticeQuestion.id] !== undefined,
                   (ansId) => {
                     setPracticeAnswers((prev) => ({
                       ...prev,
                       [currentPracticeQuestion.id]: ansId,
                     }));
-                    if (
-                      autoNextOnSelect &&
-                      practiceIndex < filteredPracticeQuestions.length - 1
-                    ) {
-                      window.setTimeout(() => {
-                        setPracticeIndex((p) =>
-                          Math.min(filteredPracticeQuestions.length - 1, p + 1)
-                        );
-                      }, 450);
-                    }
                   },
                   () => setPracticeIndex((prev) => Math.max(0, prev - 1)),
                   () =>

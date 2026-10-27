@@ -1101,9 +1101,11 @@ export default function App() {
                       {playsRemaining}/{dailyLimit + bonusPlays}
                     </span>
                     {playsRemaining === 0 ? (
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-400/50 text-[10px] font-black animate-pulse">
-                        <Tv className="w-3 h-3 text-amber-300" />
-                        <span>Xem Ads +{rewardBonusPlaysCount}</span>
+                      <span
+                        className="flex items-center justify-center p-1 rounded bg-amber-500/25 text-amber-300 border border-amber-400/50 animate-pulse"
+                        title="Xem quảng cáo để tiếp tục thi"
+                      >
+                        <Tv className="w-3.5 h-3.5 text-amber-300" />
                       </span>
                     ) : (
                       <span className="text-[10px] text-slate-400 font-normal">

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './AuthContext';
 import { fetchDailyPlayLimit, fetchGuestTrialMinutes, fetchRewardBonusPlays, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getAppConfig } from '../services/appConfig';
 
 interface DailyPlayLimitContextType {
   dailyLimit: number;
@@ -34,11 +35,11 @@ function getLocalDateKey(): string {
 
 export const DailyPlayLimitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, isAdmin, isVip, enableVipFeatures } = useAuth();
-  const [dailyLimit, setDailyLimit] = useState<number>(3);
-  const [guestTrialMinutes, setGuestTrialMinutes] = useState<number>(3);
+  const [dailyLimit, setDailyLimit] = useState<number>(() => getAppConfig().dailyPlayLimit);
+  const [guestTrialMinutes, setGuestTrialMinutes] = useState<number>(() => getAppConfig().guestTrialMinutes);
   const [playsUsed, setPlaysUsed] = useState<number>(0);
   const [bonusPlays, setBonusPlays] = useState<number>(0);
-  const [rewardBonusPlaysCount, setRewardBonusPlaysCount] = useState<number>(3);
+  const [rewardBonusPlaysCount, setRewardBonusPlaysCount] = useState<number>(() => getAppConfig().rewardBonusPlays);
   const [isOutOfPlaysModalOpen, setIsOutOfPlaysModalOpen] = useState<boolean>(false);
   const [timeUntilMidnightVi, setTimeUntilMidnightVi] = useState<string>('');
 

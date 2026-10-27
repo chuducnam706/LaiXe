@@ -6,8 +6,6 @@ import {
   BookOpen,
   Crown,
   ArrowRight,
-  Play,
-  Sparkles,
   CheckCircle2,
   Tv,
 } from 'lucide-react';
@@ -15,7 +13,6 @@ import { useDailyPlayLimit } from '../context/DailyPlayLimitContext';
 import { useAuth } from '../context/AuthContext';
 import { RedeemVipModal } from './RedeemVipModal';
 import { AdBanner } from './AdBanner';
-import { triggerAdBreak } from '../utils/ads';
 
 interface OutOfPlaysModalProps {
   isOpen: boolean;
@@ -40,63 +37,53 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
   const { enableVipFeatures } = useAuth();
   const [isRedeemOpen, setIsRedeemOpen] = useState(false);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
-  const [simulatedCountdown, setSimulatedCountdown] = useState<number | null>(null);
+  const [adCountdown, setAdCountdown] = useState<number>(10);
   const [rewardSuccessMsg, setRewardSuccessMsg] = useState<string | null>(null);
 
-  // Simulated countdown for local test environment
+  // Bộ đếm lùi 10 giây khi mở popup quảng cáo có thưởng
   useEffect(() => {
-    if (simulatedCountdown === null) return;
-    if (simulatedCountdown <= 0) {
-      // Completed simulated ad
-      setSimulatedCountdown(null);
-      setIsWatchingAd(false);
-      handleGrantReward();
+    if (!isWatchingAd) return;
+
+    if (adCountdown <= 0) {
       return;
     }
+
     const timer = setTimeout(() => {
-      setSimulatedCountdown((prev) => (prev !== null ? prev - 1 : null));
+      setAdCountdown((prev) => Math.max(0, prev - 1));
     }, 1000);
+
     return () => clearTimeout(timer);
-  }, [simulatedCountdown]);
+  }, [isWatchingAd, adCountdown]);
 
   if (!isOpen || isUnlimited) return null;
 
-  const handleGrantReward = async () => {
-    const newTotal = await addBonusPlays(rewardBonusPlaysCount);
-    setRewardSuccessMsg(`+${rewardBonusPlaysCount} lượt thi sa hình đã được cộng vào tài khoản hôm nay!`);
+  const handleOpenRewardedAd = () => {
+    setAdCountdown(10);
+    setIsWatchingAd(true);
+  };
+
+  const handleClaimReward = async () => {
+    await addBonusPlays(rewardBonusPlaysCount);
+    setIsWatchingAd(false);
+    setRewardSuccessMsg('Đã mở khóa lượt thi sa hình thành công!');
     setTimeout(() => {
       setRewardSuccessMsg(null);
       onClose();
-    }, 1800);
+    }, 1500);
   };
 
-  const handleWatchRewardedAd = () => {
-    setIsWatchingAd(true);
-    triggerAdBreak('reward', 'extra_daily_plays', {
-      beforeReward: (showAdFn) => {
-        showAdFn();
-      },
-      adViewed: async () => {
+  const handleCloseAdOverlay = () => {
+    if (adCountdown > 0) {
+      if (
+        window.confirm(
+          'Bạn chưa xem hết quảng cáo! Nếu đóng bây giờ, lượt thi sẽ không được mở khóa. Bạn có chắc muốn đóng?'
+        )
+      ) {
         setIsWatchingAd(false);
-        await handleGrantReward();
-      },
-      adDismissed: () => {
-        setIsWatchingAd(false);
-      },
-      adBreakDone: (info: any) => {
-        // Nếu chạy ở môi trường Local dev hoặc AFG chưa có quảng cáo thật của Google,
-        // kích hoạt chế độ mô phỏng 5 giây để test mượt mà tính năng nhận thưởng!
-        if (
-          info?.breakStatus === 'not_ready' ||
-          info?.breakStatus === 'disabled_by_remote_config' ||
-          !info?.breakStatus
-        ) {
-          setSimulatedCountdown(5);
-        } else {
-          setIsWatchingAd(false);
-        }
-      },
-    });
+      }
+    } else {
+      handleClaimReward();
+    }
   };
 
   return (
@@ -124,7 +111,7 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
 
           {/* Content Body */}
           <div className="p-6 space-y-4">
-            {/* Usage Info */}
+            {/* Usage Info (không ghi cộng bao nhiêu lượt) */}
             <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">Số lượt đã sử dụng:</span>
@@ -132,16 +119,6 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
                   {playsUsed} / {dailyLimit + bonusPlays} lượt
                 </span>
               </div>
-
-              {bonusPlays > 0 && (
-                <div className="flex items-center justify-between text-xs text-emerald-400 font-medium">
-                  <span className="flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Lượt thưởng đã nhận từ Ads:
-                  </span>
-                  <span className="font-mono font-bold">+{bonusPlays} lượt</span>
-                </div>
-              )}
 
               <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-800/80">
                 <span className="text-slate-400 flex items-center gap-1.5">
@@ -162,7 +139,7 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
               </div>
             )}
 
-            {/* Thẻ Quảng Cáo Tặng Thưởng (Rewarded Video Ad) */}
+            {/* Thẻ Quảng Cáo Tặng Thưởng (Chỉ hiện icon Ads, không ghi cộng bao nhiêu lượt) */}
             <div className="relative overflow-hidden p-4 rounded-2xl bg-gradient-to-br from-emerald-950/70 via-slate-950 to-teal-950/50 border-2 border-emerald-500/50 shadow-xl shadow-emerald-950/40 flex flex-col gap-3 group">
               <div className="absolute -top-10 -right-10 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />
 
@@ -173,14 +150,14 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
                     <h3 className="text-sm font-bold text-white tracking-wide">
-                      Xem Video Nhận +{rewardBonusPlaysCount} Lượt Thi
+                      Xem Quảng Cáo Để Tiếp Tục Thi
                     </h3>
                     <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase tracking-wider shrink-0">
                       Ads
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-                    Xem 1 video ngắn (15s) để mở khóa ngay +{rewardBonusPlaysCount} lượt thi tiếp tục thực hành.
+                    Xem 1 quảng cáo ngắn để mở khóa lượt thi tiếp tục thực hành sa hình.
                   </p>
                 </div>
               </div>
@@ -188,25 +165,11 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
               <button
                 type="button"
                 disabled={isWatchingAd || rewardSuccessMsg !== null}
-                onClick={handleWatchRewardedAd}
+                onClick={handleOpenRewardedAd}
                 className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:via-teal-400 hover:to-cyan-400 text-slate-950 text-xs font-black shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {simulatedCountdown !== null ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                    <span>Đang xem quảng cáo ({simulatedCountdown}s)...</span>
-                  </>
-                ) : isWatchingAd ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-                    <span>Đang tải video có thưởng...</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 fill-slate-950" />
-                    <span>XEM VIDEO NHẬN NGAY +{rewardBonusPlaysCount} LƯỢT</span>
-                  </>
-                )}
+                <Tv className="w-4 h-4 fill-slate-950" />
+                <span>XEM QUẢNG CÁO ĐỂ THI TIẾP</span>
               </button>
             </div>
 
@@ -250,7 +213,7 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
             </div>
 
             {/* Banner Quảng Cáo Bottom */}
-            <div className="pt-2 border-t border-slate-800/80 flex justify-center">
+            <div className="pt-2 flex justify-center">
               <AdBanner
                 format="horizontal_leaderboard"
                 slotId="out_of_plays_bottom_banner"
@@ -260,6 +223,99 @@ export const OutOfPlaysModal: React.FC<OutOfPlaysModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Overlay Xem Quảng Cáo 10s (Rewarded Ad Overlay Cách 2) */}
+      {isWatchingAd && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200 pointer-events-auto">
+          <div className="w-full max-w-lg bg-slate-900 border border-emerald-500/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-950 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Tv className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Xem Quảng Cáo Mở Khóa Lượt Thi</span>
+                    <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase tracking-wider">
+                      Ads
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    {adCountdown > 0
+                      ? `Vui lòng xem trong ${adCountdown} giây để mở khóa...`
+                      : 'Đã hoàn thành! Bấm nút bên dưới để mở khóa lượt thi'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCloseAdOverlay}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Đóng quảng cáo"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-800 h-1.5 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-1000 ease-linear"
+                style={{ width: `${((10 - adCountdown) / 10) * 100}%` }}
+              />
+            </div>
+
+            {/* Banner Quảng Cáo */}
+            <div className="p-4 sm:p-6 flex flex-col items-center justify-center min-h-[220px] bg-slate-950/70">
+              <div className="w-full flex justify-center py-2">
+                <AdBanner
+                  format="header_top"
+                  closable={false}
+                  slotId="rewarded_ad_overlay"
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3">
+              <div className="text-xs">
+                {adCountdown > 0 ? (
+                  <span className="flex items-center gap-1.5 text-amber-300 font-medium">
+                    <Clock className="w-4 h-4 animate-spin text-amber-400" />
+                    Đang xem: <strong className="font-mono text-white text-sm">{adCountdown}s</strong>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Đã xem xong quảng cáo!
+                  </span>
+                )}
+              </div>
+
+              <button
+                disabled={adCountdown > 0}
+                onClick={handleClaimReward}
+                className={`py-2 px-5 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                  adCountdown > 0
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                    : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 hover:brightness-110 shadow-lg shadow-emerald-500/30 cursor-pointer animate-pulse'
+                }`}
+              >
+                {adCountdown > 0 ? (
+                  <span>CHỜ {adCountdown}S</span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 fill-slate-950 text-emerald-400" />
+                    <span>MỞ KHÓA LƯỢT THI NGAY</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <RedeemVipModal
         isOpen={isRedeemOpen}

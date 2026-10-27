@@ -52,6 +52,7 @@ import {
   SA_HINH_BLUEPRINT_ZONES,
 } from '../data/saHinhBlueprintData';
 import { VIETNAMESE_LICENSE_CATEGORIES_SPEC } from '../data/vehicleProfiles';
+import { AdBanner } from './AdBanner';
 
 interface CourseSelectionModalProps {
   isOpen: boolean;
@@ -189,13 +190,19 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 pointer-events-auto">
       <div className="w-full max-w-6xl h-[90vh] flex flex-col rounded-xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
         {/* Top Bar */}
-        <div className="flex items-center justify-between px-6 py-3.5 bg-slate-950 border-b border-slate-800">
-          <h2 className="text-base sm:text-lg font-bold text-white">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-3.5 bg-slate-950 border-b border-slate-800 gap-3">
+          <h2 className="text-base sm:text-lg font-bold text-white shrink-0">
             Chọn Bài Thi Sa Hình
           </h2>
+
+          {/* Desktop/Tablet Sponsored Banner (Hidden on small mobile) */}
+          <div className="hidden md:flex items-center justify-center flex-1 max-w-[500px]">
+            <AdBanner format="header_top" closable slotId="course_modal_header" />
+          </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors shrink-0"
             aria-label="Đóng cửa sổ"
           >
             <X className="w-5 h-5" />
@@ -412,6 +419,11 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                       Bắt Đầu Bài Này
                     </button>
                   </div>
+                </div>
+
+                {/* Mobile-Only Sponsored Banner (Shown under Action Bar on Mobile) */}
+                <div className="flex md:hidden items-center justify-center my-2">
+                  <AdBanner format="header_top" closable slotId="course_modal_mobile_body" />
                 </div>
 
                 {/* Step-by-Step Vietnamese Instructions */}
