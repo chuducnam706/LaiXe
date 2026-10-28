@@ -1,8 +1,7 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <!-- BẢO MẬT: Chặn MIME sniffing, bảo vệ referrer (CSP upgrade-insecure-requests đã bỏ để cho phép truy cập LAN) -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -11,13 +10,44 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="screen-orientation" content="landscape" />
     <meta name="x5-orientation" content="landscape" />
+    
+    <!-- SEO & Canonical Configuration -->
+    <link rel="canonical" href="https://sahinh3d.id.vn/" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+
     <link rel="manifest" href="/manifest.json" />
     <title>Mô Phỏng Đào Tạo & Sát Hạch Lái Xe 3D — 11 Bài Thi Sa Hình (Desktop & Mobile)</title>
     <meta name="description" content="Trình mô phỏng vật lý xe ô tô 3D và hệ thống chấm điểm 11 bài thi sát hạch lái xe trong hình theo quy chuẩn Việt Nam (hỗ trợ Desktop & Cảm ứng Mobile)." />
+    
+    <!-- Open Graph & Social Sharing -->
+    <meta property="og:url" content="https://sahinh3d.id.vn/" />
     <meta property="og:title" content="Mô Phỏng Đào Tạo & Sát Hạch Lái Xe 3D — 11 Bài Thi Sa Hình (Desktop & Mobile)" />
     <meta property="og:description" content="Trình mô phỏng vật lý xe ô tô 3D và hệ thống chấm điểm 11 bài thi sát hạch lái xe trong hình theo quy chuẩn Việt Nam (hỗ trợ Desktop & Cảm ứng Mobile)." />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="vi_VN" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mô Phỏng Đào Tạo & Sát Hạch Lái Xe 3D — 11 Bài Thi Sa Hình" />
+    <meta name="twitter:description" content="Trình mô phỏng vật lý xe ô tô 3D và hệ thống chấm điểm 11 bài thi sát hạch lái xe trong hình theo quy chuẩn Việt Nam." />
+
+    <!-- Google Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Mô Phỏng Sa Hình 3D",
+      "url": "https://sahinh3d.id.vn/",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All",
+      "description": "Trình mô phỏng vật lý xe ô tô 3D và hệ thống chấm điểm 11 bài thi sát hạch lái xe trong hình theo quy chuẩn Việt Nam.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "VND"
+      }
+    }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -26,8 +56,14 @@
     <meta name="monetag" content="74be4e801b9bab2f8c586c0280b06538" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Nội dung SEO tĩnh ban đầu cho crawler / Googlebot (React sẽ mount đè lên khi load xong) -->
+    <div id="root">
+      <header style="text-align: center; padding: 2rem; font-family: sans-serif;">
+        <h1>Mô Phỏng Đào Tạo & Sát Hạch Lái Xe 3D</h1>
+        <p>Phần mềm mô phỏng 11 bài thi sát hạch lái xe ô tô sa hình hạng B1, B2 theo tiêu chuẩn.</p>
+        <p>Đang tải dữ liệu mô phỏng 3D...</p>
+      </header>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
