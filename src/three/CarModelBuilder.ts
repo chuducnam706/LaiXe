@@ -539,6 +539,7 @@ export function buildRealisticTrainingCar(
     clearcoat: 1.0,
     clearcoatRoughness: 0.05,
     reflectivity: 0.92,
+    side: THREE.DoubleSide,
   });
 
   const secondaryPaintMat = new THREE.MeshPhysicalMaterial({
@@ -547,12 +548,14 @@ export function buildRealisticTrainingCar(
     roughness: 0.28,
     clearcoat: 0.85,
     clearcoatRoughness: 0.1,
+    side: THREE.DoubleSide,
   });
 
   const satinBlackTrimMat = new THREE.MeshStandardMaterial({
     color: 0x111827,
     roughness: 0.52,
     metalness: 0.25,
+    side: THREE.DoubleSide,
   });
 
   const chromeMat = new THREE.MeshPhysicalMaterial({
@@ -673,20 +676,21 @@ export function buildRealisticTrainingCar(
   rearPlate.position.set(0, 0.04, 1.81);
   sedanAuxiliaryGroup.add(frontPlate, rearPlate);
 
-  // Live 3D Reflective Glass Planes on Hạng B Sedan Left & Right Wing Mirrors (facing +Z toward driver at A-pillar corner)
+  // Live 3D Reflective Glass Planes on Hạng B Sedan Left & Right Wing Mirrors (facing +Z toward driver)
+  // Elevated cleanly above the door beltline (y = 0.508m) with generous 18.5cm x 11.2cm surface for crystal-clear cockpit visibility
   const sedanLeftMirrorGlass = new THREE.Mesh(
-    createMirroredPlaneGeometry(0.168, 0.098),
+    createMirroredPlaneGeometry(0.185, 0.112),
     leftMirrorSurfaceMat
   );
-  sedanLeftMirrorGlass.position.set(-0.775, 0.438, -0.652);
-  sedanLeftMirrorGlass.rotation.y = 0.28;
+  sedanLeftMirrorGlass.position.set(-0.805, 0.508, -0.445);
+  sedanLeftMirrorGlass.rotation.y = 0.24;
 
   const sedanRightMirrorGlass = new THREE.Mesh(
-    createMirroredPlaneGeometry(0.168, 0.098),
+    createMirroredPlaneGeometry(0.185, 0.112),
     rightMirrorSurfaceMat
   );
-  sedanRightMirrorGlass.position.set(0.775, 0.438, -0.652);
-  sedanRightMirrorGlass.rotation.y = -0.28;
+  sedanRightMirrorGlass.position.set(0.805, 0.508, -0.445);
+  sedanRightMirrorGlass.rotation.y = -0.24;
 
   // Blue Square "TẬP LÁI" Sign Plate on Rear of Hạng B 4-Seater Training Sedan
   const sedanTapLaiMat = new THREE.MeshStandardMaterial({
@@ -1217,6 +1221,30 @@ export function buildRealisticTrainingCar(
   );
   cockpitGroup.add(rearViewMirrorGroup);
 
+  // 3E. Solid Dark Alcantara Interior Roof Headliner & Sun Visor Header Bar
+  //     Prevents looking up through the roof into the sky when dragging the camera upward in cockpit view!
+  const headlinerMat = new THREE.MeshStandardMaterial({
+    color: 0x0f172a,
+    roughness: 0.9,
+    metalness: 0.05,
+    side: THREE.DoubleSide,
+  });
+  const roofHeadlinerCanopy = new THREE.Mesh(
+    new THREE.BoxGeometry(1.16, 0.025, 1.38),
+    headlinerMat
+  );
+  roofHeadlinerCanopy.name = 'InteriorRoofHeadlinerCanopy';
+  roofHeadlinerCanopy.position.set(0, 0.72, 0.08);
+  cockpitGroup.add(roofHeadlinerCanopy);
+
+  const windshieldTopHeaderBar = new THREE.Mesh(
+    new THREE.BoxGeometry(1.14, 0.065, 0.16),
+    headlinerMat
+  );
+  windshieldTopHeaderBar.position.set(0, 0.68, -0.56);
+  windshieldTopHeaderBar.rotation.x = 0.42;
+  cockpitGroup.add(windshieldTopHeaderBar);
+
   const clutchPedalPivot = new THREE.Group();
   const brakePedalPivot = new THREE.Group();
   const throttlePedalPivot = new THREE.Group();
@@ -1502,7 +1530,7 @@ export function loadGlbModelIntoCarRig(
         }
       }
 
-      // Shift Left & Right Wing Mirror Housings forward along the door beltline to the A-pillar corner (z = -0.65m)
+      // Position Left & Right Wing Mirror Housings cleanly above the door beltline so the entire mirror is visible above the door trim
       for (const mirNodeName of [
         'BodyDoorLMirror',
         'BodyDoorLMirrorColor1',
@@ -1513,8 +1541,8 @@ export function loadGlbModelIntoCarRig(
       ]) {
         const mirNode = gltfScene.getObjectByName(mirNodeName);
         if (mirNode) {
-          mirNode.position.y -= 0.44;
-          mirNode.position.z -= 0.014;
+          mirNode.position.y -= 0.15;
+          mirNode.position.z += 0.06;
         }
       }
 
@@ -1645,8 +1673,16 @@ export function loadGlbModelIntoCarRig(
               mesh.name === 'BodyWindshield' ||
               mesh.name === 'BodyRearwindow'
             ) {
-              mesh.material = rig.tintedGlassMat;
-              mesh.renderOrder = 2;
+              // Roof glass / top canopy stays solid dark interior headliner from inside while windshield/side windows use tintedGlassMat
+              if (
+                mesh.name.toLowerCase().includes('roof') ||
+                mesh.name.toLowerCase().includes('top')
+              ) {
+                mesh.material = rig.secondaryPaintMat;
+              } else {
+                mesh.material = rig.tintedGlassMat;
+                mesh.renderOrder = 2;
+              }
             } else if (matName === 'Headlight' || mesh.name === 'BodyHeadlights') {
               mesh.material = rig.headlightLensMat;
             } else if (matName === 'Brakelight' || mesh.name === 'BodyTaillights') {

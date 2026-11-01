@@ -4550,8 +4550,8 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         );
         cockpitLookPitch = THREE.MathUtils.clamp(
           cockpitLookPitch - dy * 0.005,
-          -0.45,
-          0.45
+          -0.32,
+          0.16
         );
       }
     };
@@ -4597,8 +4597,8 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         );
         cockpitLookPitch = THREE.MathUtils.clamp(
           cockpitLookPitch - dy * 0.0055,
-          -0.45,
-          0.45
+          -0.32,
+          0.16
         );
       }
     };
@@ -5294,7 +5294,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
       //    eliminating the floating rectangular mirror and stalk obstructing the windshield.
       const isTruckCockpit = carRig.truckModelHolder.visible;
       const targetNear = isCockpitCam ? 0.05 : 0.25;
-      const targetFov = isCockpitCam ? (isTruckCockpit ? 62 : 76) : 54;
+      const targetFov = isCockpitCam ? (isTruckCockpit ? 62 : 78) : 54;
       if (
         Math.abs(camera.near - targetNear) > 0.01 ||
         Math.abs(camera.fov - targetFov) > 0.1
@@ -5332,11 +5332,12 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         const isTruck3D = carRig.truckModelHolder.visible;
         const bScale = carRig.bodyModelHolder.scale;
         const bOffsetY = carRig.bodyModelHolder.position.y;
-        // Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.27m) and Hạng C Truck (-0.34m):
-        // Positioned cleanly below the sloped A-pillar roof rail so the side window and full left wing mirror are completely unobstructed!
-        const eyeXLocal = isTruck3D ? -0.34 : -0.27;
-        const eyeHeightLocal = isTruck3D ? 0.82 : 0.455;
-        const eyeZLocal = isTruck3D ? -1.12 : -0.06;
+        // Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.32m) and Hạng C Truck (-0.34m):
+        // Seated in front of the driver seat backrest (eyeZLocal = -0.18m) with wide 78° FOV so the seat never blocks the view
+        // while the left wing mirror is clearly visible out the side window.
+        const eyeXLocal = isTruck3D ? -0.34 : -0.32;
+        const eyeHeightLocal = isTruck3D ? 0.82 : 0.49;
+        const eyeZLocal = isTruck3D ? -1.12 : -0.18;
         const localEye = new THREE.Vector3(
           eyeXLocal * bScale.x,
           eyeHeightLocal * bScale.y + bOffsetY,
@@ -5349,7 +5350,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         // so steering left/right (A/D) NEVER sways or shakes the screen!
         const steerLookYaw = cockpitLookYaw;
         const lookDist = 14.0;
-        const basePitchDrop = isTruck3D ? 1.85 : 1.15;
+        const basePitchDrop = isTruck3D ? 1.85 : 1.35;
         const lookForward = new THREE.Vector3(
           eyeXLocal * bScale.x - Math.sin(steerLookYaw) * lookDist,
           eyeHeightLocal * bScale.y +
@@ -5670,16 +5671,16 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
 
           // 1. Left Wing Mirror Camera
           _mirrorLocalPos.set(
-            (isTruck3D ? -0.96 : -0.82) * bScale.x,
-            (isTruck3D ? 0.48 : 0.44) * bScale.y + bOffsetY,
-            (isTruck3D ? -1.55 : -0.45) * bScale.z
+            (isTruck3D ? -0.96 : -0.86) * bScale.x,
+            (isTruck3D ? 0.48 : 0.50) * bScale.y + bOffsetY,
+            (isTruck3D ? -1.55 : -0.44) * bScale.z
           );
           _mirrorLocalPos.applyQuaternion(chassisQuat);
           leftMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
 
           _mirrorLocalTarget.set(
-            (isTruck3D ? -0.70 : -0.58) * bScale.x,
-            -0.26 * bScale.y + bOffsetY,
+            (isTruck3D ? -0.70 : -0.92) * bScale.x,
+            (isTruck3D ? -0.26 : -0.52) * bScale.y + bOffsetY,
             10.5 * bScale.z
           );
           _mirrorLocalTarget.applyQuaternion(chassisQuat);
@@ -5706,16 +5707,16 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
 
           // 3. Right Wing Mirror Camera
           _mirrorLocalPos.set(
-            (isTruck3D ? 0.96 : 0.82) * bScale.x,
-            (isTruck3D ? 0.48 : 0.44) * bScale.y + bOffsetY,
-            (isTruck3D ? -1.55 : -0.45) * bScale.z
+            (isTruck3D ? 0.96 : 0.86) * bScale.x,
+            (isTruck3D ? 0.48 : 0.50) * bScale.y + bOffsetY,
+            (isTruck3D ? -1.55 : -0.44) * bScale.z
           );
           _mirrorLocalPos.applyQuaternion(chassisQuat);
           rightMirrorCam.position.copy(phys.position).add(_mirrorLocalPos);
 
           _mirrorLocalTarget.set(
-            (isTruck3D ? 0.70 : 0.58) * bScale.x,
-            -0.26 * bScale.y + bOffsetY,
+            (isTruck3D ? 0.70 : 0.92) * bScale.x,
+            (isTruck3D ? -0.26 : -0.52) * bScale.y + bOffsetY,
             10.5 * bScale.z
           );
           _mirrorLocalTarget.applyQuaternion(chassisQuat);

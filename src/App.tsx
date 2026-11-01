@@ -1500,40 +1500,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* Start Line Ready / Go Indicator Banner */}
-              {exerciseState.mode !== 'FREE_PRACTICE' &&
-                exerciseState.activeStationNumber === 1 &&
-                !exerciseState.hasPassedStartLine &&
-                !failureNotice && (
-                  <div className="pointer-events-auto px-4 py-2.5 rounded-2xl bg-slate-950/85 backdrop-blur-xl border border-emerald-500/40 shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex items-center gap-3 text-white transition-all max-w-xl">
-                    <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-400/40 text-emerald-300 shrink-0 shadow-inner">
-                      <span className="text-lg leading-none">🚦</span>
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-sky-200 uppercase">
-                          SẴN SÀNG XUẤT PHÁT (BÀI 1)
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                          {telemetry.speedKmh < 0.5 ? 'XE ĐANG ĐỨNG YÊN' : 'ĐANG LĂN BÁNH'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-300 flex items-center gap-2 flex-wrap mt-0.5">
-                        <span>
-                          Chờ tín hiệu <strong className="text-emerald-300 font-bold">"BÍP"</strong> rồi nhấn <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-white text-[10px] shadow-sm">W</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-white text-[10px] shadow-sm">↑</kbd> để xuất phát
-                        </span>
-                        {telemetry.turnSignal !== 'LEFT' && (
-                          <span className="inline-flex items-center gap-1 text-amber-300 font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-[10px]">
-                            ⚠️ Cần bật xi-nhan Trái (Z)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
               {/* Stop Zone Prompt */}
               {exerciseState.isInsideStopZone && telemetry.speedKmh > 0.8 && (
                 <div className="pointer-events-auto px-3 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-extrabold shadow-lg animate-pulse">
