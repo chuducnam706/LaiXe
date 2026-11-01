@@ -5325,11 +5325,12 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         const isTruck3D = carRig.truckModelHolder.visible;
         const bScale = carRig.bodyModelHolder.scale;
         const bOffsetY = carRig.bodyModelHolder.position.y;
-        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.32m) and Hạng C Truck (-0.34m):
-        // High seating posture looking cleanly out the windshield while framing the full 360° round steering wheel.
-        const eyeXLocal = isTruck3D ? -0.34 : -0.32;
-        const eyeHeightLocal = isTruck3D ? 0.82 : 0.52;
-        const eyeZLocal = isTruck3D ? -1.12 : -0.12;
+        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.31m) and Hạng C Truck (-0.34m):
+        // Seated further back on Hạng B Sedan (eyeZLocal = +0.08m instead of -0.12m) so the left wing mirror and full steering wheel
+        // are naturally visible inside the driver's field of view without colliding with the seat headrest.
+        const eyeXLocal = isTruck3D ? -0.34 : -0.31;
+        const eyeHeightLocal = isTruck3D ? 0.82 : 0.51;
+        const eyeZLocal = isTruck3D ? -1.12 : 0.08;
         const localEye = new THREE.Vector3(
           eyeXLocal * bScale.x,
           eyeHeightLocal * bScale.y + bOffsetY,
@@ -5342,7 +5343,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         // so steering left/right (A/D) NEVER sways or shakes the screen!
         const steerLookYaw = cockpitLookYaw;
         const lookDist = 14.0;
-        const basePitchDrop = isTruck3D ? 1.85 : 1.70;
+        const basePitchDrop = isTruck3D ? 1.85 : 1.42;
         const lookForward = new THREE.Vector3(
           eyeXLocal * bScale.x - Math.sin(steerLookYaw) * lookDist,
           eyeHeightLocal * bScale.y +
