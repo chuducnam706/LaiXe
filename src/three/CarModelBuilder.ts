@@ -673,20 +673,20 @@ export function buildRealisticTrainingCar(
   rearPlate.position.set(0, 0.04, 1.81);
   sedanAuxiliaryGroup.add(frontPlate, rearPlate);
 
-  // Live 3D Reflective Glass Planes on Hạng B Sedan Left & Right Wing Mirrors (facing +Z toward driver)
+  // Live 3D Reflective Glass Planes on Hạng B Sedan Left & Right Wing Mirrors (facing +Z toward driver at A-pillar corner)
   const sedanLeftMirrorGlass = new THREE.Mesh(
-    createMirroredPlaneGeometry(0.145, 0.076),
+    createMirroredPlaneGeometry(0.168, 0.098),
     leftMirrorSurfaceMat
   );
-  sedanLeftMirrorGlass.position.set(-0.798, 0.452, -0.452);
-  sedanLeftMirrorGlass.rotation.y = 0.18;
+  sedanLeftMirrorGlass.position.set(-0.775, 0.438, -0.652);
+  sedanLeftMirrorGlass.rotation.y = 0.28;
 
   const sedanRightMirrorGlass = new THREE.Mesh(
-    createMirroredPlaneGeometry(0.145, 0.076),
+    createMirroredPlaneGeometry(0.168, 0.098),
     rightMirrorSurfaceMat
   );
-  sedanRightMirrorGlass.position.set(0.798, 0.452, -0.452);
-  sedanRightMirrorGlass.rotation.y = -0.18;
+  sedanRightMirrorGlass.position.set(0.775, 0.438, -0.652);
+  sedanRightMirrorGlass.rotation.y = -0.28;
 
   // Blue Square "TẬP LÁI" Sign Plate on Rear of Hạng B 4-Seater Training Sedan
   const sedanTapLaiMat = new THREE.MeshStandardMaterial({
@@ -1502,7 +1502,7 @@ export function loadGlbModelIntoCarRig(
         }
       }
 
-      // Shift Left & Right Wing Mirror Housings forward along the door beltline to the A-pillar corner (z = -0.54m)
+      // Shift Left & Right Wing Mirror Housings forward along the door beltline to the A-pillar corner (z = -0.65m)
       for (const mirNodeName of [
         'BodyDoorLMirror',
         'BodyDoorLMirrorColor1',
@@ -1513,7 +1513,8 @@ export function loadGlbModelIntoCarRig(
       ]) {
         const mirNode = gltfScene.getObjectByName(mirNodeName);
         if (mirNode) {
-          mirNode.position.y -= 0.22;
+          mirNode.position.y -= 0.44;
+          mirNode.position.z -= 0.014;
         }
       }
 

@@ -5294,7 +5294,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
       //    eliminating the floating rectangular mirror and stalk obstructing the windshield.
       const isTruckCockpit = carRig.truckModelHolder.visible;
       const targetNear = isCockpitCam ? 0.05 : 0.25;
-      const targetFov = isCockpitCam ? (isTruckCockpit ? 62 : 72) : 54;
+      const targetFov = isCockpitCam ? (isTruckCockpit ? 62 : 76) : 54;
       if (
         Math.abs(camera.near - targetNear) > 0.01 ||
         Math.abs(camera.fov - targetFov) > 0.1
@@ -5332,11 +5332,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         const isTruck3D = carRig.truckModelHolder.visible;
         const bScale = carRig.bodyModelHolder.scale;
         const bOffsetY = carRig.bodyModelHolder.position.y;
-        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.32m) and Hạng C Truck (-0.34m):
-        // High seating posture in the front driver seat looking cleanly out the windshield with wide FOV (72°) framing the left wing mirror and steering wheel.
-        const eyeXLocal = isTruck3D ? -0.34 : -0.32;
-        const eyeHeightLocal = isTruck3D ? 0.82 : 0.52;
-        const eyeZLocal = isTruck3D ? -1.12 : -0.15;
+        // Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.27m) and Hạng C Truck (-0.34m):
+        // Positioned cleanly below the sloped A-pillar roof rail so the side window and full left wing mirror are completely unobstructed!
+        const eyeXLocal = isTruck3D ? -0.34 : -0.27;
+        const eyeHeightLocal = isTruck3D ? 0.82 : 0.455;
+        const eyeZLocal = isTruck3D ? -1.12 : -0.06;
         const localEye = new THREE.Vector3(
           eyeXLocal * bScale.x,
           eyeHeightLocal * bScale.y + bOffsetY,
@@ -5349,7 +5349,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         // so steering left/right (A/D) NEVER sways or shakes the screen!
         const steerLookYaw = cockpitLookYaw;
         const lookDist = 14.0;
-        const basePitchDrop = isTruck3D ? 1.85 : 1.55;
+        const basePitchDrop = isTruck3D ? 1.85 : 1.15;
         const lookForward = new THREE.Vector3(
           eyeXLocal * bScale.x - Math.sin(steerLookYaw) * lookDist,
           eyeHeightLocal * bScale.y +
