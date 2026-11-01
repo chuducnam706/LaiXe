@@ -5288,12 +5288,19 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
       }
 
       // Cockpit View Frustum & Mirror Visibility Optimization:
-      // 1. near = 0.05m in cockpit mode so the left A-pillar and door trim are never sliced open by near plane.
+      // 1. near = 0.05m and wider FOV (72° for Sedan cockpit vs 54° exterior) so the driver stays in the front seat
+      //    while naturally seeing the left wing mirror, A-pillar, and steering wheel with wide peripheral vision.
       // 2. Hide 3D floating rearview mirror assembly in cockpit view because the HUD mirror bar already provides clear view,
       //    eliminating the floating rectangular mirror and stalk obstructing the windshield.
+      const isTruckCockpit = carRig.truckModelHolder.visible;
       const targetNear = isCockpitCam ? 0.05 : 0.25;
-      if (Math.abs(camera.near - targetNear) > 0.01) {
+      const targetFov = isCockpitCam ? (isTruckCockpit ? 62 : 72) : 54;
+      if (
+        Math.abs(camera.near - targetNear) > 0.01 ||
+        Math.abs(camera.fov - targetFov) > 0.1
+      ) {
         camera.near = targetNear;
+        camera.fov = targetFov;
         camera.updateProjectionMatrix();
       }
       if (
@@ -5325,12 +5332,11 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         const isTruck3D = carRig.truckModelHolder.visible;
         const bScale = carRig.bodyModelHolder.scale;
         const bOffsetY = carRig.bodyModelHolder.position.y;
-        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.31m) and Hạng C Truck (-0.34m):
-        // Seated further back on Hạng B Sedan (eyeZLocal = +0.08m instead of -0.12m) so the left wing mirror and full steering wheel
-        // are naturally visible inside the driver's field of view without colliding with the seat headrest.
-        const eyeXLocal = isTruck3D ? -0.34 : -0.31;
-        const eyeHeightLocal = isTruck3D ? 0.82 : 0.51;
-        const eyeZLocal = isTruck3D ? -1.12 : 0.08;
+        // Elevated Left-Hand Driver Seat eye position for both Hạng B 4-Seater Sedan (-0.32m) and Hạng C Truck (-0.34m):
+        // High seating posture in the front driver seat looking cleanly out the windshield with wide FOV (72°) framing the left wing mirror and steering wheel.
+        const eyeXLocal = isTruck3D ? -0.34 : -0.32;
+        const eyeHeightLocal = isTruck3D ? 0.82 : 0.52;
+        const eyeZLocal = isTruck3D ? -1.12 : -0.15;
         const localEye = new THREE.Vector3(
           eyeXLocal * bScale.x,
           eyeHeightLocal * bScale.y + bOffsetY,
@@ -5343,7 +5349,7 @@ export const DrivingSceneView: React.FC<DrivingSceneViewProps> = React.memo(({
         // so steering left/right (A/D) NEVER sways or shakes the screen!
         const steerLookYaw = cockpitLookYaw;
         const lookDist = 14.0;
-        const basePitchDrop = isTruck3D ? 1.85 : 1.42;
+        const basePitchDrop = isTruck3D ? 1.85 : 1.55;
         const lookForward = new THREE.Vector3(
           eyeXLocal * bScale.x - Math.sin(steerLookYaw) * lookDist,
           eyeHeightLocal * bScale.y +
