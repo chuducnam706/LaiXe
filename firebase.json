@@ -16,8 +16,23 @@
           {
             "key": "Strict-Transport-Security",
             "value": "max-age=31536000; includeSubDomains"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, follow"
+          },
+          {
+            "key": "Link",
+            "value": "<https://sahinh3d.id.vn/>; rel=\"canonical\""
           }
         ]
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/:path*",
+        "destination": "https://sahinh3d.id.vn/:path",
+        "type": 301
       }
     ]
   }
